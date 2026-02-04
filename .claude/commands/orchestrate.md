@@ -11,7 +11,7 @@
 ### feature
 フル機能実装ワークフロー:
 ```
-planner -> code-reviewer
+planner -> implementer -> code-reviewer
 ```
 
 ### tdd-feature
@@ -23,13 +23,13 @@ planner -> tdd-guide -> code-reviewer
 ### bugfix
 バグ調査・修正ワークフロー:
 ```
-planner -> code-reviewer
+planner -> implementer -> code-reviewer
 ```
 
 ### refactor
 安全なリファクタリングワークフロー:
 ```
-architect -> code-reviewer
+architect -> implementer -> code-reviewer
 ```
 
 ## 実行パターン
