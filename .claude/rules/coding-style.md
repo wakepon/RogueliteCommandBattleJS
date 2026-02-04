@@ -28,6 +28,39 @@ function updateUser(user, name) {
 - 大きなコンポーネントからutilityを抽出する
 - 種類別ではなく、機能/ドメイン別に整理する
 
+## 命名規則
+
+ファイル・フォルダの命名ルール（優先度順）:
+
+1. **慣習的な命名に従う**
+   - 業界標準の命名規則がある場合はそれに従う
+   - 例: `index.html`, `package.json`, `README.md`, `tsconfig.json`
+
+2. **既存ファイルの命名規則に合わせる**
+   - フォルダ内にすでにファイルが存在する場合、他のファイルの命名規則に従う
+   - 一貫性を優先する
+
+3. **デフォルト: PascalCase（大文字スタートのCamelCase）**
+   - 特に指定がない場合、フォルダ名・ファイル名は PascalCase を使用
+   - 例: `GameBoard.tsx`, `Components/`, `UserProfile.ts`
+
+```
+# 良い例
+src/
+├── Components/
+│   ├── GameBoard.tsx
+│   └── PlayerStatus.tsx
+├── Hooks/
+│   └── UseGame.ts
+└── index.html          # 慣習的な命名
+
+# 悪い例
+src/
+├── components/         # フォルダが小文字
+│   ├── game-board.tsx  # ケバブケース
+│   └── playerStatus.tsx # camelCase
+```
+
 ## エラーハンドリング
 
 常にエラーを適切に処理する:
