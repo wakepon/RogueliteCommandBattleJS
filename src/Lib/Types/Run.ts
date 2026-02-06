@@ -1,4 +1,5 @@
 import { ExplorerState, createInitialExplorer } from './Explorer'
+import { LevelUpInfo } from '../Core/LevelUpCalculator'
 
 // 統計情報
 export interface RunStats {
@@ -17,6 +18,7 @@ export interface RunState {
   potions: string[]   // TODO: Slice 6でPotionInstance[]に変更
   party: ExplorerState[]
   stats: RunStats
+  battleLevelUps: LevelUpInfo[]  // 戦闘中のレベルアップ情報（一時保存）
 }
 
 // 初期Run生成
@@ -34,5 +36,6 @@ export function createInitialRun(): RunState {
       totalGoldEarned: 0,
       maxStageReached: 1,
     },
+    battleLevelUps: [],
   }
 }

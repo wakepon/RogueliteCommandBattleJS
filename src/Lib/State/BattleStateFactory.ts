@@ -107,5 +107,6 @@ export function createBattleState(
     selectedTargetId: null,
     damagePopups: [],
     playerDamagePopups: [],
+    levelUpPopups: [],
   }
 }

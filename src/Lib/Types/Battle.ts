@@ -1,6 +1,7 @@
 import { EnemyInstance } from './Enemy'
 import { ExplorerWeapon } from './Weapon'
 import { SpellInstance } from './Spell'
+import { LevelUpInfo } from '../Core/LevelUpCalculator'
 
 /** アクターID（行動順管理用） */
 export type ActorId =
@@ -25,6 +26,13 @@ export interface PlayerDamagePopup {
   timestamp: number
 }
 
+/** レベルアップポップアップ */
+export interface LevelUpPopup {
+  id: string
+  levelUpInfo: LevelUpInfo
+  timestamp: number
+}
+
 /** 戦闘状態 */
 export interface BattleState {
   turn: number
@@ -39,4 +47,5 @@ export interface BattleState {
   selectedTargetId: string | null
   damagePopups: DamagePopup[]
   playerDamagePopups: PlayerDamagePopup[]
+  levelUpPopups: LevelUpPopup[]
 }

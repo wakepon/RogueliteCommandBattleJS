@@ -4,7 +4,7 @@ import { ExplorerWeapon } from '../Lib/Types/Weapon'
 import { SpellInstance } from '../Lib/Types/Spell'
 import { BattleAction } from '../Lib/State/BattleReducer'
 import { getAvailableCommands, calculateEnemyDamage, processTurnEnd as processTurnEndLogic } from '../Lib/Core'
-import { BattleState, PlayerDamagePopup } from '../Lib/Types/Battle'
+import { BattleState, PlayerDamagePopup, LevelUpPopup } from '../Lib/Types/Battle'
 import { ExplorerState } from '../Lib/Types/Explorer'
 import { EnemyInstance } from '../Lib/Types/Enemy'
 import { ActorId, DamagePopup } from '../Lib/Types/Battle'
@@ -29,6 +29,7 @@ export interface UseBattleResult {
   selectedTargetId: string | null
   damagePopups: DamagePopup[]
   playerDamagePopups: PlayerDamagePopup[]
+  levelUpPopups: LevelUpPopup[]
 
   // アクション
   selectCommand: (command: ExplorerWeapon | SpellInstance) => void
@@ -40,6 +41,7 @@ export interface UseBattleResult {
   enemyAction: (enemyId: string) => void
   removePlayerPopup: (popupId: string) => void
   processTurnEnd: () => void
+  removeLevelUpPopup: (popupId: string) => void
 }
 
 /**
@@ -118,6 +120,11 @@ export function useBattle(): UseBattleResult | null {
     })
   }, [run, dispatchBattle])
 
+  // レベルアップポップアップを削除
+  const removeLevelUpPopup = useCallback((popupId: string) => {
+    dispatchBattle({ type: 'REMOVE_LEVEL_UP_POPUP', popupId })
+  }, [dispatchBattle])
+
   // バトルステートがない場合はnullを返す
   if (!battleState || !run) {
     return null
@@ -159,6 +166,7 @@ export function useBattle(): UseBattleResult | null {
     selectedTargetId: battleState.selectedTargetId,
     damagePopups: battleState.damagePopups,
     playerDamagePopups: battleState.playerDamagePopups,
+    levelUpPopups: battleState.levelUpPopups,
 
     // アクション
     selectCommand,
@@ -170,5 +178,6 @@ export function useBattle(): UseBattleResult | null {
     enemyAction,
     removePlayerPopup,
     processTurnEnd,
+    removeLevelUpPopup,
   }
 }

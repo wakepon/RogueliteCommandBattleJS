@@ -1,5 +1,6 @@
 import { RunState } from './Run'
 import { BattleState } from './Battle'
+import { LevelUpInfo } from '../Core/LevelUpCalculator'
 
 // ゲームフェーズ
 export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result'
@@ -15,6 +16,7 @@ export interface ResultState {
   interestGold: number    // 利子
   stolenGold: number      // 盗んだゴールド
   killCount: number       // 討伐数
+  levelUps: LevelUpInfo[] // 戦闘中に発生したレベルアップ情報
 }
 
 /**

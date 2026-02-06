@@ -3,10 +3,12 @@ import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
+import { BattleState } from '../Types/Battle'
 import { createBattleState } from './BattleStateFactory'
 import { battleReducer, BattleAction } from './BattleReducer'
 import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
 import { calculateReward } from '../Core/RewardCalculator'
+import { addExpAndProcessLevelUp, LevelUpInfo } from '../Core/LevelUpCalculator'
 
 export type GameAction =
   | { type: 'START_GAME' }
@@ -81,6 +83,34 @@ function updatePartyMember(run: RunState, updatedExplorer: ExplorerState): RunSt
   }
 }
 
+/** 敵討伐数をカウント（今回倒した敵の数） */
+function countDefeatedEnemies(
+  previousEnemies: BattleState['enemies'],
+  currentEnemies: BattleState['enemies']
+): number {
+  return currentEnemies.filter((enemy, index) => {
+    const previousEnemy = previousEnemies[index]
+    // 今回のアクションでHPが0以下になった敵をカウント
+    return enemy.currentHp <= 0 && previousEnemy && previousEnemy.currentHp > 0
+  }).length
+}
+
+/** レベルアップポップアップをバトルステートに追加 */
+function addLevelUpPopupsToBattle(
+  battleState: BattleState,
+  levelUps: LevelUpInfo[]
+): BattleState {
+  if (levelUps.length === 0) {
+    return battleState
+  }
+
+  // 最初のレベルアップのみポップアップに追加（順次表示のため）
+  return battleReducer(battleState, {
+    type: 'ADD_LEVEL_UP_POPUP',
+    levelUpInfo: levelUps[0],
+  })
+}
+
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'START_GAME': {
@@ -103,17 +133,21 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (action.result === 'victory') {
+        // 貯金箱レリック判定
+        const hasPiggyBank = state.run.relics.includes('piggy_bank')
+
         // 報酬計算
         const reward = calculateReward(
           state.battleState.enemies,
           state.run.gold,
-          state.battleState.stolenGold
+          state.battleState.stolenGold,
+          hasPiggyBank
         )
 
         // 討伐数 = 倒した敵の数
         const killCount = state.battleState.enemies.length
 
-        // ResultState を作成
+        // ResultState を作成（レベルアップ情報を含む）
         const resultState: ResultState = {
           result: 'victory',
           goldEarned: reward.total,
@@ -121,9 +155,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           interestGold: reward.interestGold,
           stolenGold: reward.stolenGold,
           killCount,
+          levelUps: state.run.battleLevelUps,
         }
 
-        // RunState を更新（ゴールド加算、討伐数更新）
+        // RunState を更新（ゴールド加算、討伐数更新、レベルアップ情報クリア）
         const newRun: RunState = {
           ...state.run,
           gold: state.run.gold + reward.total,
@@ -132,6 +167,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             totalKillCount: state.run.stats.totalKillCount + killCount,
             totalGoldEarned: state.run.stats.totalGoldEarned + reward.total,
           },
+          battleLevelUps: [], // 次の戦闘のためにクリア
         }
 
         return {
@@ -151,6 +187,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         interestGold: 0,
         stolenGold: 0,
         killCount: 0,
+        levelUps: [],
       }
 
       return {
@@ -177,17 +214,39 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
 
         // BattleReducerで戦闘状態を更新
-        const newBattleState = battleReducer(state.battleState, battleAction)
+        let newBattleState = battleReducer(state.battleState, battleAction)
 
         // ExplorerStateとgoldを更新
-        const { updatedExplorer, updatedGold } = consumeCommandCost(
+        const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
           battleAction.explorer,
           selectedCommand,
           state.run.gold
         )
-        const newRun = {
-          ...updatePartyMember(state.run, updatedExplorer),
+
+        // 敵討伐判定（今回倒した敵の数）
+        const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
+
+        let finalExplorer = explorerAfterCost
+        let newLevelUps: LevelUpInfo[] = []
+
+        // 敵を倒した場合、経験値加算とレベルアップ処理
+        if (defeatedCount > 0) {
+          const levelUpResult = addExpAndProcessLevelUp(explorerAfterCost, defeatedCount)
+          finalExplorer = levelUpResult.updatedExplorer
+          newLevelUps = levelUpResult.levelUps
+
+          // レベルアップポップアップを追加
+          if (newLevelUps.length > 0) {
+            newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
+          }
+        }
+
+        // RunStateを更新
+        const newRun: RunState = {
+          ...updatePartyMember(state.run, finalExplorer),
           gold: updatedGold,
+          // レベルアップ情報を一時保存（END_BATTLEで使用）
+          battleLevelUps: [...state.run.battleLevelUps, ...newLevelUps],
         }
 
         return {

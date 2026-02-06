@@ -1,8 +1,8 @@
-import { BattleState, DamagePopup, PlayerDamagePopup } from '../Types/Battle'
+import { BattleState, DamagePopup, PlayerDamagePopup, LevelUpPopup } from '../Types/Battle'
 import { ExplorerWeapon } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { ExplorerState } from '../Types/Explorer'
-import { calculateWeaponDamage, calculateSpellDamage, isSpell, isWeapon } from '../Core'
+import { calculateWeaponDamage, calculateSpellDamage, isSpell, isWeapon, LevelUpInfo } from '../Core'
 
 /** バトルアクション型 */
 export type BattleAction =
@@ -15,6 +15,8 @@ export type BattleAction =
   | { type: 'ENEMY_ACTION'; enemyId: string; damage: number; explorer: ExplorerState }
   | { type: 'REMOVE_PLAYER_POPUP'; popupId: string }
   | { type: 'PROCESS_TURN_END'; poisonDamage: number; updatedExplorer: ExplorerState }
+  | { type: 'ADD_LEVEL_UP_POPUP'; levelUpInfo: LevelUpInfo }
+  | { type: 'REMOVE_LEVEL_UP_POPUP'; popupId: string }
 
 /** ユニークIDを生成 */
 function generatePopupId(): string {
@@ -36,6 +38,15 @@ function createPlayerDamagePopup(damage: number): PlayerDamagePopup {
   return {
     id: generatePopupId(),
     damage,
+    timestamp: Date.now(),
+  }
+}
+
+/** レベルアップポップアップを作成 */
+function createLevelUpPopup(levelUpInfo: LevelUpInfo): LevelUpPopup {
+  return {
+    id: generatePopupId(),
+    levelUpInfo,
     timestamp: Date.now(),
   }
 }
@@ -182,6 +193,21 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ...state,
         turn: state.turn + 1,
         currentActorIndex: 0,
+      }
+    }
+
+    case 'ADD_LEVEL_UP_POPUP': {
+      const newPopup = createLevelUpPopup(action.levelUpInfo)
+      return {
+        ...state,
+        levelUpPopups: [...state.levelUpPopups, newPopup],
+      }
+    }
+
+    case 'REMOVE_LEVEL_UP_POPUP': {
+      return {
+        ...state,
+        levelUpPopups: state.levelUpPopups.filter(popup => popup.id !== action.popupId),
       }
     }
 

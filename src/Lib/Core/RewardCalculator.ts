@@ -14,12 +14,21 @@ const TYPE_STRENGTH: Record<EnemyType, number> = {
   boss: 3,
 }
 
+/** 通常の利子上限 */
+const DEFAULT_INTEREST_CAP = 5
+
+/** 貯金箱レリック所持時の利子上限 */
+const PIGGY_BANK_INTEREST_CAP = 10
+
 /**
  * 最大利子を計算
- * 利子 = min(floor(currentGold / 5), 5)
+ * 利子 = min(floor(currentGold / 5), maxInterest)
+ *
+ * @param currentGold - 現在の所持ゴールド
+ * @param maxInterest - 利子上限（通常5G、貯金箱所持時10G）
  */
-function calculateInterest(currentGold: number): number {
-  return Math.min(Math.floor(currentGold / 5), 5)
+function calculateInterest(currentGold: number, maxInterest: number): number {
+  return Math.min(Math.floor(currentGold / 5), maxInterest)
 }
 
 /**
@@ -46,17 +55,19 @@ function getStrongestEnemyType(enemies: EnemyInstance[]): EnemyType {
  * - normal: 3G, elite: 5G, boss: 10G
  *
  * Interest計算ルール:
- * - 利子 = min(floor(currentGold / 5), 5)
- * - 最大5Gまで
+ * - 利子 = min(floor(currentGold / 5), maxInterest)
+ * - 通常は最大5Gまで、貯金箱レリック所持時は10Gまで
  *
  * @param enemies - 戦闘で倒した敵の配列
  * @param currentGold - 現在の所持ゴールド
  * @param stolenGold - ゴールドラッシュで盗んだゴールド
+ * @param hasPiggyBank - 貯金箱レリックを所持しているか
  */
 export function calculateReward(
   enemies: EnemyInstance[],
   currentGold: number,
-  stolenGold: number
+  stolenGold: number,
+  hasPiggyBank: boolean = false
 ): {
   baseGold: number
   interestGold: number
@@ -65,7 +76,8 @@ export function calculateReward(
 } {
   const strongestType = getStrongestEnemyType(enemies)
   const baseGold = BASE_GOLD_BY_TYPE[strongestType]
-  const interestGold = calculateInterest(currentGold)
+  const interestCap = hasPiggyBank ? PIGGY_BANK_INTEREST_CAP : DEFAULT_INTEREST_CAP
+  const interestGold = calculateInterest(currentGold, interestCap)
   const total = baseGold + interestGold + stolenGold
 
   return {

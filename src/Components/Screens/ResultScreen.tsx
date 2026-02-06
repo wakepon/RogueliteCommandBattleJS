@@ -51,6 +51,24 @@ export function ResultScreen() {
         </div>
       )}
 
+      {/* レベルアップ情報（勝利時かつレベルアップした場合） */}
+      {isVictory && resultState.levelUps.length > 0 && (
+        <div className="bg-black/30 rounded-lg p-6 mb-8 min-w-64">
+          <h2 className="text-xl text-yellow-400 mb-4 font-semibold">レベルアップ!</h2>
+          {resultState.levelUps.map((levelUp, index) => (
+            <div key={index} className="text-white mb-3 last:mb-0">
+              <div className="text-lg text-yellow-300 font-bold mb-1">
+                Lv.{levelUp.previousLevel} → Lv.{levelUp.newLevel}
+              </div>
+              <div className="text-sm text-gray-300 space-y-0.5">
+                <p>HP +{levelUp.statsGained.maxHp}、MP +{levelUp.statsGained.maxMp}</p>
+                <p>STR/INT/AGI +{levelUp.statsGained.str}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 敗北時のメッセージ */}
       {!isVictory && (
         <p className="text-gray-300 mb-8">

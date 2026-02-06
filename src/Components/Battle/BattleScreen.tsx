@@ -9,6 +9,7 @@ import { TurnIndicator } from './TurnIndicator'
 import { CommandList } from './CommandList'
 import { TargetSelector, getTargetSelectionState } from './TargetSelector'
 import { DamagePopup } from './DamagePopup'
+import { LevelUpModal } from './LevelUpModal'
 
 // 敵ターンをスキップするまでの遅延（ミリ秒）
 const ENEMY_TURN_DELAY_MS = 500
@@ -43,6 +44,7 @@ export function BattleScreen() {
     selectedTargetId,
     damagePopups,
     playerDamagePopups,
+    levelUpPopups,
     selectCommand,
     cancelCommand,
     selectTarget,
@@ -50,6 +52,7 @@ export function BattleScreen() {
     enemyAction,
     removePopup,
     removePlayerPopup,
+    removeLevelUpPopup,
   } = battle
 
   // 敵ターンの自動処理
@@ -216,6 +219,14 @@ export function BattleScreen() {
           onSelectTarget={selectTarget}
           onConfirm={executeCommand}
           onCancel={cancelCommand}
+        />
+      )}
+
+      {/* レベルアップモーダル（最前面に表示） */}
+      {levelUpPopups.length > 0 && (
+        <LevelUpModal
+          levelUpInfo={levelUpPopups[0].levelUpInfo}
+          onComplete={() => removeLevelUpPopup(levelUpPopups[0].id)}
         />
       )}
     </div>
