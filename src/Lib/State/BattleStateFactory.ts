@@ -103,5 +103,8 @@ export function createBattleState(
     actionQueue,
     currentActorIndex: 0,
     stolenGold: 0,
+    selectedCommand: null,
+    selectedTargetId: null,
+    damagePopups: [],
   }
 }

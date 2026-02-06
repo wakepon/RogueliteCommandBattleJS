@@ -17,7 +17,7 @@ export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetab
 
 /** 武器インスタンス */
 export interface WeaponInstance extends WeaponData {
-  currentUses: number
+  currentUses: number | null  // nullは無制限使用
 }
 
 /** パンチ */
@@ -36,7 +36,7 @@ export const PUNCH: PunchInstance = {
   name: 'パンチ',
   commandCategory: 'weapon',
   targetType: 'enemySingle',
-  power: 0,
+  power: 1,  // STR × 1 = STR分のダメージ
   maxUses: null,
   currentUses: null,
 }

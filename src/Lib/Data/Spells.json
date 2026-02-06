@@ -1,0 +1,38 @@
+{
+  "fire": {
+    "id": "fire",
+    "name": "ファイア",
+    "rarity": "Common",
+    "price": 6,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 3,
+    "power": 8,
+    "effect": null
+  },
+  "firestorm": {
+    "id": "firestorm",
+    "name": "ファイアストーム",
+    "rarity": "Uncommon",
+    "price": 10,
+    "commandCategory": "spell",
+    "targetType": "enemyAll",
+    "mpCost": 5,
+    "power": 5,
+    "effect": null
+  },
+  "heal": {
+    "id": "heal",
+    "name": "ヒール",
+    "rarity": "Common",
+    "price": 8,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 5,
+    "power": 0,
+    "effect": {
+      "type": "heal",
+      "value": 15
+    }
+  }
+}

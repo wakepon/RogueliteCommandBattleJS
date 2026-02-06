@@ -1,15 +1,24 @@
+import { useEffect } from 'react'
 import { useGame } from '../../Hooks/UseGame'
+import { useBattle } from '../../Hooks/UseBattle'
 import { Button } from '../Common/Button'
 import { PlayerStatus } from './PlayerStatus'
 import { EnemyDisplay } from './EnemyDisplay'
 import { TurnIndicator } from './TurnIndicator'
+import { CommandList } from './CommandList'
+import { TargetSelector } from './TargetSelector'
+import { DamagePopup } from './DamagePopup'
+
+// 敵ターンをスキップするまでの遅延（ミリ秒）
+const ENEMY_TURN_DELAY_MS = 500
 
 export function BattleScreen() {
   const { state, returnToTitle } = useGame()
+  const battle = useBattle()
   const { run, battleState } = state
 
   // バトル状態が無い場合のフォールバック
-  if (!run || !battleState) {
+  if (!run || !battleState || !battle) {
     return (
       <div className="min-h-screen bg-gray-800 flex flex-col items-center justify-center">
         <p className="text-white mb-4">Loading battle...</p>
@@ -24,11 +33,43 @@ export function BattleScreen() {
   const { turn, turnLimit, enemies, actionQueue, currentActorIndex } = battleState
   const currentActor = actionQueue[currentActorIndex]
 
+  // useBattle Hookから必要な情報を取得
+  const {
+    explorer,
+    isPlayerTurn,
+    availableCommands,
+    selectedCommand,
+    selectedTargetId,
+    damagePopups,
+    selectCommand,
+    cancelCommand,
+    selectTarget,
+    executeCommand,
+    nextActor,
+    removePopup,
+  } = battle
+
+  // 敵ターンの自動スキップ
+  useEffect(() => {
+    if (!isPlayerTurn) {
+      const timer = setTimeout(() => {
+        nextActor()
+      }, ENEMY_TURN_DELAY_MS)
+      return () => clearTimeout(timer)
+    }
+  }, [isPlayerTurn, currentActorIndex, nextActor])
+
+  // 全てのコマンド（武器+魔法）
+  const allCommands = [...explorer.weapons, ...explorer.spells]
+
   // 現在のアクターが敵かどうかを判定
   const isEnemyCurrent = (enemy: typeof enemies[0]) => {
     if (currentActor.type !== 'enemy') return false
     return currentActor.instanceId === enemy.instanceId
   }
+
+  // ターゲット選択中かどうか
+  const isSelectingTarget = selectedCommand !== null
 
   return (
     <div className="min-h-screen bg-gray-800 p-4 flex flex-col">
@@ -53,10 +94,10 @@ export function BattleScreen() {
       </div>
 
       {/* 敵エリア */}
-      <div className="flex-1 mb-4">
+      <div className="flex-1 mb-4 relative">
         <div className="text-xs text-gray-400 mb-2">Enemies</div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {enemies.map(enemy => (
+          {enemies.map((enemy) => (
             <EnemyDisplay
               key={enemy.instanceId}
               enemy={enemy}
@@ -64,6 +105,23 @@ export function BattleScreen() {
             />
           ))}
         </div>
+
+        {/* ダメージポップアップ */}
+        {damagePopups.map((popup) => {
+          // targetIdから敵のインデックスを取得
+          const targetIndex = enemies.findIndex(e => e.instanceId === popup.targetId)
+          if (targetIndex === -1) return null
+
+          return (
+            <DamagePopup
+              key={popup.id}
+              damage={popup.damage}
+              targetIndex={targetIndex}
+              totalTargets={enemies.length}
+              onComplete={() => removePopup(popup.id)}
+            />
+          )
+        })}
       </div>
 
       {/* プレイヤーステータス */}
@@ -80,11 +138,15 @@ export function BattleScreen() {
         </div>
       </div>
 
-      {/* アクションエリア（プレースホルダー） */}
-      <div className="bg-gray-900 p-4 rounded-lg mb-4">
-        <div className="text-gray-400 text-center text-sm">
-          Command selection coming in Slice 3...
-        </div>
+      {/* コマンド選択エリア */}
+      <div className="mb-4">
+        <CommandList
+          commands={allCommands}
+          availableCommands={availableCommands}
+          selectedCommand={selectedCommand}
+          onSelectCommand={selectCommand}
+          disabled={!isPlayerTurn}
+        />
       </div>
 
       {/* フッター */}
@@ -93,6 +155,18 @@ export function BattleScreen() {
           Return to Title
         </Button>
       </div>
+
+      {/* ターゲット選択モーダル */}
+      {isSelectingTarget && (
+        <TargetSelector
+          enemies={enemies}
+          selectedTargetId={selectedTargetId}
+          targetType={selectedCommand.targetType}
+          onSelectTarget={selectTarget}
+          onConfirm={executeCommand}
+          onCancel={cancelCommand}
+        />
+      )}
     </div>
   )
 }

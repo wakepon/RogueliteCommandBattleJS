@@ -7,7 +7,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 5,
-    "maxUses": null
+    "maxUses": 3
   },
   "short_sword": {
     "id": "short_sword",
@@ -17,7 +17,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 8,
-    "maxUses": null
+    "maxUses": 6
   },
   "iron_sword": {
     "id": "iron_sword",
@@ -27,7 +27,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 12,
-    "maxUses": null
+    "maxUses": 7
   },
   "vampiric_blade": {
     "id": "vampiric_blade",
