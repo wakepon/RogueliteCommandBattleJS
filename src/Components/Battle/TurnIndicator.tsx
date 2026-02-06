@@ -1,12 +1,15 @@
 import { ActorId } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { EnemyInstance } from '../../Lib/Types/Enemy'
+import { TargetType } from '../../Lib/Types/Command'
 
 interface TurnIndicatorProps {
   actionQueue: ActorId[]
   currentActorIndex: number
   party: ExplorerState[]
   enemies: EnemyInstance[]
+  hoveredTargetId?: string | null
+  targetType?: TargetType
 }
 
 // アクターの名前を取得
@@ -49,6 +52,8 @@ export function TurnIndicator({
   currentActorIndex,
   party,
   enemies,
+  hoveredTargetId,
+  targetType,
 }: TurnIndicatorProps) {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1">
@@ -58,12 +63,19 @@ export function TurnIndicator({
           const isCurrent = index === currentActorIndex
           const isDead = isActorDead(actorId, party, enemies)
 
+          // ターゲット選択時のハイライト判定（敵のみ、死亡していない場合）
+          const isHoveredTarget = actorId.type === 'enemy' && !isDead && (
+            targetType === 'enemyAll' ||
+            actorId.instanceId === hoveredTargetId
+          )
+
           return (
             <div
               key={`${actorId.type}-${actorId.type === 'explorer' ? actorId.id : actorId.instanceId}-${index}`}
               className={`
                 flex-shrink-0 px-3 py-1 rounded text-sm font-medium
                 ${isCurrent ? 'ring-2 ring-yellow-400' : ''}
+                ${isHoveredTarget && !isCurrent ? 'ring-2 ring-yellow-400 bg-yellow-400/20' : ''}
                 ${isDead ? 'opacity-50 line-through' : ''}
                 ${ally ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}
               `}

@@ -133,6 +133,8 @@ export function BattleScreen() {
             currentActorIndex={currentActorIndex}
             party={party}
             enemies={enemies}
+            hoveredTargetId={isSelectingTarget ? selectedTargetId : null}
+            targetType={isSelectingTarget ? selectedCommand.targetType : undefined}
           />
         </div>
 
@@ -161,6 +163,7 @@ export function BattleScreen() {
       <div className="grid grid-cols-2 gap-3">
         {/* コマンド選択 */}
         <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+          <div className="text-xs text-gray-400 mb-1">command</div>
           <CommandList
             commands={allCommands}
             availableCommands={availableCommands}
