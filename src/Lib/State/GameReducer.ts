@@ -1,20 +1,39 @@
 import { GameState, ResultState, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
-import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
-import { SpellInstance } from '../Types/Spell'
+import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
+import { SpellInstance, SpellData } from '../Types/Spell'
+import { RelicData } from '../Types/Relic'
+import { PotionData } from '../Types/Potion'
 import { BattleState } from '../Types/Battle'
 import { createBattleState } from './BattleStateFactory'
 import { battleReducer, BattleAction } from './BattleReducer'
 import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
 import { calculateReward } from '../Core/RewardCalculator'
 import { addExpAndProcessLevelUp, LevelUpInfo } from '../Core/LevelUpCalculator'
+import {
+  createStoreState,
+  rerollStore,
+  getSellPrice,
+  getSellPriceItem,
+} from '../Core/StoreLogic'
 
 export type GameAction =
   | { type: 'START_GAME' }
   | { type: 'RETURN_TITLE' }
   | { type: 'BATTLE_ACTION'; action: BattleAction }
   | { type: 'END_BATTLE'; result: 'victory' | 'defeat' }
+  | { type: 'OPEN_STORE' }
+  | { type: 'BUY_WEAPON'; slotIndex: number; item: WeaponData }
+  | { type: 'BUY_SPELL'; slotIndex: number; item: SpellData }
+  | { type: 'BUY_RELIC'; slotIndex: number; item: RelicData }
+  | { type: 'BUY_POTION'; slotIndex: number; item: PotionData }
+  | { type: 'SELL_WEAPON'; weaponIndex: number }
+  | { type: 'SELL_SPELL'; spellIndex: number }
+  | { type: 'SELL_RELIC'; relicIndex: number }
+  | { type: 'SELL_POTION'; potionIndex: number }
+  | { type: 'REROLL_STORE' }
+  | { type: 'CLOSE_STORE' }
 
 /** 武器の使用回数を減らす */
 function consumeWeaponUse(weapon: ExplorerWeapon): ExplorerWeapon {
@@ -134,7 +153,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       if (action.result === 'victory') {
         // 貯金箱レリック判定
-        const hasPiggyBank = state.run.relics.includes('piggy_bank')
+        const hasPiggyBank = state.run.relics.some(r => r.id === 'piggy_bank')
 
         // 報酬計算
         const reward = calculateReward(
@@ -294,6 +313,318 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         battleState: newBattleState,
+      }
+    }
+
+    case 'OPEN_STORE': {
+      if (!state.run) {
+        return state
+      }
+
+      const storeState = createStoreState(state.run.seed + state.run.currentStage)
+
+      return {
+        ...state,
+        phase: 'store',
+        storeState,
+        resultState: null,
+      }
+    }
+
+    case 'BUY_WEAPON': {
+      if (!state.run || !state.storeState) {
+        return state
+      }
+
+      const { slotIndex, item } = action
+      const explorer = state.run.party[0]
+
+      // ゴールドが足りない
+      if (state.run.gold < item.price) {
+        return state
+      }
+
+      // WeaponInstanceを作成
+      const weaponInstance: WeaponInstance = {
+        ...item,
+        currentUses: item.maxUses === null ? null : item.maxUses,
+      }
+
+      // Explorerの武器を更新
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        weapons: [...explorer.weapons, weaponInstance],
+      }
+
+      // スロットをnullに
+      const newWeaponSlots = [...state.storeState.weaponSlots]
+      newWeaponSlots[slotIndex] = null
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold - item.price,
+          party: [updatedExplorer, ...state.run.party.slice(1)],
+        },
+        storeState: {
+          ...state.storeState,
+          weaponSlots: newWeaponSlots,
+        },
+      }
+    }
+
+    case 'BUY_SPELL': {
+      if (!state.run || !state.storeState) {
+        return state
+      }
+
+      const { slotIndex, item } = action
+      const explorer = state.run.party[0]
+
+      // ゴールドが足りない
+      if (state.run.gold < item.price) {
+        return state
+      }
+
+      // Explorerの魔法を更新
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        spells: [...explorer.spells, item],
+      }
+
+      // スロットをnullに
+      const newWeaponSlots = [...state.storeState.weaponSlots]
+      newWeaponSlots[slotIndex] = null
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold - item.price,
+          party: [updatedExplorer, ...state.run.party.slice(1)],
+        },
+        storeState: {
+          ...state.storeState,
+          weaponSlots: newWeaponSlots,
+        },
+      }
+    }
+
+    case 'BUY_RELIC': {
+      if (!state.run || !state.storeState) {
+        return state
+      }
+
+      const { slotIndex, item } = action
+
+      // ゴールドが足りない
+      if (state.run.gold < item.price) {
+        return state
+      }
+
+      // スロットをnullに
+      const newRelicSlots = [...state.storeState.relicSlots]
+      newRelicSlots[slotIndex] = null
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold - item.price,
+          relics: [...state.run.relics, item],
+        },
+        storeState: {
+          ...state.storeState,
+          relicSlots: newRelicSlots,
+        },
+      }
+    }
+
+    case 'BUY_POTION': {
+      if (!state.run || !state.storeState) {
+        return state
+      }
+
+      const { slotIndex, item } = action
+
+      // ゴールドが足りない
+      if (state.run.gold < item.price) {
+        return state
+      }
+
+      // スロットをnullに
+      const newRelicSlots = [...state.storeState.relicSlots]
+      newRelicSlots[slotIndex] = null
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold - item.price,
+          potions: [...state.run.potions, item],
+        },
+        storeState: {
+          ...state.storeState,
+          relicSlots: newRelicSlots,
+        },
+      }
+    }
+
+    case 'SELL_WEAPON': {
+      if (!state.run) {
+        return state
+      }
+
+      const explorer = state.run.party[0]
+      const weapon = explorer.weapons[action.weaponIndex]
+
+      // パンチは売れない
+      if (!weapon || weapon.id === 'punch') {
+        return state
+      }
+
+      const sellPrice = getSellPrice(weapon)
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        weapons: explorer.weapons.filter((_, i) => i !== action.weaponIndex),
+      }
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold + sellPrice,
+          party: [updatedExplorer, ...state.run.party.slice(1)],
+        },
+      }
+    }
+
+    case 'SELL_SPELL': {
+      if (!state.run) {
+        return state
+      }
+
+      const explorer = state.run.party[0]
+      const spell = explorer.spells[action.spellIndex]
+
+      if (!spell) {
+        return state
+      }
+
+      const sellPrice = getSellPriceItem(spell)
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        spells: explorer.spells.filter((_, i) => i !== action.spellIndex),
+      }
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold + sellPrice,
+          party: [updatedExplorer, ...state.run.party.slice(1)],
+        },
+      }
+    }
+
+    case 'SELL_RELIC': {
+      if (!state.run) {
+        return state
+      }
+
+      const relic = state.run.relics[action.relicIndex]
+
+      if (!relic) {
+        return state
+      }
+
+      const sellPrice = getSellPriceItem(relic)
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold + sellPrice,
+          relics: state.run.relics.filter((_, i) => i !== action.relicIndex),
+        },
+      }
+    }
+
+    case 'SELL_POTION': {
+      if (!state.run) {
+        return state
+      }
+
+      const potion = state.run.potions[action.potionIndex]
+
+      if (!potion) {
+        return state
+      }
+
+      const sellPrice = getSellPriceItem(potion)
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold + sellPrice,
+          potions: state.run.potions.filter((_, i) => i !== action.potionIndex),
+        },
+      }
+    }
+
+    case 'REROLL_STORE': {
+      if (!state.run || !state.storeState) {
+        return state
+      }
+
+      // ゴールドが足りない
+      if (state.run.gold < state.storeState.rerollCost) {
+        return state
+      }
+
+      // 新しいシードを生成
+      const newSeed = state.run.seed + state.run.currentStage + Date.now()
+      const newStoreState = rerollStore(state.storeState, newSeed)
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold - state.storeState.rerollCost,
+        },
+        storeState: newStoreState,
+      }
+    }
+
+    case 'CLOSE_STORE': {
+      if (!state.run) {
+        return state
+      }
+
+      // 次のステージへ
+      const newStage = state.run.currentStage + 1
+      const newRun: RunState = {
+        ...state.run,
+        currentStage: newStage,
+        stats: {
+          ...state.run.stats,
+          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
+        },
+      }
+
+      // 新しいバトルを開始
+      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
+
+      return {
+        ...state,
+        phase: 'battle',
+        run: newRun,
+        battleState,
+        storeState: null,
       }
     }
 

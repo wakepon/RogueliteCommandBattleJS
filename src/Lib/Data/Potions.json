@@ -1,0 +1,20 @@
+{
+  "hp_potion": {
+    "id": "hp_potion",
+    "name": "HPポーション",
+    "rarity": "Common",
+    "price": 5,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "healHp", "value": 20 }
+  },
+  "mp_potion": {
+    "id": "mp_potion",
+    "name": "MPポーション",
+    "rarity": "Common",
+    "price": 5,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "healMp", "value": 10 }
+  }
+}

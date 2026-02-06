@@ -2,7 +2,7 @@ import { Button } from '../Common/Button'
 import { useGame } from '../../Hooks/UseGame'
 
 export function ResultScreen() {
-  const { state, returnToTitle, startGame } = useGame()
+  const { state, returnToTitle, openStore } = useGame()
   const { resultState } = state
 
   if (!resultState) {
@@ -79,8 +79,8 @@ export function ResultScreen() {
       {/* ボタン */}
       <div className="flex flex-col gap-4">
         {isVictory ? (
-          <Button variant="primary" size="lg" onClick={startGame}>
-            次の戦闘へ
+          <Button variant="primary" size="lg" onClick={openStore}>
+            ストアへ
           </Button>
         ) : (
           <Button variant="secondary" size="lg" onClick={returnToTitle}>

@@ -159,11 +159,11 @@ export function BattleScreen() {
             {run.relics.length === 0 ? (
               <span className="text-gray-500 text-xs">No relics</span>
             ) : (
-              run.relics.map((relicId, index) => (
+              run.relics.map((relic, index) => (
                 <div
                   key={`relic-${index}`}
                   className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-xs text-white"
-                  title={relicId}
+                  title={relic.name}
                 >
                   ?
                 </div>

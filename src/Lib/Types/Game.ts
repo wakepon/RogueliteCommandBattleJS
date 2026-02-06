@@ -1,6 +1,10 @@
 import { RunState } from './Run'
 import { BattleState } from './Battle'
 import { LevelUpInfo } from '../Core/LevelUpCalculator'
+import { WeaponData } from './Weapon'
+import { SpellData } from './Spell'
+import { RelicData } from './Relic'
+import { PotionData } from './Potion'
 
 // ゲームフェーズ
 export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result'
@@ -19,15 +23,11 @@ export interface ResultState {
   levelUps: LevelUpInfo[] // 戦闘中に発生したレベルアップ情報
 }
 
-/**
- * ストア状態（プレースホルダー）
- * TODO: Slice 6で設計書に従い以下のプロパティを追加
- * - weaponSlots: (WeaponData | SpellData)[]
- * - relicSlots: (RelicData | PotionData)[]
- * - rerollCost: number
- */
+/** ストア状態 */
 export interface StoreState {
-  items: string[]
+  weaponSlots: (WeaponData | SpellData | null)[]  // 3枠
+  relicSlots: (RelicData | PotionData | null)[]   // 3枠
+  rerollCost: number
 }
 
 // ゲーム全体の状態

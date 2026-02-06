@@ -1,0 +1,37 @@
+{
+  "warrior_bracelet": {
+    "id": "warrior_bracelet",
+    "name": "戦士の腕輪",
+    "rarity": "Common",
+    "price": 15,
+    "passiveEffect": { "type": "statBonus", "stat": "str", "value": 2 }
+  },
+  "sharp_whetstone": {
+    "id": "sharp_whetstone",
+    "name": "鋭い砥石",
+    "rarity": "Uncommon",
+    "price": 20,
+    "passiveEffect": { "type": "weaponDamageBonus", "value": 3 }
+  },
+  "piggy_bank": {
+    "id": "piggy_bank",
+    "name": "貯金箱",
+    "rarity": "Rare",
+    "price": 25,
+    "passiveEffect": { "type": "interestCap", "value": 10 }
+  },
+  "mage_ring": {
+    "id": "mage_ring",
+    "name": "魔術師の指輪",
+    "rarity": "Common",
+    "price": 15,
+    "passiveEffect": { "type": "statBonus", "stat": "int", "value": 2 }
+  },
+  "swift_boots": {
+    "id": "swift_boots",
+    "name": "俊足のブーツ",
+    "rarity": "Common",
+    "price": 15,
+    "passiveEffect": { "type": "statBonus", "stat": "agi", "value": 2 }
+  }
+}
