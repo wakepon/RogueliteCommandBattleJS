@@ -1,4 +1,4 @@
-import { GameState, ResultState, createInitialGameState } from '../Types/Game'
+import { GameState, ResultState, EventState, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
@@ -17,6 +17,15 @@ import {
   getSellPrice,
   getSellPriceItem,
 } from '../Core/StoreLogic'
+import { isEventStage } from '../Core/StageManager'
+import {
+  applyRest,
+  getRandomRelic,
+  isRelicSlotFull,
+  addRelic,
+  replaceRelic,
+  repairWeapons,
+} from '../Core/EventLogic'
 
 export type GameAction =
   | { type: 'START_GAME' }
@@ -34,6 +43,17 @@ export type GameAction =
   | { type: 'SELL_POTION'; potionIndex: number }
   | { type: 'REROLL_STORE' }
   | { type: 'CLOSE_STORE' }
+  // イベント関連アクション
+  | { type: 'OPEN_EVENT' }
+  | { type: 'SELECT_REST' }
+  | { type: 'SELECT_TREASURE' }
+  | { type: 'CONFIRM_TREASURE' }
+  | { type: 'CANCEL_TREASURE' }
+  | { type: 'REPLACE_RELIC'; sellRelicId: string }
+  | { type: 'SELECT_REPAIR' }
+  | { type: 'TOGGLE_REPAIR_WEAPON'; weaponId: string }
+  | { type: 'CONFIRM_REPAIR' }
+  | { type: 'CLOSE_EVENT' }
 
 /** 武器の使用回数を減らす */
 function consumeWeaponUse(weapon: ExplorerWeapon): ExplorerWeapon {
@@ -616,7 +636,24 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         },
       }
 
-      // 新しいバトルを開始
+      // イベントステージの場合はイベント画面へ遷移
+      if (isEventStage(newStage)) {
+        const eventState: EventState = {
+          subPhase: 'selecting',
+          revealedRelic: null,
+          selectedWeaponIds: [],
+        }
+
+        return {
+          ...state,
+          phase: 'event',
+          run: newRun,
+          storeState: null,
+          eventState,
+        }
+      }
+
+      // 通常のバトルを開始
       const battleState = createBattleState(newStage, newRun.party, newRun.seed)
 
       return {
@@ -625,6 +662,290 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         run: newRun,
         battleState,
         storeState: null,
+      }
+    }
+
+    case 'OPEN_EVENT': {
+      if (!state.run) {
+        return state
+      }
+
+      const eventState: EventState = {
+        subPhase: 'selecting',
+        revealedRelic: null,
+        selectedWeaponIds: [],
+      }
+
+      return {
+        ...state,
+        phase: 'event',
+        eventState,
+        resultState: null,
+      }
+    }
+
+    case 'SELECT_REST': {
+      if (!state.run || !state.eventState) {
+        return state
+      }
+
+      // パーティメンバーのHPを回復
+      const updatedParty = state.run.party.map(applyRest)
+
+      const newRun: RunState = {
+        ...state.run,
+        party: updatedParty,
+      }
+
+      // 次のステージのバトルへ
+      const newStage = state.run.currentStage + 1
+      const finalRun: RunState = {
+        ...newRun,
+        currentStage: newStage,
+        stats: {
+          ...newRun.stats,
+          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
+        },
+      }
+
+      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
+
+      return {
+        ...state,
+        phase: 'battle',
+        run: finalRun,
+        battleState,
+        eventState: null,
+      }
+    }
+
+    case 'SELECT_TREASURE': {
+      if (!state.run || !state.eventState) {
+        return state
+      }
+
+      // ランダムなレリックを取得
+      const existingRelicIds = state.run.relics.map(r => r.id)
+      const seed = state.run.seed + state.run.currentStage
+      const revealedRelic = getRandomRelic(seed, existingRelicIds)
+
+      // レリック枠が満杯かどうかで次のサブフェーズを決定
+      const isFull = isRelicSlotFull(state.run.relics)
+
+      return {
+        ...state,
+        eventState: {
+          ...state.eventState,
+          subPhase: isFull ? 'treasureReplace' : 'treasureReveal',
+          revealedRelic,
+        },
+      }
+    }
+
+    case 'CONFIRM_TREASURE': {
+      if (!state.run || !state.eventState || !state.eventState.revealedRelic) {
+        return state
+      }
+
+      // レリックを追加
+      const newRun = addRelic(state.run, state.eventState.revealedRelic)
+
+      // 次のステージへ
+      const newStage = state.run.currentStage + 1
+      const finalRun: RunState = {
+        ...newRun,
+        currentStage: newStage,
+        stats: {
+          ...newRun.stats,
+          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
+        },
+      }
+
+      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
+
+      return {
+        ...state,
+        phase: 'battle',
+        run: finalRun,
+        battleState,
+        eventState: null,
+      }
+    }
+
+    case 'CANCEL_TREASURE': {
+      if (!state.run || !state.eventState) {
+        return state
+      }
+
+      // レリックを獲得せずに次のステージへ
+      const newStage = state.run.currentStage + 1
+      const newRun: RunState = {
+        ...state.run,
+        currentStage: newStage,
+        stats: {
+          ...state.run.stats,
+          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
+        },
+      }
+
+      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
+
+      return {
+        ...state,
+        phase: 'battle',
+        run: newRun,
+        battleState,
+        eventState: null,
+      }
+    }
+
+    case 'REPLACE_RELIC': {
+      if (!state.run || !state.eventState || !state.eventState.revealedRelic) {
+        return state
+      }
+
+      // 既存のレリックを売却して新しいレリックを追加
+      const newRun = replaceRelic(
+        state.run,
+        action.sellRelicId,
+        state.eventState.revealedRelic
+      )
+
+      // 次のステージへ
+      const newStage = state.run.currentStage + 1
+      const finalRun: RunState = {
+        ...newRun,
+        currentStage: newStage,
+        stats: {
+          ...newRun.stats,
+          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
+        },
+      }
+
+      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
+
+      return {
+        ...state,
+        phase: 'battle',
+        run: finalRun,
+        battleState,
+        eventState: null,
+      }
+    }
+
+    case 'SELECT_REPAIR': {
+      if (!state.run || !state.eventState) {
+        return state
+      }
+
+      return {
+        ...state,
+        eventState: {
+          ...state.eventState,
+          subPhase: 'repairSelection',
+          selectedWeaponIds: [],
+        },
+      }
+    }
+
+    case 'TOGGLE_REPAIR_WEAPON': {
+      if (!state.eventState) {
+        return state
+      }
+
+      const { weaponId } = action
+      const { selectedWeaponIds } = state.eventState
+      const MAX_REPAIR_COUNT = 2
+
+      // 既に選択されていれば解除
+      if (selectedWeaponIds.includes(weaponId)) {
+        return {
+          ...state,
+          eventState: {
+            ...state.eventState,
+            selectedWeaponIds: selectedWeaponIds.filter(id => id !== weaponId),
+          },
+        }
+      }
+
+      // 最大数に達している場合は追加しない
+      if (selectedWeaponIds.length >= MAX_REPAIR_COUNT) {
+        return state
+      }
+
+      return {
+        ...state,
+        eventState: {
+          ...state.eventState,
+          selectedWeaponIds: [...selectedWeaponIds, weaponId],
+        },
+      }
+    }
+
+    case 'CONFIRM_REPAIR': {
+      if (!state.run || !state.eventState) {
+        return state
+      }
+
+      const { selectedWeaponIds } = state.eventState
+
+      // 選択された武器がなければ何もしない
+      if (selectedWeaponIds.length === 0) {
+        return state
+      }
+
+      // パーティメンバーの武器を修理
+      const updatedParty = state.run.party.map(explorer =>
+        repairWeapons(explorer, selectedWeaponIds)
+      )
+
+      // 次のステージへ
+      const newStage = state.run.currentStage + 1
+      const newRun: RunState = {
+        ...state.run,
+        party: updatedParty,
+        currentStage: newStage,
+        stats: {
+          ...state.run.stats,
+          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
+        },
+      }
+
+      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
+
+      return {
+        ...state,
+        phase: 'battle',
+        run: newRun,
+        battleState,
+        eventState: null,
+      }
+    }
+
+    case 'CLOSE_EVENT': {
+      if (!state.run) {
+        return state
+      }
+
+      // 次のステージへ
+      const newStage = state.run.currentStage + 1
+      const newRun: RunState = {
+        ...state.run,
+        currentStage: newStage,
+        stats: {
+          ...state.run.stats,
+          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
+        },
+      }
+
+      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
+
+      return {
+        ...state,
+        phase: 'battle',
+        run: newRun,
+        battleState,
+        eventState: null,
       }
     }
 

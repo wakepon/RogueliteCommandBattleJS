@@ -23,6 +23,17 @@ interface GameContextType {
   sellPotion: (potionIndex: number) => void
   rerollStore: () => void
   closeStore: () => void
+  // イベント関連アクション
+  openEvent: () => void
+  selectRest: () => void
+  selectTreasure: () => void
+  confirmTreasure: () => void
+  cancelTreasure: () => void
+  replaceRelic: (sellRelicId: string) => void
+  selectRepair: () => void
+  toggleRepairWeapon: (weaponId: string) => void
+  confirmRepair: () => void
+  closeEvent: () => void
 }
 
 const GameContext = createContext<GameContextType | null>(null)
@@ -56,6 +67,19 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'SELL_POTION', potionIndex }), [])
   const rerollStore = useCallback(() => dispatch({ type: 'REROLL_STORE' }), [])
   const closeStore = useCallback(() => dispatch({ type: 'CLOSE_STORE' }), [])
+  // イベント関連アクション
+  const openEvent = useCallback(() => dispatch({ type: 'OPEN_EVENT' }), [])
+  const selectRest = useCallback(() => dispatch({ type: 'SELECT_REST' }), [])
+  const selectTreasure = useCallback(() => dispatch({ type: 'SELECT_TREASURE' }), [])
+  const confirmTreasure = useCallback(() => dispatch({ type: 'CONFIRM_TREASURE' }), [])
+  const cancelTreasure = useCallback(() => dispatch({ type: 'CANCEL_TREASURE' }), [])
+  const replaceRelic = useCallback((sellRelicId: string) =>
+    dispatch({ type: 'REPLACE_RELIC', sellRelicId }), [])
+  const selectRepair = useCallback(() => dispatch({ type: 'SELECT_REPAIR' }), [])
+  const toggleRepairWeapon = useCallback((weaponId: string) =>
+    dispatch({ type: 'TOGGLE_REPAIR_WEAPON', weaponId }), [])
+  const confirmRepair = useCallback(() => dispatch({ type: 'CONFIRM_REPAIR' }), [])
+  const closeEvent = useCallback(() => dispatch({ type: 'CLOSE_EVENT' }), [])
 
   return (
     <GameContext.Provider value={{
@@ -75,6 +99,16 @@ export function GameProvider({ children }: GameProviderProps) {
       sellPotion,
       rerollStore,
       closeStore,
+      openEvent,
+      selectRest,
+      selectTreasure,
+      confirmTreasure,
+      cancelTreasure,
+      replaceRelic,
+      selectRepair,
+      toggleRepairWeapon,
+      confirmRepair,
+      closeEvent,
     }}>
       {children}
     </GameContext.Provider>

@@ -9,6 +9,20 @@ import { PotionData } from './Potion'
 // ゲームフェーズ
 export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result'
 
+/** イベント画面のサブフェーズ */
+export type EventSubPhase =
+  | 'selecting'           // 3つの選択肢から選ぶ
+  | 'repairSelection'     // 武器修理: 武器を選択中
+  | 'treasureReveal'      // 宝箱: 新レリック表示
+  | 'treasureReplace'     // 宝箱: 入れ替え選択中
+
+/** イベント状態 */
+export interface EventState {
+  subPhase: EventSubPhase
+  revealedRelic: RelicData | null
+  selectedWeaponIds: string[]
+}
+
 // BattleStateをBattle.tsから再エクスポート
 export type { BattleState } from './Battle'
 
@@ -37,6 +51,7 @@ export interface GameState {
   battleState: BattleState | null
   storeState: StoreState | null
   resultState: ResultState | null
+  eventState: EventState | null
 }
 
 // 初期GameState
@@ -47,5 +62,6 @@ export function createInitialGameState(): GameState {
     battleState: null,
     storeState: null,
     resultState: null,
+    eventState: null,
   }
 }

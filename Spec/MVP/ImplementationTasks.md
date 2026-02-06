@@ -108,12 +108,12 @@
 
 | # | タスク | 説明 | ステータス |
 |---|--------|------|:----------:|
-| 6.1 | 型定義追加 | Relic.ts, Purchasable.ts, Passive.ts | ⬜ 未着手 |
-| 6.2 | マスターデータ | Relics.json | ⬜ 未着手 |
-| 6.3 | StoreLogic | 商品抽選、売買、売却価格 | ⬜ 未着手 |
-| 6.4 | 共通UI: ItemCard | アイテム情報表示 | ⬜ 未着手 |
-| 6.5 | StoreScreen | 商品表示、売買UI | ⬜ 未着手 |
-| 6.6 | GameReducer更新 | OPEN_STORE, CLOSE_STORE | ⬜ 未着手 |
+| 6.1 | 型定義追加 | Relic.ts, Purchasable.ts, Passive.ts | ✅ 完了 |
+| 6.2 | マスターデータ | Relics.json | ✅ 完了 |
+| 6.3 | StoreLogic | 商品抽選、売買、売却価格 | ✅ 完了 |
+| 6.4 | 共通UI: ItemCard | アイテム情報表示 | ✅ 完了 |
+| 6.5 | StoreScreen | 商品表示、売買UI | ✅ 完了 |
+| 6.6 | GameReducer更新 | OPEN_STORE, CLOSE_STORE | ✅ 完了 |
 
 ---
 
@@ -122,9 +122,9 @@
 
 | # | タスク | 説明 | ステータス |
 |---|--------|------|:----------:|
-| 7.1 | StageManager | isEventStage判定 | ⬜ 未着手 |
-| 7.2 | EventScreen | 3つの選択肢UI | ⬜ 未着手 |
-| 7.3 | GameReducer更新 | OPEN_EVENT, SELECT_EVENT | ⬜ 未着手 |
+| 7.1 | StageManager | isEventStage判定 | ✅ 完了 |
+| 7.2 | EventScreen | 3つの選択肢UI | ✅ 完了 |
+| 7.3 | GameReducer更新 | OPEN_EVENT, SELECT_EVENT | ✅ 完了 |
 
 ---
 
@@ -148,10 +148,10 @@
 | 3: コマンド実行 | 9 | 9 | 100% |
 | 4: 敵AIと終了 | 4 | 4 | 100% |
 | 5: 報酬とレベル | 3 | 3 | 100% |
-| 6: ストア画面 | 0 | 6 | 0% |
-| 7: イベント画面 | 0 | 3 | 0% |
+| 6: ストア画面 | 6 | 6 | 100% |
+| 7: イベント画面 | 3 | 3 | 100% |
 | 8: セーブ/仕上げ | 0 | 3 | 0% |
-| **合計** | **28** | **40** | **70%** |
+| **合計** | **37** | **40** | **93%** |
 
 ---
 

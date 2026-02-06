@@ -1,5 +1,5 @@
 import { GameProvider, useGame } from './Hooks/UseGame'
-import { TitleScreen, ResultScreen, StoreScreen } from './Components/Screens'
+import { TitleScreen, ResultScreen, StoreScreen, EventScreen } from './Components/Screens'
 import { BattleScreen } from './Components/Battle'
 
 function GameScreen() {
@@ -15,12 +15,7 @@ function GameScreen() {
     case 'store':
       return <StoreScreen />
     case 'event':
-      // TODO: イベント画面コンポーネントを実装後に追加
-      return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-          <p className="text-white">Phase: {state.phase} (Coming Soon)</p>
-        </div>
-      )
+      return <EventScreen />
   }
 }
 
