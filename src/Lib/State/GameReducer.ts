@@ -29,6 +29,7 @@ import {
 
 export type GameAction =
   | { type: 'START_GAME' }
+  | { type: 'CONTINUE_GAME'; run: RunState }
   | { type: 'RETURN_TITLE' }
   | { type: 'BATTLE_ACTION'; action: BattleAction }
   | { type: 'END_BATTLE'; result: 'victory' | 'defeat' }
@@ -160,6 +161,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         phase: 'battle',
         run,
         battleState,
+      }
+    }
+
+    case 'CONTINUE_GAME': {
+      const { run } = action
+      // ストア画面から再開（セーブは戦闘終了後に行われるため）
+      const storeState = createStoreState(run.seed + run.currentStage)
+      return {
+        ...state,
+        phase: 'store',
+        run,
+        storeState,
       }
     }
 

@@ -1,15 +1,18 @@
-import { createContext, useContext, useReducer, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useReducer, useCallback, useEffect, useState, useRef, ReactNode } from 'react'
 import { GameState, createInitialGameState } from '../Lib/Types/Game'
 import { gameReducer, GameAction } from '../Lib/State/GameReducer'
 import { WeaponData } from '../Lib/Types/Weapon'
 import { SpellData } from '../Lib/Types/Spell'
 import { RelicData } from '../Lib/Types/Relic'
 import { PotionData } from '../Lib/Types/Potion'
+import { SaveManager } from '../Lib/Storage'
 
 interface GameContextType {
   state: GameState
   dispatch: React.Dispatch<GameAction>
+  hasSaveData: boolean
   startGame: () => void
+  continueGame: () => void
   returnToTitle: () => void
   endBattle: (result: 'victory' | 'defeat') => void
   openStore: () => void
@@ -44,9 +47,28 @@ interface GameProviderProps {
 
 export function GameProvider({ children }: GameProviderProps) {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState())
+  const [hasSaveData, setHasSaveData] = useState(() => SaveManager.hasSave())
 
-  const startGame = useCallback(() => dispatch({ type: 'START_GAME' }), [])
-  const returnToTitle = useCallback(() => dispatch({ type: 'RETURN_TITLE' }), [])
+  const startGame = useCallback(() => {
+    // 新規ゲーム開始時は既存のセーブデータをクリア
+    SaveManager.clear()
+    setHasSaveData(false)
+    dispatch({ type: 'START_GAME' })
+  }, [])
+
+  const continueGame = useCallback(() => {
+    const savedRun = SaveManager.load()
+    if (savedRun) {
+      dispatch({ type: 'CONTINUE_GAME', run: savedRun })
+    }
+  }, [])
+
+  const returnToTitle = useCallback(() => {
+    // タイトルへ戻る時はセーブデータをクリア
+    SaveManager.clear()
+    setHasSaveData(false)
+    dispatch({ type: 'RETURN_TITLE' })
+  }, [])
   const endBattle = useCallback((result: 'victory' | 'defeat') => dispatch({ type: 'END_BATTLE', result }), [])
   const openStore = useCallback(() => dispatch({ type: 'OPEN_STORE' }), [])
   const buyWeapon = useCallback((slotIndex: number, item: WeaponData) =>
@@ -81,11 +103,28 @@ export function GameProvider({ children }: GameProviderProps) {
   const confirmRepair = useCallback(() => dispatch({ type: 'CONFIRM_REPAIR' }), [])
   const closeEvent = useCallback(() => dispatch({ type: 'CLOSE_EVENT' }), [])
 
+  // 自動セーブ: ストア画面に「遷移した」ときのみセーブ
+  // （ストア画面での買い物ごとにセーブしない）
+  const previousPhaseRef = useRef(state.phase)
+  useEffect(() => {
+    const wasNotStore = previousPhaseRef.current !== 'store'
+    const isNowStore = state.phase === 'store'
+
+    if (wasNotStore && isNowStore && state.run) {
+      SaveManager.save(state.run)
+      setHasSaveData(true)
+    }
+
+    previousPhaseRef.current = state.phase
+  }, [state.phase, state.run])
+
   return (
     <GameContext.Provider value={{
       state,
       dispatch,
+      hasSaveData,
       startGame,
+      continueGame,
       returnToTitle,
       endBattle,
       openStore,
