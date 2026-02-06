@@ -1,0 +1,35 @@
+{
+  "stage_1": {
+    "turnLimit": 5,
+    "patterns": [
+      { "enemies": ["slime"] },
+      { "enemies": ["slime", "slime"] }
+    ]
+  },
+  "stage_2": {
+    "turnLimit": 6,
+    "patterns": [
+      { "enemies": ["slime", "goblin"] },
+      { "enemies": ["goblin", "goblin"] }
+    ]
+  },
+  "stage_3": {
+    "turnLimit": 7,
+    "patterns": [
+      { "enemies": ["goblin", "goblin", "slime"] },
+      { "enemies": ["orc"] }
+    ]
+  },
+  "stage_4": {
+    "turnLimit": 8,
+    "patterns": [
+      { "enemies": ["orc", "goblin"] }
+    ]
+  },
+  "stage_5": {
+    "turnLimit": 10,
+    "patterns": [
+      { "enemies": ["dragon"] }
+    ]
+  }
+}

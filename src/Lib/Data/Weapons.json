@@ -1,0 +1,46 @@
+{
+  "rusty_knife": {
+    "id": "rusty_knife",
+    "name": "錆びたナイフ",
+    "rarity": "Common",
+    "price": 5,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 5,
+    "maxUses": null
+  },
+  "short_sword": {
+    "id": "short_sword",
+    "name": "ショートソード",
+    "rarity": "Common",
+    "price": 10,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 8,
+    "maxUses": null
+  },
+  "iron_sword": {
+    "id": "iron_sword",
+    "name": "鉄の剣",
+    "rarity": "Uncommon",
+    "price": 20,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 12,
+    "maxUses": null
+  },
+  "vampiric_blade": {
+    "id": "vampiric_blade",
+    "name": "吸血の刃",
+    "rarity": "Rare",
+    "price": 50,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 10,
+    "maxUses": 5,
+    "effect": {
+      "type": "lifesteal",
+      "value": 3
+    }
+  }
+}

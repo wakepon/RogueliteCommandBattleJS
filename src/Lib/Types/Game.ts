@@ -1,20 +1,11 @@
 import { RunState } from './Run'
+import { BattleState } from './Battle'
 
 // ゲームフェーズ
 export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result'
 
-/**
- * バトル状態（プレースホルダー）
- * TODO: Slice 2以降で設計書に従い以下のプロパティを追加
- * - turnLimit: number
- * - enemies: EnemyInstance[]
- * - actionQueue: ActorId[]
- * - currentActorIndex: number
- * - stolenGold: number
- */
-export interface BattleState {
-  turn: number
-}
+// BattleStateをBattle.tsから再エクスポート
+export type { BattleState } from './Battle'
 
 /**
  * ストア状態（プレースホルダー）

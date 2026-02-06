@@ -1,3 +1,9 @@
+import { ExplorerWeapon, PUNCH, WeaponInstance, WeaponData } from './Weapon'
+import WeaponsData from '../Data/Weapons.json'
+
+// マスターデータを型付け
+const weaponsData = WeaponsData as Record<string, WeaponData>
+
 // バトル中のバフ
 export interface Buff {
   type: string
@@ -24,10 +30,22 @@ export interface ExplorerState {
   agi: number
   level: number
   exp: number
-  weapons: string[]  // TODO: Slice 2でExplorerWeapon[]に変更
+  weapons: ExplorerWeapon[]
   spells: string[]   // TODO: Slice 3でSpellInstance[]に変更
   battleBuffs: Buff[]
   battleDebuffs: Debuff[]
+}
+
+// 錆びたナイフの武器インスタンスを生成
+function createRustyKnife(): WeaponInstance {
+  const data = weaponsData['rusty_knife']
+  if (!data) {
+    throw new Error('rusty_knife not found in weapons data')
+  }
+  return {
+    ...data,
+    currentUses: data.maxUses ?? 0,
+  }
 }
 
 // 初期Explorer生成
@@ -44,7 +62,7 @@ export function createInitialExplorer(): ExplorerState {
     agi: 5,
     level: 1,
     exp: 0,
-    weapons: ['punch'],  // パンチは常に持っている
+    weapons: [createRustyKnife(), PUNCH],  // 錆びたナイフ + パンチ
     spells: [],
     battleBuffs: [],
     battleDebuffs: [],

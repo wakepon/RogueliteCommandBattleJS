@@ -1,5 +1,6 @@
 import { GameState, createInitialGameState } from '../Types/Game'
 import { createInitialRun } from '../Types/Run'
+import { createBattleState } from './BattleStateFactory'
 
 export type GameAction =
   | { type: 'START_GAME' }
@@ -7,13 +8,16 @@ export type GameAction =
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
-    case 'START_GAME':
+    case 'START_GAME': {
+      const run = createInitialRun()
+      const battleState = createBattleState(run.currentStage, run.party, run.seed)
       return {
         ...state,
         phase: 'battle',
-        run: createInitialRun(),
-        battleState: { turn: 1 },
+        run,
+        battleState,
       }
+    }
     case 'RETURN_TITLE':
       return createInitialGameState()
     default:

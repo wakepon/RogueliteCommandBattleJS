@@ -54,12 +54,12 @@
 
 | # | タスク | 説明 | ステータス |
 |---|--------|------|:----------:|
-| 2.1 | 型定義追加 | Enemy.ts, Battle.ts, Weapon.ts, Item.ts | ⬜ 未着手 |
-| 2.2 | マスターデータ | Enemies.json, Weapons.json, StagePatterns.json | ⬜ 未着手 |
-| 2.3 | 初期状態生成 | createBattleState, createInitialExplorer | ⬜ 未着手 |
-| 2.4 | 共通UI | ResourceBar, BuffIcon | ⬜ 未着手 |
-| 2.5 | 戦闘UI | PlayerStatus, EnemyDisplay, TurnIndicator | ⬜ 未着手 |
-| 2.6 | BattleScreen | 基本表示のみ | ⬜ 未着手 |
+| 2.1 | 型定義追加 | Enemy.ts, Battle.ts, Weapon.ts, Item.ts | ✅ 完了 |
+| 2.2 | マスターデータ | Enemies.json, Weapons.json, StagePatterns.json | ✅ 完了 |
+| 2.3 | 初期状態生成 | createBattleState, createInitialExplorer | ✅ 完了 |
+| 2.4 | 共通UI | ResourceBar, BuffIcon | ✅ 完了 |
+| 2.5 | 戦闘UI | PlayerStatus, EnemyDisplay, TurnIndicator | ✅ 完了 |
+| 2.6 | BattleScreen | 基本表示のみ | ✅ 完了 |
 
 ---
 
@@ -144,14 +144,14 @@
 | スライス | 完了タスク | 総タスク | 進捗 |
 |---------|-----------|---------|------|
 | 1: タイトル画面 | 6 | 6 | 100% |
-| 2: 戦闘基本表示 | 0 | 6 | 0% |
+| 2: 戦闘基本表示 | 6 | 6 | 100% |
 | 3: コマンド実行 | 0 | 9 | 0% |
 | 4: 敵AIと終了 | 0 | 4 | 0% |
 | 5: 報酬とレベル | 0 | 3 | 0% |
 | 6: ストア画面 | 0 | 6 | 0% |
 | 7: イベント画面 | 0 | 3 | 0% |
 | 8: セーブ/仕上げ | 0 | 3 | 0% |
-| **合計** | **6** | **40** | **15%** |
+| **合計** | **12** | **40** | **30%** |
 
 ---
 
