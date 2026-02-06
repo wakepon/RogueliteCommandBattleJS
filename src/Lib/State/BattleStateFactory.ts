@@ -41,8 +41,12 @@ function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
 
   if (!pattern) {
     // パターンがない場合はスライムを1体
-    console.warn(`Stage pattern not found for stage ${stage}, using fallback`)
     return [createEnemyInstance('slime')]
+  }
+
+  // パターンが空の場合は敵なし（イベントステージ等）
+  if (pattern.patterns.length === 0) {
+    return []
   }
 
   // シードを使ってパターンを選択（簡易的な疑似乱数）
