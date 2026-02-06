@@ -119,20 +119,10 @@ export function CommandList({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown, selectedCommand])
 
-  // カーソル位置のコマンド名
-  const cursorCommand = commands[cursorIndex]
-  const displayName = cursorCommand?.name || ''
-
   return (
     <div>
-      {/* 選択中コマンド表示 */}
-      <div className="flex items-center gap-2 mb-2 text-white">
-        <span className="text-lg">▷</span>
-        <span className="font-bold">{displayName}</span>
-      </div>
-
       {/* コマンドリスト（縦並び） */}
-      <div className="bg-gray-800 rounded p-2 max-h-32 overflow-y-auto">
+      <div className="max-h-32 overflow-y-auto">
         {commands.map((command, index) => {
           const isAvailable = !disabled && isCommandAvailableCheck(command, availableCommands)
           const isCursor = index === cursorIndex

@@ -51,9 +51,7 @@ export function TurnIndicator({
   enemies,
 }: TurnIndicatorProps) {
   return (
-    <div className="bg-gray-800 p-3 rounded-lg">
-      <div className="text-xs text-gray-400 mb-2">Action Order</div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+    <div className="flex gap-2 overflow-x-auto pb-1">
         {actionQueue.map((actorId, index) => {
           const name = getActorName(actorId, party, enemies)
           const ally = isAlly(actorId)
@@ -75,7 +73,6 @@ export function TurnIndicator({
             </div>
           )
         })}
-      </div>
     </div>
   )
 }
