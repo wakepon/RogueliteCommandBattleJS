@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
+import { checkBattleResult } from '../../Lib/Core'
 import { Button } from '../Common/Button'
 import { PlayerStatus } from './PlayerStatus'
 import { EnemyDisplay } from './EnemyDisplay'
@@ -13,7 +14,7 @@ import { DamagePopup } from './DamagePopup'
 const ENEMY_TURN_DELAY_MS = 500
 
 export function BattleScreen() {
-  const { state, returnToTitle } = useGame()
+  const { state, returnToTitle, endBattle } = useGame()
   const battle = useBattle()
   const { run, battleState } = state
 
@@ -41,23 +42,33 @@ export function BattleScreen() {
     selectedCommand,
     selectedTargetId,
     damagePopups,
+    playerDamagePopups,
     selectCommand,
     cancelCommand,
     selectTarget,
     executeCommand,
-    nextActor,
+    enemyAction,
     removePopup,
+    removePlayerPopup,
   } = battle
 
-  // 敵ターンの自動スキップ
+  // 敵ターンの自動処理
   useEffect(() => {
-    if (!isPlayerTurn) {
+    if (!isPlayerTurn && currentActor?.type === 'enemy') {
       const timer = setTimeout(() => {
-        nextActor()
+        enemyAction(currentActor.instanceId)
       }, ENEMY_TURN_DELAY_MS)
       return () => clearTimeout(timer)
     }
-  }, [isPlayerTurn, currentActorIndex, nextActor])
+  }, [isPlayerTurn, currentActor, enemyAction])
+
+  // 勝敗判定
+  useEffect(() => {
+    const result = checkBattleResult(enemies, explorer)
+    if (result !== 'ongoing') {
+      endBattle(result)
+    }
+  }, [enemies, explorer, endBattle])
 
   // 全てのコマンド（武器+魔法）
   const allCommands = [...explorer.weapons, ...explorer.spells]
@@ -89,7 +100,7 @@ export function BattleScreen() {
         <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
           {enemies.map((enemy) => {
             // ターゲット選択中の場合、選択状態を取得
-            const { isSelected, isHighlighted } = isSelectingTarget
+            const { isSelected, isHighlighted } = isSelectingTarget && selectedCommand
               ? getTargetSelectionState(enemy, selectedTargetId, selectedCommand.targetType)
               : { isSelected: false, isHighlighted: false }
 
@@ -134,7 +145,7 @@ export function BattleScreen() {
             party={party}
             enemies={enemies}
             hoveredTargetId={isSelectingTarget ? selectedTargetId : null}
-            targetType={isSelectingTarget ? selectedCommand.targetType : undefined}
+            targetType={isSelectingTarget && selectedCommand ? selectedCommand.targetType : undefined}
           />
         </div>
 
@@ -174,17 +185,29 @@ export function BattleScreen() {
         </div>
 
         {/* 探索者ステータス */}
-        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg relative">
           <div className="text-xs text-gray-400 mb-1">explorer status</div>
           <PlayerStatus
             explorer={explorer}
             gold={gold}
           />
+
+          {/* プレイヤーダメージポップアップ */}
+          {playerDamagePopups.map((popup) => (
+            <DamagePopup
+              key={popup.id}
+              damage={popup.damage}
+              targetIndex={0}
+              totalTargets={1}
+              onComplete={() => removePlayerPopup(popup.id)}
+              isPlayerDamage={true}
+            />
+          ))}
         </div>
       </div>
 
       {/* ターゲット選択ロジック（UIなし） */}
-      {isSelectingTarget && (
+      {isSelectingTarget && selectedCommand && (
         <TargetSelector
           enemies={enemies}
           selectedTargetId={selectedTargetId}

@@ -7,10 +7,20 @@ export type ActorId =
   | { type: 'explorer'; id: string }
   | { type: 'enemy'; instanceId: string }
 
-/** ダメージポップアップ */
+/** 戦闘結果 */
+export type BattleResult = 'ongoing' | 'victory' | 'defeat'
+
+/** ダメージポップアップ（敵への攻撃用） */
 export interface DamagePopup {
   id: string
   targetId: string  // enemy instanceId
+  damage: number
+  timestamp: number
+}
+
+/** プレイヤーへのダメージポップアップ */
+export interface PlayerDamagePopup {
+  id: string
   damage: number
   timestamp: number
 }
@@ -28,4 +38,5 @@ export interface BattleState {
   selectedCommand: ExplorerWeapon | SpellInstance | null
   selectedTargetId: string | null
   damagePopups: DamagePopup[]
+  playerDamagePopups: PlayerDamagePopup[]
 }

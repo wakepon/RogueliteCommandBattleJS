@@ -1,4 +1,4 @@
-import { BattleState, DamagePopup } from '../Types/Battle'
+import { BattleState, DamagePopup, PlayerDamagePopup } from '../Types/Battle'
 import { ExplorerWeapon } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { ExplorerState } from '../Types/Explorer'
@@ -12,17 +12,29 @@ export type BattleAction =
   | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState }
   | { type: 'NEXT_ACTOR' }
   | { type: 'REMOVE_POPUP'; popupId: string }
+  | { type: 'ENEMY_ACTION'; enemyId: string; damage: number; explorer: ExplorerState }
+  | { type: 'REMOVE_PLAYER_POPUP'; popupId: string }
+  | { type: 'PROCESS_TURN_END'; poisonDamage: number; updatedExplorer: ExplorerState }
 
 /** ユニークIDを生成 */
 function generatePopupId(): string {
   return `popup-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 }
 
-/** ダメージポップアップを作成 */
+/** ダメージポップアップを作成（敵へのダメージ用） */
 function createDamagePopup(targetId: string, damage: number): DamagePopup {
   return {
     id: generatePopupId(),
     targetId,
+    damage,
+    timestamp: Date.now(),
+  }
+}
+
+/** プレイヤーダメージポップアップを作成 */
+function createPlayerDamagePopup(damage: number): PlayerDamagePopup {
+  return {
+    id: generatePopupId(),
     damage,
     timestamp: Date.now(),
   }
@@ -139,6 +151,37 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       return {
         ...state,
         damagePopups: state.damagePopups.filter(popup => popup.id !== action.popupId),
+      }
+    }
+
+    case 'ENEMY_ACTION': {
+      // プレイヤーダメージポップアップを追加
+      const newPlayerPopup = createPlayerDamagePopup(action.damage)
+
+      // 次のアクターへ遷移
+      const { nextIndex, nextTurn } = calculateNextActorIndex(state)
+
+      return {
+        ...state,
+        playerDamagePopups: [...state.playerDamagePopups, newPlayerPopup],
+        currentActorIndex: nextIndex,
+        turn: nextTurn,
+      }
+    }
+
+    case 'REMOVE_PLAYER_POPUP': {
+      return {
+        ...state,
+        playerDamagePopups: state.playerDamagePopups.filter(popup => popup.id !== action.popupId),
+      }
+    }
+
+    case 'PROCESS_TURN_END': {
+      // ターンを+1し、actionQueueを先頭に戻す
+      return {
+        ...state,
+        turn: state.turn + 1,
+        currentActorIndex: 0,
       }
     }
 

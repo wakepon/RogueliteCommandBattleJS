@@ -68,15 +68,15 @@
 
 | # | タスク | 説明 | ステータス |
 |---|--------|------|:----------:|
-| 3.1 | 型定義追加 | Spell.ts, Potion.ts, Command.ts, Consumable.ts | ⬜ 未着手 |
-| 3.2 | マスターデータ | Spells.json, Potions.json | ⬜ 未着手 |
-| 3.3 | DamageCalculator | ダメージ計算式 | ⬜ 未着手 |
-| 3.4 | CommandValidator | コマンド使用可否判定 | ⬜ 未着手 |
-| 3.5 | TurnOrder | 行動順計算 | ⬜ 未着手 |
-| 3.6 | BattleReducer | 戦闘状態遷移 | ⬜ 未着手 |
-| 3.7 | useBattle Hook | 戦闘画面用Hook | ⬜ 未着手 |
-| 3.8 | 戦闘UI | CommandList, TargetSelector, DamagePopup | ⬜ 未着手 |
-| 3.9 | BattleScreen更新 | コマンド実行対応 | ⬜ 未着手 |
+| 3.1 | 型定義追加 | Spell.ts, Potion.ts, Command.ts, Consumable.ts | ✅ 完了 |
+| 3.2 | マスターデータ | Spells.json, Potions.json | ✅ 完了 |
+| 3.3 | DamageCalculator | ダメージ計算式 | ✅ 完了 |
+| 3.4 | CommandValidator | コマンド使用可否判定 | ✅ 完了 |
+| 3.5 | TurnOrder | 行動順計算 | ✅ 完了 |
+| 3.6 | BattleReducer | 戦闘状態遷移 | ✅ 完了 |
+| 3.7 | useBattle Hook | 戦闘画面用Hook | ✅ 完了 |
+| 3.8 | 戦闘UI | CommandList, TargetSelector, DamagePopup | ✅ 完了 |
+| 3.9 | BattleScreen更新 | コマンド実行対応 | ✅ 完了 |
 
 ---
 
@@ -85,10 +85,10 @@
 
 | # | タスク | 説明 | ステータス |
 |---|--------|------|:----------:|
-| 4.1 | BattleEngine | 敵AI、ターン進行、勝敗判定 | ⬜ 未着手 |
-| 4.2 | バフ/デバフ処理 | 毒スタック、力溜め | ⬜ 未着手 |
-| 4.3 | ResultScreen | 勝敗表示、スタッツ表示 | ⬜ 未着手 |
-| 4.4 | GameReducer更新 | END_BATTLEアクション | ⬜ 未着手 |
+| 4.1 | BattleEngine | 敵AI、ターン進行、勝敗判定 | ✅ 完了 |
+| 4.2 | バフ/デバフ処理 | 毒スタック、力溜め | ✅ 完了 |
+| 4.3 | ResultScreen | 勝敗表示、スタッツ表示 | ✅ 完了 |
+| 4.4 | GameReducer更新 | END_BATTLEアクション | ✅ 完了 |
 
 ---
 
@@ -145,13 +145,13 @@
 |---------|-----------|---------|------|
 | 1: タイトル画面 | 6 | 6 | 100% |
 | 2: 戦闘基本表示 | 6 | 6 | 100% |
-| 3: コマンド実行 | 0 | 9 | 0% |
-| 4: 敵AIと終了 | 0 | 4 | 0% |
+| 3: コマンド実行 | 9 | 9 | 100% |
+| 4: 敵AIと終了 | 4 | 4 | 100% |
 | 5: 報酬とレベル | 0 | 3 | 0% |
 | 6: ストア画面 | 0 | 6 | 0% |
 | 7: イベント画面 | 0 | 3 | 0% |
 | 8: セーブ/仕上げ | 0 | 3 | 0% |
-| **合計** | **12** | **40** | **30%** |
+| **合計** | **25** | **40** | **63%** |
 
 ---
 

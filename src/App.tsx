@@ -1,5 +1,5 @@
 import { GameProvider, useGame } from './Hooks/UseGame'
-import { TitleScreen } from './Components/Screens/TitleScreen'
+import { TitleScreen, ResultScreen } from './Components/Screens'
 import { BattleScreen } from './Components/Battle'
 
 function GameScreen() {
@@ -10,9 +10,10 @@ function GameScreen() {
       return <TitleScreen />
     case 'battle':
       return <BattleScreen />
+    case 'result':
+      return <ResultScreen />
     case 'store':
     case 'event':
-    case 'result':
       // TODO: 各画面コンポーネントを実装後に追加
       return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center">

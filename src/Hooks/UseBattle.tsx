@@ -3,8 +3,8 @@ import { useGame } from './UseGame'
 import { ExplorerWeapon } from '../Lib/Types/Weapon'
 import { SpellInstance } from '../Lib/Types/Spell'
 import { BattleAction } from '../Lib/State/BattleReducer'
-import { getAvailableCommands } from '../Lib/Core'
-import { BattleState } from '../Lib/Types/Battle'
+import { getAvailableCommands, calculateEnemyDamage, processTurnEnd as processTurnEndLogic } from '../Lib/Core'
+import { BattleState, PlayerDamagePopup } from '../Lib/Types/Battle'
 import { ExplorerState } from '../Lib/Types/Explorer'
 import { EnemyInstance } from '../Lib/Types/Enemy'
 import { ActorId, DamagePopup } from '../Lib/Types/Battle'
@@ -28,6 +28,7 @@ export interface UseBattleResult {
   selectedCommand: ExplorerWeapon | SpellInstance | null
   selectedTargetId: string | null
   damagePopups: DamagePopup[]
+  playerDamagePopups: PlayerDamagePopup[]
 
   // アクション
   selectCommand: (command: ExplorerWeapon | SpellInstance) => void
@@ -36,6 +37,9 @@ export interface UseBattleResult {
   executeCommand: () => void
   nextActor: () => void
   removePopup: (popupId: string) => void
+  enemyAction: (enemyId: string) => void
+  removePlayerPopup: (popupId: string) => void
+  processTurnEnd: () => void
 }
 
 /**
@@ -77,6 +81,43 @@ export function useBattle(): UseBattleResult | null {
     dispatchBattle({ type: 'REMOVE_POPUP', popupId })
   }, [dispatchBattle])
 
+  // 敵の攻撃を実行
+  const enemyAction = useCallback((enemyId: string) => {
+    if (!battleState || !run) return
+
+    const enemy = battleState.enemies.find(e => e.instanceId === enemyId)
+    if (!enemy) return
+
+    const damage = calculateEnemyDamage(enemy)
+    const currentExplorer = run.party[0]
+
+    dispatchBattle({
+      type: 'ENEMY_ACTION',
+      enemyId,
+      damage,
+      explorer: currentExplorer,
+    })
+  }, [battleState, run, dispatchBattle])
+
+  // プレイヤーダメージポップアップを削除
+  const removePlayerPopup = useCallback((popupId: string) => {
+    dispatchBattle({ type: 'REMOVE_PLAYER_POPUP', popupId })
+  }, [dispatchBattle])
+
+  // ターン終了処理
+  const processTurnEnd = useCallback(() => {
+    if (!run) return
+
+    const currentExplorer = run.party[0]
+    const { updatedExplorer, poisonDamage } = processTurnEndLogic(currentExplorer)
+
+    dispatchBattle({
+      type: 'PROCESS_TURN_END',
+      poisonDamage,
+      updatedExplorer,
+    })
+  }, [run, dispatchBattle])
+
   // バトルステートがない場合はnullを返す
   if (!battleState || !run) {
     return null
@@ -117,6 +158,7 @@ export function useBattle(): UseBattleResult | null {
     selectedCommand: battleState.selectedCommand,
     selectedTargetId: battleState.selectedTargetId,
     damagePopups: battleState.damagePopups,
+    playerDamagePopups: battleState.playerDamagePopups,
 
     // アクション
     selectCommand,
@@ -125,5 +167,8 @@ export function useBattle(): UseBattleResult | null {
     executeCommand,
     nextActor,
     removePopup,
+    enemyAction,
+    removePlayerPopup,
+    processTurnEnd,
   }
 }

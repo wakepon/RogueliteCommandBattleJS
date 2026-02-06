@@ -1,2 +1,5 @@
 export * from './DamageCalculator'
 export * from './CommandValidator'
+export * from './BuffProcessor'
+export * from './BattleEngine'
+export * from './RewardCalculator'

@@ -7,6 +7,16 @@ export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result'
 // BattleStateをBattle.tsから再エクスポート
 export type { BattleState } from './Battle'
 
+/** 戦闘結果の状態 */
+export interface ResultState {
+  result: 'victory' | 'defeat'
+  goldEarned: number      // total
+  baseGold: number        // 敵種別報酬
+  interestGold: number    // 利子
+  stolenGold: number      // 盗んだゴールド
+  killCount: number       // 討伐数
+}
+
 /**
  * ストア状態（プレースホルダー）
  * TODO: Slice 6で設計書に従い以下のプロパティを追加
@@ -24,6 +34,7 @@ export interface GameState {
   run: RunState | null
   battleState: BattleState | null
   storeState: StoreState | null
+  resultState: ResultState | null
 }
 
 // 初期GameState
@@ -33,5 +44,6 @@ export function createInitialGameState(): GameState {
     run: null,
     battleState: null,
     storeState: null,
+    resultState: null,
   }
 }

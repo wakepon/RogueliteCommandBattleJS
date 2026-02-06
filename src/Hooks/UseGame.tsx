@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, ReactNode } from 'react'
+import { createContext, useContext, useReducer, useCallback, ReactNode } from 'react'
 import { GameState, createInitialGameState } from '../Lib/Types/Game'
 import { gameReducer, GameAction } from '../Lib/State/GameReducer'
 
@@ -7,6 +7,7 @@ interface GameContextType {
   dispatch: React.Dispatch<GameAction>
   startGame: () => void
   returnToTitle: () => void
+  endBattle: (result: 'victory' | 'defeat') => void
 }
 
 const GameContext = createContext<GameContextType | null>(null)
@@ -18,11 +19,12 @@ interface GameProviderProps {
 export function GameProvider({ children }: GameProviderProps) {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState())
 
-  const startGame = () => dispatch({ type: 'START_GAME' })
-  const returnToTitle = () => dispatch({ type: 'RETURN_TITLE' })
+  const startGame = useCallback(() => dispatch({ type: 'START_GAME' }), [])
+  const returnToTitle = useCallback(() => dispatch({ type: 'RETURN_TITLE' }), [])
+  const endBattle = useCallback((result: 'victory' | 'defeat') => dispatch({ type: 'END_BATTLE', result }), [])
 
   return (
-    <GameContext.Provider value={{ state, dispatch, startGame, returnToTitle }}>
+    <GameContext.Provider value={{ state, dispatch, startGame, returnToTitle, endBattle }}>
       {children}
     </GameContext.Provider>
   )
