@@ -84,9 +84,9 @@ export function BattleScreen() {
       </div>
 
       {/* 2. 敵エリア（大きなメインエリア） */}
-      <div className="flex-1 bg-gray-900 border border-gray-600 p-3 rounded-lg mb-3 relative min-h-[200px]">
+      <div className="flex-1 bg-gray-900 border border-gray-600 p-3 rounded-lg mb-3 relative min-h-[200px] flex flex-col">
         <div className="text-xs text-gray-400 mb-2">enemies</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
           {enemies.map((enemy) => {
             // ターゲット選択中の場合、選択状態を取得
             const { isSelected, isHighlighted } = isSelectingTarget

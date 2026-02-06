@@ -57,7 +57,7 @@ export function EnemyDisplay({
     <div
       onClick={onSelect}
       className={`
-        relative p-4 rounded-lg border-2
+        relative p-4 rounded-lg border-2 w-32 md:w-40
         ${targetStyle}
         ${isCurrentActor ? 'ring-2 ring-yellow-400' : ''}
         ${isDead ? 'opacity-50' : ''}
@@ -67,8 +67,8 @@ export function EnemyDisplay({
     >
       {/* 選択カーソルインジケーター */}
       {isTargetSelected && (
-        <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-yellow-400 text-xl font-bold">
-          ▶
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-yellow-400 text-xl font-bold">
+          ▲
         </div>
       )}
       {/* 敵タイプバッジ */}
