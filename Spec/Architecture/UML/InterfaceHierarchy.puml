@@ -1,0 +1,186 @@
+@startuml InterfaceHierarchy
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+title インターフェース継承図
+
+' ===== 基本インターフェース =====
+interface IItem {
+  +id: string
+  +name: string
+  +rarity: Rarity
+}
+
+interface IPurchasable {
+  +price: number
+}
+
+interface ICommandable {
+  +commandCategory: CommandCategory
+}
+
+interface ITargetable {
+  +targetType: TargetType
+  +minTargetCount?: number
+  +maxTargetCount?: number
+}
+
+' ===== 消耗系インターフェース =====
+interface IUseLimited {
+  +maxUses: number | null
+}
+
+interface IMpCost {
+  +mpCost: number
+}
+
+interface IGoldCost {
+  +goldCost: number
+}
+
+interface IHpCost {
+  +hpCost: number
+}
+
+interface ISingleUse {
+}
+
+' ===== パッシブ系インターフェース =====
+interface IPassiveEffect {
+  +passiveEffect: PassiveEffectType
+}
+
+' ===== アイテムデータ型 =====
+class WeaponData {
+  +commandCategory: 'weapon'
+  +power: number
+  +goldCost?: number
+  +hpCost?: number
+  +effect?: WeaponEffect
+}
+
+class SpellData {
+  +commandCategory: 'spell'
+  +targetType: TargetType
+  +power: number
+  +effect?: SpellEffect
+}
+
+class RelicData {
+}
+
+class PotionData {
+  +commandCategory: 'potion'
+  +targetType: 'allySingle'
+  +effect: PotionEffect
+}
+
+class PunchInstance {
+  +id: 'punch'
+  +name: 'パンチ'
+  +commandCategory: 'weapon'
+  +targetType: 'enemySingle'
+  +power: 0
+  +maxUses: null
+  +currentUses: null
+}
+
+' ===== インスタンス型 =====
+class WeaponInstance {
+  +currentUses: number
+}
+
+note right of WeaponInstance : "WeaponData + currentUses"
+
+' ===== 敵データ型 =====
+enum EnemyType {
+  normal
+  elite
+  boss
+}
+
+class EnemyData {
+  +id: string
+  +name: string
+  +type: EnemyType
+  +hp: number
+  +attack: number
+  +agi: number
+  +gold: number
+  +behavior: string
+}
+
+class EnemyInstance {
+  +instanceId: string
+  +currentHp: number
+  +battleBuffs: Buff[]
+  +battleDebuffs: Debuff[]
+}
+
+EnemyData <|-- EnemyInstance
+
+' ===== 継承関係 =====
+IItem <|-- WeaponData
+IPurchasable <|-- WeaponData
+ICommandable <|-- WeaponData
+ITargetable <|-- WeaponData
+IUseLimited <|-- WeaponData
+
+IItem <|-- SpellData
+IPurchasable <|-- SpellData
+ICommandable <|-- SpellData
+ITargetable <|-- SpellData
+IMpCost <|-- SpellData
+
+IItem <|-- RelicData
+IPurchasable <|-- RelicData
+IPassiveEffect <|-- RelicData
+
+IItem <|-- PotionData
+IPurchasable <|-- PotionData
+ICommandable <|-- PotionData
+ITargetable <|-- PotionData
+ISingleUse <|-- PotionData
+
+ICommandable <|-- PunchInstance
+ITargetable <|-- PunchInstance
+
+WeaponData <|-- WeaponInstance
+
+' ===== 列挙型 =====
+enum Rarity {
+  Common
+  Uncommon
+  Rare
+  Unique
+}
+
+enum CommandCategory {
+  weapon
+  spell
+  potion
+}
+
+enum TargetType {
+  enemySingle
+  allySingle
+  enemyAll
+  allyAll
+  enemyRandom
+}
+
+' ===== ExplorerWeapon型 =====
+class ExplorerWeapon <<Union>> {
+  WeaponInstance | PunchInstance
+}
+
+WeaponInstance -- ExplorerWeapon
+PunchInstance -- ExplorerWeapon
+
+note bottom of PunchInstance
+  IPurchasableを持たない
+  → 売却不可
+end note
+
+@enduml

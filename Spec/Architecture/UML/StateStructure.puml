@@ -1,0 +1,172 @@
+@startuml StateStructure
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+title 状態管理構造図
+
+' ===== GameState =====
+class GameState {
+  +phase: Phase
+  +run: RunState | null
+  +battleState: BattleState | null
+  +storeState: StoreState | null
+}
+
+enum Phase {
+  title
+  battle
+  store
+  event
+  result
+}
+
+' ===== RunState =====
+class RunState {
+  --Run識別・再現性--
+  +seed: number
+  +startedAt: number
+  --進行状況--
+  +currentStage: number
+  --パーティー共有リソース--
+  +gold: number
+  +relics: RelicInstance[]
+  +potions: PotionInstance[]
+  --パーティー--
+  +party: ExplorerState[]
+  --統計--
+  +stats: RunStats
+}
+
+class RunStats {
+  +totalKillCount: number
+  +totalGoldEarned: number
+  +maxStageReached: number
+}
+
+' ===== ExplorerState =====
+class ExplorerState {
+  +id: string
+  +name: string
+  --個人ステータス--
+  +hp: number
+  +maxHp: number
+  +mp: number
+  +maxMp: number
+  +str: number
+  +int: number
+  +agi: number
+  --レベル・経験値--
+  +level: number
+  +exp: number
+  --個人装備--
+  +weapons: ExplorerWeapon[]
+  +spells: SpellInstance[]
+  --戦闘中バフ/デバフ--
+  +battleBuffs: Buff[]
+  +battleDebuffs: Debuff[]
+}
+
+class Buff {
+  +type: string
+  +value: number
+  +duration: number | 'battle' | 'nextAction'
+}
+
+class Debuff {
+  +type: 'poison'
+  +stacks: number
+}
+
+' ===== BattleState =====
+class ActorId <<Union>> {
+  { type: 'explorer', id: string }
+  |
+  { type: 'enemy', instanceId: string }
+}
+
+note right of ActorId
+  行動順管理用
+  探索者または敵を識別
+end note
+
+class EnemyInstance {
+  +instanceId: string
+  +currentHp: number
+  +battleBuffs: Buff[]
+  +battleDebuffs: Debuff[]
+  --継承元: EnemyData--
+  +id: string
+  +name: string
+  +type: EnemyType
+  +hp: number
+  +attack: number
+  +agi: number
+  +gold: number
+  +behavior: string
+}
+
+class BattleState {
+  +turn: number
+  +turnLimit: number
+  +enemies: EnemyInstance[]
+  +actionQueue: ActorId[]
+  +currentActorIndex: number
+  +stolenGold: number
+}
+
+' ===== StoreState =====
+class StoreState {
+  +weaponSlots: (WeaponData | SpellData)[]
+  +relicSlots: (RelicData | PotionData)[]
+  +rerollCost: number
+}
+
+' ===== SaveData =====
+class SaveData {
+  +version: number
+  +run: RunState
+  +savedAt: number
+}
+
+' ===== 関係 =====
+GameState "1" *-- "0..1" RunState
+GameState "1" *-- "0..1" BattleState
+GameState "1" *-- "0..1" StoreState
+GameState --> Phase
+
+RunState "1" *-- "1" RunStats
+RunState "1" *-- "1..*" ExplorerState : party
+
+ExplorerState "1" *-- "*" Buff : battleBuffs
+ExplorerState "1" *-- "*" Debuff : battleDebuffs
+
+SaveData "1" *-- "1" RunState
+
+BattleState "1" *-- "*" EnemyInstance : enemies
+BattleState "1" *-- "*" ActorId : actionQueue
+EnemyInstance "1" *-- "*" Buff : battleBuffs
+EnemyInstance "1" *-- "*" Debuff : battleDebuffs
+
+note right of RunState
+  共有リソース:
+  - gold (パーティー共有)
+  - relics (パーティー全体に効果)
+  - potions (誰でも使える)
+end note
+
+note right of ExplorerState
+  個人リソース:
+  - weapons (個人装備)
+  - spells (個人習得)
+  - hp/mp/exp (個人状態)
+end note
+
+note bottom of BattleState
+  戦闘開始時に生成
+  戦闘終了時に破棄
+  探索者のbuff/debuffは
+  ExplorerState側で管理
+end note
+
+@enduml

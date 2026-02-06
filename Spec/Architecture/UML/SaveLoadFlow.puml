@@ -1,0 +1,33 @@
+@startuml SaveLoadFlow
+!theme plain
+
+title セーブ/ロードフロー
+
+|戦闘画面|
+start
+:戦闘進行;
+
+if (戦闘結果) then (勝利)
+  :報酬計算\n(Gold + 利子);
+  :GameState更新;
+  :localStorage保存;
+  note right
+    ここでセーブ
+    戦闘終了後のみ
+  end note
+  :ストア画面へ遷移;
+else (敗北)
+  :結果画面へ遷移;
+endif
+
+stop
+
+legend right
+  == 中断時の挙動 ==
+  | 中断タイミング | 再開位置 |
+  | 戦闘中 | その戦闘の最初から |
+  | ストア画面 | ストア画面から（戦闘終了後に保存済み） |
+  | イベント画面 | 直前の戦闘終了後から |
+end legend
+
+@enduml

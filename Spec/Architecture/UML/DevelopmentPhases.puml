@@ -1,0 +1,54 @@
+@startuml DevelopmentPhases
+!theme plain
+
+title 開発フェーズと実装対象
+
+rectangle "Phase 1: 戦闘ロジック" as P1 {
+  card "Lib/Types/" as P1_Types
+  card "Lib/Core/DamageCalculator.ts" as P1_Dmg
+  card "Lib/Core/CommandValidator.ts" as P1_Cmd
+  card "Lib/State/BattleReducer.ts" as P1_Battle
+}
+
+rectangle "Phase 2: ゲームループ" as P2 {
+  card "Lib/State/GameReducer.ts" as P2_Game
+  card "Lib/Core/RewardCalculator.ts" as P2_Reward
+  card "Lib/Core/StoreLogic.ts" as P2_Store
+  card "Lib/Storage/SaveManager.ts" as P2_Save
+}
+
+rectangle "Phase 3: データとUI" as P3 {
+  card "Data/*.json" as P3_Data
+  card "Components/" as P3_Comp
+  card "Hooks/" as P3_Hooks
+}
+
+rectangle "Phase 4: バランス調整" as P4 {
+  card "Data/*.json 数値調整" as P4_Balance
+}
+
+P1 --> P2 : 依存
+P2 --> P3 : 依存
+P3 --> P4 : 依存
+
+note bottom of P1
+  型定義と
+  コアロジックの実装
+end note
+
+note bottom of P2
+  ゲーム全体の
+  状態管理と永続化
+end note
+
+note bottom of P3
+  マスターデータと
+  UIの実装
+end note
+
+note bottom of P4
+  プレイテストと
+  数値調整
+end note
+
+@enduml

@@ -1,0 +1,118 @@
+@startuml FolderStructure
+!theme plain
+skinparam packageStyle rectangle
+
+title フォルダ構造とレイヤー図
+
+package "src/" {
+
+  package "Lib/ (Pure Game Logic)" <<Frame>> {
+    note as LibNote
+      React非依存
+      純粋関数のみ
+    end note
+
+    package "Types/" {
+      [Item.ts] as Item
+      [Purchasable.ts] as Purchasable
+      [Command.ts] as Command
+      [Consumable.ts] as Consumable
+      [Passive.ts] as Passive
+      [Weapon.ts] as Weapon
+      [Spell.ts] as Spell
+      [Relic.ts] as Relic
+      [Potion.ts] as Potion
+      [Explorer.ts] as Explorer
+      [Enemy.ts] as Enemy
+      [Battle.ts] as Battle
+      [Run.ts] as Run
+      [Game.ts] as Game
+    }
+
+    package "Core/" {
+      [DamageCalculator.ts] as DmgCalc
+      [CommandValidator.ts] as CmdValid
+      [BattleEngine.ts] as BattleEng
+      [StoreLogic.ts] as StoreLgc
+      [RewardCalculator.ts] as RewardCalc
+    }
+
+    package "State/" {
+      [GameReducer.ts] as GameRdc
+      [BattleReducer.ts] as BattleRdc
+    }
+
+    package "Storage/" {
+      [SaveManager.ts] as SaveMgr
+    }
+  }
+
+  package "Hooks/ (Bridge)" <<Frame>> {
+    note as HooksNote
+      ロジックとUIの
+      橋渡し役
+    end note
+
+    [UseGame.ts] as UseGame
+    [UseBattle.ts] as UseBattle
+  }
+
+  package "Components/ (UI)" <<Frame>> {
+    note as CompNote
+      純粋な表示
+      コンポーネント
+    end note
+
+    package "Screens/" {
+      [TitleScreen.tsx] as TitleScr
+      [BattleScreen.tsx] as BattleScr
+      [StoreScreen.tsx] as StoreScr
+      [EventScreen.tsx] as EventScr
+      [ResultScreen.tsx] as ResultScr
+    }
+
+    package "Battle/" {
+      [BattleUI Parts] as BattleUI
+    }
+
+    package "Common/" {
+      [Common UI Parts] as CommonUI
+    }
+  }
+
+  package "Data/ (Master Data)" <<Database>> {
+    [Weapons.json] as WeaponsJson
+    [Spells.json] as SpellsJson
+    [Relics.json] as RelicsJson
+    [Potions.json] as PotionsJson
+    [Enemies.json] as EnemiesJson
+    [StagePatterns.json] as StageJson
+  }
+
+  [App.tsx] as App
+}
+
+' レイヤー間の依存関係
+App --> UseGame
+App --> TitleScr
+App --> BattleScr
+App --> StoreScr
+App --> EventScr
+App --> ResultScr
+
+UseGame --> GameRdc
+UseBattle --> BattleRdc
+
+GameRdc --> DmgCalc
+GameRdc --> CmdValid
+GameRdc --> RewardCalc
+BattleRdc --> BattleEng
+
+BattleEng --> DmgCalc
+BattleEng --> CmdValid
+StoreLgc --> Purchasable
+
+GameRdc --> SaveMgr
+UseGame --> SaveMgr
+
+@enduml
