@@ -6,7 +6,7 @@ import { PlayerStatus } from './PlayerStatus'
 import { EnemyDisplay } from './EnemyDisplay'
 import { TurnIndicator } from './TurnIndicator'
 import { CommandList } from './CommandList'
-import { TargetSelector } from './TargetSelector'
+import { TargetSelector, getTargetSelectionState } from './TargetSelector'
 import { DamagePopup } from './DamagePopup'
 
 // 敵ターンをスキップするまでの遅延（ミリ秒）
@@ -72,10 +72,10 @@ export function BattleScreen() {
   const isSelectingTarget = selectedCommand !== null
 
   return (
-    <div className="min-h-screen bg-gray-800 p-4 flex flex-col">
-      {/* ヘッダー: ステージ情報 */}
-      <div className="bg-gray-900 p-3 rounded-lg mb-4">
-        <div className="flex justify-between items-center text-white">
+    <div className="min-h-screen bg-gray-800 p-3 flex flex-col">
+      {/* 1. ステージ情報（上部バー） */}
+      <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg mb-3">
+        <div className="flex justify-between items-center text-white text-sm">
           <span className="font-bold">Stage {run.currentStage}</span>
           <span className="text-yellow-400">
             Turn {turn} / {turnLimit}
@@ -83,32 +83,31 @@ export function BattleScreen() {
         </div>
       </div>
 
-      {/* 行動順表示 */}
-      <div className="mb-4">
-        <TurnIndicator
-          actionQueue={actionQueue}
-          currentActorIndex={currentActorIndex}
-          party={party}
-          enemies={enemies}
-        />
-      </div>
-
-      {/* 敵エリア */}
-      <div className="flex-1 mb-4 relative">
-        <div className="text-xs text-gray-400 mb-2">Enemies</div>
+      {/* 2. 敵エリア（大きなメインエリア） */}
+      <div className="flex-1 bg-gray-900 border border-gray-600 p-3 rounded-lg mb-3 relative min-h-[200px]">
+        <div className="text-xs text-gray-400 mb-2">enemies</div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {enemies.map((enemy) => (
-            <EnemyDisplay
-              key={enemy.instanceId}
-              enemy={enemy}
-              isCurrentActor={isEnemyCurrent(enemy)}
-            />
-          ))}
+          {enemies.map((enemy) => {
+            // ターゲット選択中の場合、選択状態を取得
+            const { isSelected, isHighlighted } = isSelectingTarget
+              ? getTargetSelectionState(enemy, selectedTargetId, selectedCommand.targetType)
+              : { isSelected: false, isHighlighted: false }
+
+            return (
+              <EnemyDisplay
+                key={enemy.instanceId}
+                enemy={enemy}
+                isCurrentActor={isEnemyCurrent(enemy)}
+                isTargetSelected={isSelected}
+                isTargetHighlighted={isHighlighted}
+                onSelect={isSelectingTarget && enemy.currentHp > 0 ? () => selectTarget(enemy.instanceId) : undefined}
+              />
+            )
+          })}
         </div>
 
         {/* ダメージポップアップ */}
         {damagePopups.map((popup) => {
-          // targetIdから敵のインデックスを取得
           const targetIndex = enemies.findIndex(e => e.instanceId === popup.targetId)
           if (targetIndex === -1) return null
 
@@ -124,44 +123,70 @@ export function BattleScreen() {
         })}
       </div>
 
-      {/* プレイヤーステータス */}
-      <div className="mb-4">
-        <div className="text-xs text-gray-400 mb-2">Party</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {party.map(explorer => (
-            <PlayerStatus
-              key={explorer.id}
-              explorer={explorer}
-              gold={gold}
-            />
-          ))}
+      {/* 3. 行動順 | レリック（横並び） */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {/* 行動順 */}
+        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+          <div className="text-xs text-gray-400 mb-1">action order</div>
+          <TurnIndicator
+            actionQueue={actionQueue}
+            currentActorIndex={currentActorIndex}
+            party={party}
+            enemies={enemies}
+          />
+        </div>
+
+        {/* レリック（プレースホルダー - Slice 6で実装） */}
+        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+          <div className="text-xs text-gray-400 mb-1">relics</div>
+          <div className="flex gap-1 flex-wrap">
+            {run.relics.length === 0 ? (
+              <span className="text-gray-500 text-xs">No relics</span>
+            ) : (
+              run.relics.map((relicId, index) => (
+                <div
+                  key={`relic-${index}`}
+                  className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-xs text-white"
+                  title={relicId}
+                >
+                  ?
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      {/* コマンド選択エリア */}
-      <div className="mb-4">
-        <CommandList
-          commands={allCommands}
-          availableCommands={availableCommands}
-          selectedCommand={selectedCommand}
-          onSelectCommand={selectCommand}
-          disabled={!isPlayerTurn}
-        />
+      {/* 4. コマンド | 探索者ステータス（横並び） */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* コマンド選択 */}
+        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+          <CommandList
+            commands={allCommands}
+            availableCommands={availableCommands}
+            selectedCommand={selectedCommand}
+            onSelectCommand={selectCommand}
+            disabled={!isPlayerTurn}
+          />
+        </div>
+
+        {/* 探索者ステータス */}
+        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+          <div className="text-xs text-gray-400 mb-1">explorer status</div>
+          <PlayerStatus
+            explorer={explorer}
+            gold={gold}
+          />
+        </div>
       </div>
 
-      {/* フッター */}
-      <div className="flex justify-center">
-        <Button variant="secondary" onClick={returnToTitle}>
-          Return to Title
-        </Button>
-      </div>
-
-      {/* ターゲット選択モーダル */}
+      {/* ターゲット選択ロジック（UIなし） */}
       {isSelectingTarget && (
         <TargetSelector
           enemies={enemies}
           selectedTargetId={selectedTargetId}
           targetType={selectedCommand.targetType}
+          columns={2}
           onSelectTarget={selectTarget}
           onConfirm={executeCommand}
           onCancel={cancelCommand}

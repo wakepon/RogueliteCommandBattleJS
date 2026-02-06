@@ -1,28 +1,21 @@
+import { useState, useEffect, useCallback } from 'react'
 import { ExplorerWeapon, WeaponInstance } from '../../Lib/Types/Weapon'
 import { SpellInstance } from '../../Lib/Types/Spell'
 
 interface CommandListProps {
-  commands: (ExplorerWeapon | SpellInstance)[]  // 全てのコマンド（武器+魔法）
-  availableCommands: (ExplorerWeapon | SpellInstance)[]  // 使用可能なコマンド
+  commands: (ExplorerWeapon | SpellInstance)[]
+  availableCommands: (ExplorerWeapon | SpellInstance)[]
   selectedCommand: ExplorerWeapon | SpellInstance | null
   onSelectCommand: (command: ExplorerWeapon | SpellInstance) => void
-  disabled: boolean  // プレイヤーターンでない場合はtrue
+  disabled: boolean
 }
 
 // コマンドが使用可能かどうかを判定
-function isCommandAvailable(
+function isCommandAvailableCheck(
   command: ExplorerWeapon | SpellInstance,
   availableCommands: (ExplorerWeapon | SpellInstance)[]
 ): boolean {
   return availableCommands.some(c => c.id === command.id)
-}
-
-// コマンドが選択中かどうかを判定
-function isCommandSelected(
-  command: ExplorerWeapon | SpellInstance,
-  selectedCommand: ExplorerWeapon | SpellInstance | null
-): boolean {
-  return selectedCommand?.id === command.id
 }
 
 // 武器かどうかを判定
@@ -33,30 +26,14 @@ function isWeapon(command: ExplorerWeapon | SpellInstance): command is ExplorerW
 // 残り使用回数の表示
 function getUsesDisplay(command: ExplorerWeapon | SpellInstance): string {
   if (isWeapon(command)) {
-    // パンチ（maxUses === null）は無限
     if (command.maxUses === null) {
       return ''
     }
-    // 武器インスタンス
     const weapon = command as WeaponInstance
     return `[${weapon.currentUses}/${weapon.maxUses}]`
   }
-  // 魔法はMP消費を表示
   const spell = command as SpellInstance
   return `${spell.mpCost}MP`
-}
-
-// コマンドカテゴリに応じた色
-function getCommandColor(command: ExplorerWeapon | SpellInstance, isAvailable: boolean): string {
-  if (!isAvailable) {
-    return 'bg-gray-600 text-gray-400'
-  }
-
-  if (isWeapon(command)) {
-    return 'bg-orange-700 hover:bg-orange-600 text-white'
-  }
-  // 魔法
-  return 'bg-purple-700 hover:bg-purple-600 text-white'
 }
 
 export function CommandList({
@@ -66,37 +43,144 @@ export function CommandList({
   onSelectCommand,
   disabled,
 }: CommandListProps) {
+  // カーソル位置
+  const [cursorIndex, setCursorIndex] = useState(0)
+
+  // 使用可能なコマンドのインデックスリスト
+  const availableIndices = commands
+    .map((cmd, idx) => ({ cmd, idx }))
+    .filter(({ cmd }) => isCommandAvailableCheck(cmd, availableCommands))
+    .map(({ idx }) => idx)
+
+  // カーソル位置が有効範囲外なら調整
+  useEffect(() => {
+    if (availableIndices.length > 0 && !availableIndices.includes(cursorIndex)) {
+      setCursorIndex(availableIndices[0])
+    }
+  }, [availableIndices, cursorIndex])
+
+  // コマンドが確定されたらカーソルをそこに合わせる
+  useEffect(() => {
+    if (selectedCommand) {
+      const idx = commands.findIndex(c => c.id === selectedCommand.id)
+      if (idx !== -1) {
+        setCursorIndex(idx)
+      }
+    }
+  }, [selectedCommand, commands])
+
+  // キーボード操作
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (disabled || availableIndices.length === 0) return
+
+    const currentAvailableIdx = availableIndices.indexOf(cursorIndex)
+
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'w':
+      case 'W':
+        e.preventDefault()
+        if (currentAvailableIdx > 0) {
+          setCursorIndex(availableIndices[currentAvailableIdx - 1])
+        } else {
+          // 最初から最後へループ
+          setCursorIndex(availableIndices[availableIndices.length - 1])
+        }
+        break
+
+      case 'ArrowDown':
+      case 's':
+      case 'S':
+        e.preventDefault()
+        if (currentAvailableIdx < availableIndices.length - 1) {
+          setCursorIndex(availableIndices[currentAvailableIdx + 1])
+        } else {
+          // 最後から最初へループ
+          setCursorIndex(availableIndices[0])
+        }
+        break
+
+      case 'Enter':
+      case ' ':
+        e.preventDefault()
+        if (availableIndices.includes(cursorIndex)) {
+          onSelectCommand(commands[cursorIndex])
+        }
+        break
+    }
+  }, [disabled, availableIndices, cursorIndex, commands, onSelectCommand])
+
+  // キーボードイベントのリスナー登録
+  useEffect(() => {
+    // ターゲット選択中（selectedCommand != null）はCommandListのキー操作を無効化
+    if (selectedCommand !== null) return
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown, selectedCommand])
+
+  // カーソル位置のコマンド名
+  const cursorCommand = commands[cursorIndex]
+  const displayName = cursorCommand?.name || ''
+
   return (
-    <div className="bg-gray-900 p-4 rounded-lg">
-      <div className="text-xs text-gray-400 mb-2">Commands</div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {commands.map((command) => {
-          const isAvailable = !disabled && isCommandAvailable(command, availableCommands)
-          const isSelected = isCommandSelected(command, selectedCommand)
-          const colorClass = getCommandColor(command, isAvailable)
+    <div>
+      {/* 選択中コマンド表示 */}
+      <div className="flex items-center gap-2 mb-2 text-white">
+        <span className="text-lg">▷</span>
+        <span className="font-bold">{displayName}</span>
+      </div>
+
+      {/* コマンドリスト（縦並び） */}
+      <div className="bg-gray-800 rounded p-2 max-h-32 overflow-y-auto">
+        {commands.map((command, index) => {
+          const isAvailable = !disabled && isCommandAvailableCheck(command, availableCommands)
+          const isCursor = index === cursorIndex
           const usesDisplay = getUsesDisplay(command)
 
           return (
-            <button
+            <div
               key={command.id}
-              onClick={() => onSelectCommand(command)}
-              disabled={!isAvailable}
+              onClick={() => {
+                if (isAvailable) {
+                  setCursorIndex(index)
+                  onSelectCommand(command)
+                }
+              }}
               className={`
-                p-3 rounded-lg font-bold text-sm transition-all
-                ${colorClass}
-                ${isSelected ? 'ring-2 ring-yellow-400' : ''}
-                ${!isAvailable ? 'cursor-not-allowed opacity-50' : ''}
+                flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-sm
+                ${isCursor ? 'bg-yellow-600 text-white' : 'text-gray-300'}
+                ${!isAvailable ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-700'}
               `}
             >
-              <div className="truncate">{command.name}</div>
+              {/* カーソルインジケーター */}
+              <span className={`w-4 ${isCursor ? 'text-white' : 'text-transparent'}`}>
+                ▶
+              </span>
+
+              {/* コマンドカテゴリアイコン */}
+              <span className={`
+                w-4 h-4 rounded text-xs flex items-center justify-center
+                ${isWeapon(command) ? 'bg-orange-600' : 'bg-purple-600'}
+              `}>
+                {isWeapon(command) ? '剣' : '魔'}
+              </span>
+
+              {/* コマンド名 */}
+              <span className="flex-1">{command.name}</span>
+
+              {/* 使用回数/MP */}
               {usesDisplay && (
-                <div className="text-xs mt-1 opacity-80">
-                  {usesDisplay}
-                </div>
+                <span className="text-xs opacity-70">{usesDisplay}</span>
               )}
-            </button>
+            </div>
           )
         })}
+      </div>
+
+      {/* 操作説明 */}
+      <div className="text-xs text-gray-500 mt-1">
+        ↑↓: 選択　Enter: 決定
       </div>
     </div>
   )

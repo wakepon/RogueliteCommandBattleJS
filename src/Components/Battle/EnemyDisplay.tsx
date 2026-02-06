@@ -4,6 +4,9 @@ import { ResourceBar, BuffIcon } from '../Common'
 interface EnemyDisplayProps {
   enemy: EnemyInstance
   isCurrentActor: boolean
+  isTargetSelected?: boolean
+  isTargetHighlighted?: boolean
+  onSelect?: () => void
 }
 
 // 敵タイプに応じた色を返す
@@ -34,21 +37,40 @@ function getEnemyTypeBgColor(type: EnemyInstance['type']): string {
   }
 }
 
-export function EnemyDisplay({ enemy, isCurrentActor }: EnemyDisplayProps) {
+export function EnemyDisplay({
+  enemy,
+  isCurrentActor,
+  isTargetSelected = false,
+  isTargetHighlighted = false,
+  onSelect,
+}: EnemyDisplayProps) {
   const borderColor = getEnemyTypeColor(enemy.type)
   const bgColor = getEnemyTypeBgColor(enemy.type)
   const isDead = enemy.currentHp <= 0
 
+  // ターゲット選択時のスタイル
+  const targetStyle = isTargetSelected || isTargetHighlighted
+    ? 'border-yellow-400 bg-yellow-400/20'
+    : `${borderColor} ${bgColor}`
+
   return (
     <div
+      onClick={onSelect}
       className={`
         relative p-4 rounded-lg border-2
-        ${borderColor} ${bgColor}
+        ${targetStyle}
         ${isCurrentActor ? 'ring-2 ring-yellow-400' : ''}
         ${isDead ? 'opacity-50' : ''}
+        ${onSelect && !isDead ? 'cursor-pointer hover:border-yellow-300' : ''}
         transition-all duration-200
       `}
     >
+      {/* 選択カーソルインジケーター */}
+      {isTargetSelected && (
+        <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-yellow-400 text-xl font-bold">
+          ▶
+        </div>
+      )}
       {/* 敵タイプバッジ */}
       {enemy.type !== 'normal' && (
         <div className={`

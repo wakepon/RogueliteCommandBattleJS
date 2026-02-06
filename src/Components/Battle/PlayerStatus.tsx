@@ -8,15 +8,16 @@ interface PlayerStatusProps {
 
 export function PlayerStatus({ explorer, gold }: PlayerStatusProps) {
   return (
-    <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+    <div>
+      {/* 名前とレベル */}
       <div className="flex justify-between items-center mb-2">
-        <span className="text-white font-bold">{explorer.name}</span>
-        <span className="text-yellow-400">Lv.{explorer.level}</span>
+        <span className="text-white font-bold text-sm">{explorer.name}</span>
+        <span className="text-yellow-400 text-sm">Lv.{explorer.level}</span>
       </div>
 
       {/* HP */}
-      <div className="mb-2">
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
+      <div className="mb-1">
+        <div className="flex justify-between text-xs text-gray-400 mb-0.5">
           <span>HP</span>
           <span>{explorer.hp} / {explorer.maxHp}</span>
         </div>
@@ -25,13 +26,13 @@ export function PlayerStatus({ explorer, gold }: PlayerStatusProps) {
           max={explorer.maxHp}
           color="red"
           showText={false}
-          size="md"
+          size="sm"
         />
       </div>
 
       {/* MP */}
-      <div className="mb-3">
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
+      <div className="mb-2">
+        <div className="flex justify-between text-xs text-gray-400 mb-0.5">
           <span>MP</span>
           <span>{explorer.mp} / {explorer.maxMp}</span>
         </div>
@@ -40,18 +41,18 @@ export function PlayerStatus({ explorer, gold }: PlayerStatusProps) {
           max={explorer.maxMp}
           color="blue"
           showText={false}
-          size="md"
+          size="sm"
         />
       </div>
 
       {/* ゴールド */}
-      <div className="text-yellow-400 text-sm">
+      <div className="text-yellow-400 text-xs">
         Gold: {gold}G
       </div>
 
       {/* バフ/デバフ表示 */}
       {(explorer.battleBuffs.length > 0 || explorer.battleDebuffs.length > 0) && (
-        <div className="flex gap-1 mt-2 flex-wrap">
+        <div className="flex gap-1 mt-1 flex-wrap">
           {explorer.battleBuffs.map((buff) => (
             <BuffIcon key={`buff-${buff.type}-${buff.value}`} buff={buff} />
           ))}

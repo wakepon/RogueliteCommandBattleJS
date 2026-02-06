@@ -1,11 +1,12 @@
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { EnemyInstance } from '../../Lib/Types/Enemy'
 import { TargetType } from '../../Lib/Types/Command'
-import { Button } from '../Common/Button'
 
 interface TargetSelectorProps {
   enemies: EnemyInstance[]
   selectedTargetId: string | null
   targetType: TargetType
+  columns?: number
   onSelectTarget: (targetId: string) => void
   onConfirm: () => void
   onCancel: () => void
@@ -16,103 +17,165 @@ function isEnemySelectable(enemy: EnemyInstance): boolean {
   return enemy.currentHp > 0
 }
 
-// enemyAllの場合、全敵が選択対象
-function isEnemyHighlighted(
-  enemy: EnemyInstance,
-  selectedTargetId: string | null,
-  targetType: TargetType
-): boolean {
-  if (!isEnemySelectable(enemy)) {
-    return false
-  }
-
-  if (targetType === 'enemyAll') {
-    return true
-  }
-
-  return enemy.instanceId === selectedTargetId
-}
-
 export function TargetSelector({
   enemies,
   selectedTargetId,
   targetType,
+  columns = 2,
   onSelectTarget,
   onConfirm,
   onCancel,
 }: TargetSelectorProps) {
-  // enemyAllの場合は確定ボタンを即座に有効化
-  const canConfirm = targetType === 'enemyAll' || selectedTargetId !== null
+  // 選択可能な敵のリスト（メモ化）
+  const selectableEnemies = useMemo(
+    () => enemies.filter(isEnemySelectable),
+    [enemies]
+  )
 
-  // enemyAllの場合、自動的に最初の生存敵を選択（ターゲットIDは必要ないが形式上）
-  const handleConfirm = () => {
-    if (targetType === 'enemyAll' && selectedTargetId === null) {
-      // 最初の生存敵のIDを渡す（全体攻撃なのでどれでもOK）
-      const firstAlive = enemies.find(e => e.currentHp > 0)
-      if (firstAlive) {
-        onSelectTarget(firstAlive.instanceId)
+  // カーソル位置（選択可能な敵のインデックス）
+  const [cursorIndex, setCursorIndex] = useState(0)
+
+  // 初期化フラグ
+  const isInitialized = useRef(false)
+
+  // マウント時に最初の敵を選択
+  useEffect(() => {
+    if (!isInitialized.current && selectableEnemies.length > 0) {
+      if (targetType !== 'enemyAll') {
+        onSelectTarget(selectableEnemies[0].instanceId)
+      }
+      isInitialized.current = true
+    }
+  }, [selectableEnemies, targetType, onSelectTarget])
+
+  // カーソル位置のRef（循環依存を防ぐため）
+  const prevCursorIndex = useRef(cursorIndex)
+
+  // selectedTargetIdが変更されたらカーソル位置を同期
+  // 注意: cursorIndexを依存配列から除外し、refで現在値を参照する
+  useEffect(() => {
+    if (selectedTargetId) {
+      const idx = selectableEnemies.findIndex(e => e.instanceId === selectedTargetId)
+      if (idx !== -1 && idx !== prevCursorIndex.current) {
+        setCursorIndex(idx)
+        prevCursorIndex.current = idx
+      }
+    }
+  }, [selectedTargetId, selectableEnemies])
+
+  // カーソル移動時にターゲットを選択
+  useEffect(() => {
+    // 初期化後のカーソル移動のみ処理
+    if (isInitialized.current && prevCursorIndex.current !== cursorIndex) {
+      if (targetType !== 'enemyAll' && selectableEnemies[cursorIndex]) {
+        onSelectTarget(selectableEnemies[cursorIndex].instanceId)
+      }
+      prevCursorIndex.current = cursorIndex
+    }
+  }, [cursorIndex, selectableEnemies, targetType, onSelectTarget])
+
+  // 確定処理
+  const handleConfirm = useCallback(() => {
+    if (targetType === 'enemyAll') {
+      // 全体攻撃の場合、最初の生存敵のIDを渡す
+      if (selectableEnemies.length > 0) {
+        onSelectTarget(selectableEnemies[0].instanceId)
       }
     }
     onConfirm()
+  }, [targetType, selectableEnemies, onSelectTarget, onConfirm])
+
+  // キーボード操作
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowLeft':
+      case 'a':
+      case 'A':
+        e.preventDefault()
+        if (targetType !== 'enemyAll' && selectableEnemies.length > 0) {
+          setCursorIndex(prev =>
+            prev > 0 ? prev - 1 : selectableEnemies.length - 1
+          )
+        }
+        break
+
+      case 'ArrowRight':
+      case 'd':
+      case 'D':
+        e.preventDefault()
+        if (targetType !== 'enemyAll' && selectableEnemies.length > 0) {
+          setCursorIndex(prev =>
+            prev < selectableEnemies.length - 1 ? prev + 1 : 0
+          )
+        }
+        break
+
+      case 'ArrowUp':
+      case 'w':
+      case 'W':
+        e.preventDefault()
+        // グリッドを想定して上に移動
+        if (targetType !== 'enemyAll' && selectableEnemies.length > columns) {
+          setCursorIndex(prev => {
+            const newIdx = prev - columns
+            return newIdx >= 0 ? newIdx : prev
+          })
+        }
+        break
+
+      case 'ArrowDown':
+      case 's':
+      case 'S':
+        e.preventDefault()
+        // グリッドを想定して下に移動
+        if (targetType !== 'enemyAll' && selectableEnemies.length > columns) {
+          setCursorIndex(prev => {
+            const newIdx = prev + columns
+            return newIdx < selectableEnemies.length ? newIdx : prev
+          })
+        }
+        break
+
+      case 'Enter':
+      case ' ':
+        e.preventDefault()
+        handleConfirm()
+        break
+
+      case 'Escape':
+      case 'Backspace':
+        e.preventDefault()
+        onCancel()
+        break
+    }
+  }, [targetType, selectableEnemies, columns, onCancel, handleConfirm])
+
+  // キーボードイベントのリスナー登録
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
+
+  // このコンポーネントはUIを持たない（ロジックのみ）
+  return null
+}
+
+// ターゲット選択状態を判定するヘルパー関数をエクスポート
+export function getTargetSelectionState(
+  enemy: EnemyInstance,
+  selectedTargetId: string | null,
+  targetType: TargetType
+): { isSelected: boolean; isHighlighted: boolean } {
+  const isSelectable = isEnemySelectable(enemy)
+
+  if (!isSelectable) {
+    return { isSelected: false, isHighlighted: false }
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 p-4 rounded-lg max-w-lg w-full mx-4">
-        <div className="text-white text-center mb-4 font-bold">
-          {targetType === 'enemyAll' ? '全体攻撃' : 'ターゲットを選択'}
-        </div>
+  if (targetType === 'enemyAll') {
+    return { isSelected: false, isHighlighted: true }
+  }
 
-        {/* 敵リスト */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {enemies.map((enemy) => {
-            const selectable = isEnemySelectable(enemy)
-            const highlighted = isEnemyHighlighted(enemy, selectedTargetId, targetType)
-
-            return (
-              <button
-                key={enemy.instanceId}
-                onClick={() => selectable && onSelectTarget(enemy.instanceId)}
-                disabled={!selectable}
-                className={`
-                  p-4 rounded-lg border-2 transition-all text-left
-                  ${highlighted
-                    ? 'border-yellow-400 bg-yellow-400/20'
-                    : selectable
-                      ? 'border-gray-600 bg-gray-700 hover:border-gray-500'
-                      : 'border-gray-700 bg-gray-800 opacity-50 cursor-not-allowed'
-                  }
-                `}
-              >
-                <div className="text-white font-bold mb-1">{enemy.name}</div>
-                <div className="text-sm text-gray-400">
-                  HP: {enemy.currentHp} / {enemy.hp}
-                </div>
-                {enemy.currentHp <= 0 && (
-                  <div className="text-red-400 text-xs mt-1">DEFEATED</div>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* アクションボタン */}
-        <div className="flex gap-3 justify-center">
-          <Button
-            variant="secondary"
-            onClick={onCancel}
-          >
-            キャンセル
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleConfirm}
-            disabled={!canConfirm}
-          >
-            確定
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
+  const isSelected = enemy.instanceId === selectedTargetId
+  return { isSelected, isHighlighted: false }
 }
