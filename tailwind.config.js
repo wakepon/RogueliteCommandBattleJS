@@ -5,7 +5,17 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      animation: {
+        'damage-popup': 'damagePopup 1s ease-out forwards',
+      },
+      keyframes: {
+        damagePopup: {
+          '0%': { opacity: '1', transform: 'translate(-50%, -50%) translateY(0)' },
+          '100%': { opacity: '0', transform: 'translate(-50%, -50%) translateY(-30px)' },
+        },
+      },
+    },
   },
   plugins: [],
 }

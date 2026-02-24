@@ -1,0 +1,101 @@
+import { RunState } from '../Types/Run'
+
+/** セーブデータの構造 */
+interface SaveData {
+  version: number      // 互換性チェック用
+  run: RunState        // Run情報のみ保存
+  savedAt: number      // timestamp
+}
+
+const STORAGE_KEY = 'roguelite-save'
+const CURRENT_VERSION = 1
+
+/** セーブデータの基本的な構造を検証 */
+function isValidSaveData(data: unknown): data is SaveData {
+  if (typeof data !== 'object' || data === null) return false
+  const obj = data as Record<string, unknown>
+  return (
+    typeof obj.version === 'number' &&
+    typeof obj.run === 'object' &&
+    obj.run !== null &&
+    typeof obj.savedAt === 'number'
+  )
+}
+
+/** RunStateの基本的な構造を検証 */
+function isValidRunState(run: unknown): run is RunState {
+  if (typeof run !== 'object' || run === null) return false
+  const obj = run as Record<string, unknown>
+  return (
+    typeof obj.seed === 'number' &&
+    typeof obj.currentStage === 'number' &&
+    typeof obj.gold === 'number' &&
+    Array.isArray(obj.party) &&
+    Array.isArray(obj.relics)
+  )
+}
+
+export const SaveManager = {
+  /** セーブデータを保存する。プライベートブラウジング等で失敗した場合はfalseを返す */
+  save(run: RunState): boolean {
+    try {
+      const data: SaveData = {
+        version: CURRENT_VERSION,
+        run,
+        savedAt: Date.now(),
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      return true
+    } catch {
+      // プライベートブラウジングモードやlocalStorageが無効な環境
+      return false
+    }
+  },
+
+  /** セーブデータを読み込む。存在しない、無効、またはバージョン不一致の場合はnullを返す */
+  load(): RunState | null {
+    try {
+      const json = localStorage.getItem(STORAGE_KEY)
+      if (!json) return null
+
+      const data = JSON.parse(json)
+
+      // 構造検証
+      if (!isValidSaveData(data)) {
+        return null
+      }
+
+      // バージョンチェック
+      if (data.version !== CURRENT_VERSION) {
+        return null
+      }
+
+      // RunStateの検証
+      if (!isValidRunState(data.run)) {
+        return null
+      }
+
+      return data.run
+    } catch {
+      return null
+    }
+  },
+
+  /** セーブデータを削除する */
+  clear(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // エラーを無視（削除できなくても影響は軽微）
+    }
+  },
+
+  /** セーブデータが存在するかチェックする */
+  hasSave(): boolean {
+    try {
+      return localStorage.getItem(STORAGE_KEY) !== null
+    } catch {
+      return false
+    }
+  },
+}

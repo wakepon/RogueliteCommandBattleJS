@@ -1,0 +1,21 @@
+import { IItem } from './Item'
+import { IPurchasable } from './Purchasable'
+import { ICommandable, ITargetable, TargetType } from './Command'
+import { IMpCost } from './Consumable'
+
+/** 魔法効果 */
+export type SpellEffect =
+  | { type: 'heal'; value: number }           // HP回復
+  | { type: 'steal' }                         // ゴールドを盗む
+  | { type: 'buff'; stat: 'str'; value: number; duration: 'battle' }  // バフ
+
+/** 魔法データ */
+export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {
+  commandCategory: 'spell'
+  targetType: TargetType
+  power: number
+  effect?: SpellEffect | null
+}
+
+/** 魔法インスタンス（状態を持たないためデータと同一） */
+export type SpellInstance = SpellData

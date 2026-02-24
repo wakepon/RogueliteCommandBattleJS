@@ -1,0 +1,42 @@
+{
+  "slime": {
+    "id": "slime",
+    "name": "スライム",
+    "type": "normal",
+    "hp": 10,
+    "attack": 3,
+    "agi": 2,
+    "gold": 3,
+    "behavior": "attack"
+  },
+  "goblin": {
+    "id": "goblin",
+    "name": "ゴブリン",
+    "type": "normal",
+    "hp": 15,
+    "attack": 5,
+    "agi": 4,
+    "gold": 5,
+    "behavior": "attack"
+  },
+  "orc": {
+    "id": "orc",
+    "name": "オーク",
+    "type": "elite",
+    "hp": 30,
+    "attack": 8,
+    "agi": 3,
+    "gold": 15,
+    "behavior": "attack"
+  },
+  "dragon": {
+    "id": "dragon",
+    "name": "ドラゴン",
+    "type": "boss",
+    "hp": 100,
+    "attack": 15,
+    "agi": 5,
+    "gold": 50,
+    "behavior": "attack"
+  }
+}
