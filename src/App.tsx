@@ -1,5 +1,5 @@
 import { GameProvider, useGame } from './Hooks/UseGame'
-import { TitleScreen, ResultScreen, StoreScreen, EventScreen } from './Components/Screens'
+import { TitleScreen, ResultScreen, StoreScreen, EventScreen, MapScreen } from './Components/Screens'
 import { BattleScreen } from './Components/Battle'
 
 function GameScreen() {
@@ -16,6 +16,8 @@ function GameScreen() {
       return <StoreScreen />
     case 'event':
       return <EventScreen />
+    case 'map':
+      return <MapScreen />
   }
 }
 

@@ -263,7 +263,7 @@ export function StoreScreen() {
       {/* 次へボタン */}
       <div className="flex justify-center">
         <Button variant="primary" size="lg" onClick={closeStore}>
-          次の戦闘へ
+          出発
         </Button>
       </div>
     </div>

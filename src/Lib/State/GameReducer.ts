@@ -1,4 +1,4 @@
-import { GameState, ResultState, EventState, createInitialGameState } from '../Types/Game'
+import { GameState, ResultState, EventState, MapState, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
@@ -26,6 +26,7 @@ import {
   replaceRelic,
   repairWeapons,
 } from '../Core/EventLogic'
+import { generateMapNodes } from '../Core/MapGenerator'
 
 export type GameAction =
   | { type: 'START_GAME' }
@@ -55,6 +56,8 @@ export type GameAction =
   | { type: 'TOGGLE_REPAIR_WEAPON'; weaponId: string }
   | { type: 'CONFIRM_REPAIR' }
   | { type: 'CLOSE_EVENT' }
+  // マップ関連アクション
+  | { type: 'ADVANCE_FROM_MAP' }
 
 /** 武器の使用回数を減らす */
 function consumeWeaponUse(weapon: ExplorerWeapon): ExplorerWeapon {
@@ -133,6 +136,31 @@ function countDefeatedEnemies(
     // 今回のアクションでHPが0以下になった敵をカウント
     return enemy.currentHp <= 0 && previousEnemy && previousEnemy.currentHp > 0
   }).length
+}
+
+/** 次のステージへ進みマップ画面に遷移する共通ヘルパー */
+function advanceToMapPhase(state: GameState, run: RunState): GameState {
+  const newStage = run.currentStage + 1
+  const advancedRun: RunState = {
+    ...run,
+    currentStage: newStage,
+    stats: {
+      ...run.stats,
+      maxStageReached: Math.max(run.stats.maxStageReached, newStage),
+    },
+  }
+  const mapState: MapState = {
+    nodes: generateMapNodes(advancedRun.seed),
+    currentStage: newStage,
+  }
+  return {
+    ...state,
+    phase: 'map',
+    run: advancedRun,
+    mapState,
+    storeState: null,
+    eventState: null,
+  }
 }
 
 /** レベルアップポップアップをバトルステートに追加 */
@@ -637,45 +665,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.run) {
         return state
       }
-
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
-      }
-
-      // イベントステージの場合はイベント画面へ遷移
-      if (isEventStage(newStage)) {
-        const eventState: EventState = {
-          subPhase: 'selecting',
-          revealedRelic: null,
-          selectedWeaponIds: [],
-        }
-
-        return {
-          ...state,
-          phase: 'event',
-          run: newRun,
-          storeState: null,
-          eventState,
-        }
-      }
-
-      // 通常のバトルを開始
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: newRun,
-        battleState,
-        storeState: null,
-      }
+      return advanceToMapPhase(state, state.run)
     }
 
     case 'OPEN_EVENT': {
@@ -705,31 +695,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       // パーティメンバーのHPを回復
       const updatedParty = state.run.party.map(applyRest)
 
-      const newRun: RunState = {
-        ...state.run,
-        party: updatedParty,
-      }
-
-      // 次のステージのバトルへ
-      const newStage = state.run.currentStage + 1
-      const finalRun: RunState = {
-        ...newRun,
-        currentStage: newStage,
-        stats: {
-          ...newRun.stats,
-          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: finalRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, { ...state.run, party: updatedParty })
     }
 
     case 'SELECT_TREASURE': {
@@ -760,29 +726,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         return state
       }
 
-      // レリックを追加
+      // レリックを追加して次のステージへ
       const newRun = addRelic(state.run, state.eventState.revealedRelic)
-
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const finalRun: RunState = {
-        ...newRun,
-        currentStage: newStage,
-        stats: {
-          ...newRun.stats,
-          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: finalRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, newRun)
     }
 
     case 'CANCEL_TREASURE': {
@@ -791,25 +737,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       // レリックを獲得せずに次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: newRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, state.run)
     }
 
     case 'REPLACE_RELIC': {
@@ -824,26 +752,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         state.eventState.revealedRelic
       )
 
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const finalRun: RunState = {
-        ...newRun,
-        currentStage: newStage,
-        stats: {
-          ...newRun.stats,
-          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: finalRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, newRun)
     }
 
     case 'SELECT_REPAIR': {
@@ -907,32 +816,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         return state
       }
 
-      // パーティメンバーの武器を修理
+      // パーティメンバーの武器を修理して次のステージへ
       const updatedParty = state.run.party.map(explorer =>
         repairWeapons(explorer, selectedWeaponIds)
       )
 
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        party: updatedParty,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: newRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, { ...state.run, party: updatedParty })
     }
 
     case 'CLOSE_EVENT': {
@@ -940,25 +829,40 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         return state
       }
 
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
+      return advanceToMapPhase(state, state.run)
+    }
+
+    case 'ADVANCE_FROM_MAP': {
+      if (!state.run || !state.mapState) {
+        return state
       }
 
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
+      // イベントステージの場合 → イベント画面へ
+      if (isEventStage(state.run.currentStage)) {
+        return {
+          ...state,
+          phase: 'event',
+          eventState: {
+            subPhase: 'selecting',
+            revealedRelic: null,
+            selectedWeaponIds: [],
+          },
+          mapState: null,
+        }
+      }
+
+      // 通常バトル / ボス → バトル開始
+      const battleState = createBattleState(
+        state.run.currentStage,
+        state.run.party,
+        state.run.seed
+      )
 
       return {
         ...state,
         phase: 'battle',
-        run: newRun,
         battleState,
-        eventState: null,
+        mapState: null,
       }
     }
 
