@@ -23,7 +23,6 @@
     }]
   },
   "permissions": {
-    "defaultMode": "acceptEdits",
     "allow": [
       "Read(**)",
       "Edit(./**)",
@@ -32,8 +31,7 @@
       "Grep(**)",
       "Glob(**)",
       "LS(**)",
-      "WebFetch(domain:*)",
-
+      "WebFetch",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -49,7 +47,6 @@
       "Bash(git remote:*)",
       "Bash(git tag:*)",
       "Bash(gh:*)",
-
       "Bash(ls:*)",
       "Bash(eza:*)",
       "Bash(cat:*)",
@@ -77,7 +74,7 @@
       "Bash(whoami)",
       "Bash(date:*)",
       "Bash(env)",
-
+      "Bash(diff:*)",
       "Bash(make:*)",
       "Bash(just:*)",
       "Bash(curl:*)",
@@ -88,7 +85,6 @@
       "Bash(unzip:*)",
       "Bash(gzip:*)",
       "Bash(gunzip:*)",
-
       "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(yarn:*)",
@@ -104,17 +100,6 @@
       "Bash(vite:*)",
       "Bash(next:*)"
     ],
-    "ask": [
-      "Bash(git checkout:*)",
-      "Bash(git reset:*)",
-      "Bash(git rebase:*)",
-      "Bash(git merge:*)",
-      "Bash(git push:*)",
-      "Bash(git cherry-pick:*)",
-      "Bash(git revert:*)",
-
-      "Bash(rm:*)"
-    ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
@@ -122,7 +107,7 @@
       "Read(./**/*.pem)",
       "Read(./**/*.key)",
       "Read(~/.ssh/**)",
-
+      "Read(./Spec/ForHuman/**)",
       "Bash(rm -rf /)",
       "Bash(rm -rf ~)",
       "Bash(rm -rf /*)",
@@ -131,13 +116,23 @@
       "Bash(git push --force origin master)",
       "Bash(git push -f origin main)",
       "Bash(git push -f origin master)",
-
       "Edit(/etc/**)",
       "Edit(/usr/**)",
       "Edit(/var/**)",
       "Write(/etc/**)",
       "Write(/usr/**)",
       "Write(/var/**)"
-    ]
+    ],
+    "ask": [
+      "Bash(git checkout:*)",
+      "Bash(git reset:*)",
+      "Bash(git rebase:*)",
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git revert:*)",
+      "Bash(rm:*)"
+    ],
+    "defaultMode": "acceptEdits"
   }
 }
