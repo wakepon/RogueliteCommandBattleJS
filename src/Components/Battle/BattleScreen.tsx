@@ -58,12 +58,18 @@ export function BattleScreen() {
   // 敵ターンの自動処理
   useEffect(() => {
     if (!isPlayerTurn && currentActor?.type === 'enemy') {
+      // 死亡した敵はスキップして次のアクターへ
+      const enemy = enemies.find(e => e.instanceId === currentActor.instanceId)
+      if (!enemy || enemy.currentHp <= 0) {
+        battle.nextActor()
+        return
+      }
       const timer = setTimeout(() => {
         enemyAction(currentActor.instanceId)
       }, ENEMY_TURN_DELAY_MS)
       return () => clearTimeout(timer)
     }
-  }, [isPlayerTurn, currentActor, enemyAction])
+  }, [isPlayerTurn, currentActor, enemyAction, enemies, battle])
 
   // 勝敗判定
   useEffect(() => {

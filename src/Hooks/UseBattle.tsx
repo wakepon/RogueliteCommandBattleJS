@@ -88,7 +88,7 @@ export function useBattle(): UseBattleResult | null {
     if (!battleState || !run) return
 
     const enemy = battleState.enemies.find(e => e.instanceId === enemyId)
-    if (!enemy) return
+    if (!enemy || enemy.currentHp <= 0) return
 
     const damage = calculateEnemyDamage(enemy)
     const currentExplorer = run.party[0]
