@@ -14,6 +14,9 @@
 | refactor-cleaner | 不要コードの削除  | コードメンテナンス        |
 | tdd-guide | テスト駆動開発   | テストを書くことを指定されたとき |
 | doc-updater | 仕様書の作成・更新  | コードから仕様書を生成・同期するとき |
+| game-designer | ゲームデザイン相談 | メカニクスの分析・バランス検討 |
+| doc-analyzer | コード-仕様書差分分析 | 仕様書更新時（Phase 1） |
+| doc-writer | 仕様書書き出し | 仕様書更新時（Phase 2） |
 
 ## Agent の即時利用
 
