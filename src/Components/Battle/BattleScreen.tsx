@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult } from '../../Lib/Core'
@@ -55,6 +55,22 @@ export function BattleScreen() {
     removeLevelUpPopup,
   } = battle
 
+  // 経験値アニメーション状態
+  const [expAnimating, setExpAnimating] = useState(false)
+  const prevLevelRef = useRef(explorer.level)
+
+  // レベル変化を検知してexpAnimatingをセット
+  useEffect(() => {
+    if (explorer.level > prevLevelRef.current) {
+      setExpAnimating(true)
+    }
+    prevLevelRef.current = explorer.level
+  }, [explorer.level])
+
+  const handleExpFillComplete = useCallback(() => {
+    setExpAnimating(false)
+  }, [])
+
   // 敵ターンの自動処理
   useEffect(() => {
     if (!isPlayerTurn && currentActor?.type === 'enemy') {
@@ -104,7 +120,7 @@ export function BattleScreen() {
       </div>
 
       {/* 2. 敵エリア（大きなメインエリア） */}
-      <div className="flex-1 bg-gray-900 border border-gray-600 p-3 rounded-lg mb-3 relative min-h-[200px] flex flex-col">
+      <div className="flex-1 bg-gray-900 border border-gray-600 p-3 rounded-lg mb-3 relative min-h-[160px] flex flex-col">
         <div className="text-xs text-gray-400 mb-2">enemies</div>
         <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
           {enemies.map((enemy) => {
@@ -199,6 +215,8 @@ export function BattleScreen() {
           <PlayerStatus
             explorer={explorer}
             gold={gold}
+            levelUpPopupCount={levelUpPopups.length}
+            onExpFillComplete={handleExpFillComplete}
           />
 
           {/* プレイヤーダメージポップアップ */}
@@ -228,8 +246,8 @@ export function BattleScreen() {
         />
       )}
 
-      {/* レベルアップモーダル（最前面に表示） */}
-      {levelUpPopups.length > 0 && (
+      {/* レベルアップモーダル（アニメーション完了後に表示） */}
+      {!expAnimating && levelUpPopups.length > 0 && (
         <LevelUpModal
           levelUpInfo={levelUpPopups[0].levelUpInfo}
           onComplete={() => removeLevelUpPopup(levelUpPopups[0].id)}
