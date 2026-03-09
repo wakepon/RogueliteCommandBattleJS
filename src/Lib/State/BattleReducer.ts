@@ -7,7 +7,7 @@ export type BattleAction =
   | { type: 'SELECT_COMMAND'; command: BattleCommand }
   | { type: 'CANCEL_COMMAND' }
   | { type: 'SELECT_TARGET'; targetId: string }
-  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number }
+  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}> }
   | { type: 'NEXT_ACTOR' }
   | { type: 'REMOVE_POPUP'; popupId: string }
   | { type: 'ENEMY_ACTION'; enemyId: string; damage: number; explorer: ExplorerState }
@@ -128,7 +128,32 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         }
       }
 
-      // ダメージがGameReducer側で事前計算されている場合はそれを使う
+      // 全体攻撃: calculatedDamages がある場合
+      if (action.calculatedDamages && action.calculatedDamages.length > 0) {
+        const { enemies } = state
+        const updatedEnemies = enemies.map(enemy => {
+          const dmgEntry = action.calculatedDamages!.find(d => d.targetId === enemy.instanceId)
+          if (dmgEntry) {
+            return { ...enemy, currentHp: Math.max(0, enemy.currentHp - dmgEntry.damage) }
+          }
+          return enemy
+        })
+
+        const newPopups = action.calculatedDamages.map(d => createDamagePopup(d.targetId, d.damage))
+        const { nextIndex, nextTurn } = calculateNextActorIndex(state)
+
+        return {
+          ...state,
+          enemies: updatedEnemies,
+          damagePopups: [...state.damagePopups, ...newPopups],
+          selectedCommand: null,
+          selectedTargetId: null,
+          currentActorIndex: nextIndex,
+          turn: nextTurn,
+        }
+      }
+
+      // 単体攻撃: ダメージがGameReducer側で事前計算されている場合はそれを使う
       const damage = action.calculatedDamage
       if (damage === undefined) {
         return state
