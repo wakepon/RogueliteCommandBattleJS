@@ -96,7 +96,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'CONTINUE_GAME': {
       const { run } = action
       const storeState = createStoreState(run.seed + run.currentStage)
-      return { ...state, phase: 'store', run, storeState }
+      const mapState: MapState = {
+        nodes: generateMapNodes(run.seed),
+        currentStage: run.currentStage,
+      }
+      return { ...state, phase: 'store', run, storeState, mapState }
     }
 
     case 'RETURN_TITLE':
@@ -181,7 +185,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'OPEN_STORE': {
       if (!state.run) return state
       const storeState = createStoreState(state.run.seed + state.run.currentStage)
-      return { ...state, phase: 'store', storeState, resultState: null }
+      const mapState: MapState = {
+        nodes: generateMapNodes(state.run.seed),
+        currentStage: state.run.currentStage,
+      }
+      return { ...state, phase: 'store', storeState, resultState: null, mapState }
     }
 
     case 'BUY_WEAPON': {
