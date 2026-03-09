@@ -2,13 +2,14 @@ import { GameState, ResultState, EventState, MapState, createInitialGameState } 
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
-import { SpellInstance, SpellData } from '../Types/Spell'
+import { SpellData } from '../Types/Spell'
+import { BattleCommand } from '../Types/Battle'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
 import { BattleState } from '../Types/Battle'
 import { createBattleState } from './BattleStateFactory'
 import { battleReducer, BattleAction } from './BattleReducer'
-import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
+import { isSpell, isWeapon, isWeaponInstance, isPotion } from '../Core/CommandValidator'
 import { calculateReward } from '../Core/RewardCalculator'
 import { addExpAndProcessLevelUp, LevelUpInfo } from '../Core/LevelUpCalculator'
 import {
@@ -75,7 +76,7 @@ function consumeWeaponUse(weapon: ExplorerWeapon): ExplorerWeapon {
 /** ExplorerStateのMP/武器使用回数を消費 */
 function consumeCommandCost(
   explorer: ExplorerState,
-  command: ExplorerWeapon | SpellInstance,
+  command: BattleCommand,
   gold: number
 ): { updatedExplorer: ExplorerState; updatedGold: number } {
   if (isWeapon(command)) {
@@ -291,6 +292,41 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
         if (!selectedCommand) {
           return state
+        }
+
+        // ポーションの場合: 効果適用 + potions消費
+        if (isPotion(selectedCommand)) {
+          const newBattleState = battleReducer(state.battleState, battleAction)
+
+          // ポーション効果を適用
+          let updatedExplorer = battleAction.explorer
+          const { effect } = selectedCommand
+          if (effect.type === 'healHp') {
+            updatedExplorer = {
+              ...updatedExplorer,
+              hp: Math.min(updatedExplorer.hp + effect.value, updatedExplorer.maxHp),
+            }
+          } else if (effect.type === 'healMp') {
+            updatedExplorer = {
+              ...updatedExplorer,
+              mp: Math.min(updatedExplorer.mp + effect.value, updatedExplorer.maxMp),
+            }
+          }
+
+          // potionsから1個消費（同名ポーションの最初の1つを削除）
+          const potionIndex = state.run.potions.findIndex(p => p.id === selectedCommand.id)
+          const updatedPotions = state.run.potions.filter((_, i) => i !== potionIndex)
+
+          const newRun: RunState = {
+            ...updatePartyMember(state.run, updatedExplorer),
+            potions: updatedPotions,
+          }
+
+          return {
+            ...state,
+            battleState: newBattleState,
+            run: newRun,
+          }
         }
 
         // BattleReducerで戦闘状態を更新

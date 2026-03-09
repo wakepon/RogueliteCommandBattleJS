@@ -1,12 +1,10 @@
-import { BattleState, DamagePopup, PlayerDamagePopup, LevelUpPopup } from '../Types/Battle'
-import { ExplorerWeapon } from '../Types/Weapon'
-import { SpellInstance } from '../Types/Spell'
+import { BattleState, BattleCommand, DamagePopup, PlayerDamagePopup, LevelUpPopup } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
-import { calculateWeaponDamage, calculateSpellDamage, isSpell, isWeapon, LevelUpInfo } from '../Core'
+import { calculateWeaponDamage, calculateSpellDamage, isSpell, isWeapon, isPotion, LevelUpInfo } from '../Core'
 
 /** バトルアクション型 */
 export type BattleAction =
-  | { type: 'SELECT_COMMAND'; command: ExplorerWeapon | SpellInstance }
+  | { type: 'SELECT_COMMAND'; command: BattleCommand }
   | { type: 'CANCEL_COMMAND' }
   | { type: 'SELECT_TARGET'; targetId: string }
   | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState }
@@ -95,14 +93,28 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
     }
 
     case 'EXECUTE_COMMAND': {
-      const { selectedCommand, selectedTargetId, enemies } = state
+      const { selectedCommand, selectedTargetId } = state
 
       // コマンドまたはターゲットが未選択の場合は何もしない
       if (!selectedCommand || !selectedTargetId) {
         return state
       }
 
+      // ポーションの場合: ダメージなし、ターン消費のみ（効果適用はGameReducer側）
+      if (isPotion(selectedCommand)) {
+        const { nextIndex, nextTurn } = calculateNextActorIndex(state)
+
+        return {
+          ...state,
+          selectedCommand: null,
+          selectedTargetId: null,
+          currentActorIndex: nextIndex,
+          turn: nextTurn,
+        }
+      }
+
       // ターゲットの敵を見つける
+      const { enemies } = state
       const targetEnemy = enemies.find(e => e.instanceId === selectedTargetId)
       if (!targetEnemy) {
         return state

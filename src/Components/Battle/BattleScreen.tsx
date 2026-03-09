@@ -45,6 +45,7 @@ export function BattleScreen() {
     damagePopups,
     playerDamagePopups,
     levelUpPopups,
+    potions,
     selectCommand,
     cancelCommand,
     selectTarget,
@@ -95,8 +96,13 @@ export function BattleScreen() {
     }
   }, [enemies, explorer, endBattle])
 
-  // 全てのコマンド（武器+魔法）
-  const allCommands = [...explorer.weapons, ...explorer.spells]
+  // 同名ポーションを重複排除
+  const uniquePotions = potions.filter((potion, index, arr) =>
+    arr.findIndex(p => p.id === potion.id) === index
+  )
+
+  // 全てのコマンド（武器+魔法+ポーション）
+  const allCommands = [...explorer.weapons, ...explorer.spells, ...uniquePotions]
 
   // 現在のアクターが敵かどうかを判定
   const isEnemyCurrent = (enemy: typeof enemies[0]) => {
@@ -124,8 +130,9 @@ export function BattleScreen() {
         <div className="text-xs text-gray-400 mb-2">enemies</div>
         <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
           {enemies.map((enemy) => {
-            // ターゲット選択中の場合、選択状態を取得
-            const { isSelected, isHighlighted } = isSelectingTarget && selectedCommand
+            // ターゲット選択中かつ敵ターゲットの場合のみ選択状態を取得
+            const isAllyTarget = selectedCommand?.targetType === 'allySingle'
+            const { isSelected, isHighlighted } = isSelectingTarget && selectedCommand && !isAllyTarget
               ? getTargetSelectionState(enemy, selectedTargetId, selectedCommand.targetType)
               : { isSelected: false, isHighlighted: false }
 
@@ -206,6 +213,7 @@ export function BattleScreen() {
             selectedCommand={selectedCommand}
             onSelectCommand={selectCommand}
             disabled={!isPlayerTurn}
+            potions={potions}
           />
         </div>
 
@@ -217,6 +225,7 @@ export function BattleScreen() {
             gold={gold}
             levelUpPopupCount={levelUpPopups.length}
             onExpFillComplete={handleExpFillComplete}
+            isTargeted={selectedCommand?.targetType === 'allySingle'}
           />
 
           {/* プレイヤーダメージポップアップ */}
@@ -240,6 +249,7 @@ export function BattleScreen() {
           selectedTargetId={selectedTargetId}
           targetType={selectedCommand.targetType}
           columns={2}
+          party={party}
           onSelectTarget={selectTarget}
           onConfirm={executeCommand}
           onCancel={cancelCommand}

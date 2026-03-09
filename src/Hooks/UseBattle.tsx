@@ -1,10 +1,9 @@
 import { useCallback } from 'react'
 import { useGame } from './UseGame'
-import { ExplorerWeapon } from '../Lib/Types/Weapon'
-import { SpellInstance } from '../Lib/Types/Spell'
+import { PotionInstance } from '../Lib/Types/Potion'
 import { BattleAction } from '../Lib/State/BattleReducer'
 import { getAvailableCommands, calculateEnemyDamage, processTurnEnd as processTurnEndLogic } from '../Lib/Core'
-import { BattleState, PlayerDamagePopup, LevelUpPopup } from '../Lib/Types/Battle'
+import { BattleState, BattleCommand, PlayerDamagePopup, LevelUpPopup } from '../Lib/Types/Battle'
 import { ExplorerState } from '../Lib/Types/Explorer'
 import { EnemyInstance } from '../Lib/Types/Enemy'
 import { ActorId, DamagePopup } from '../Lib/Types/Battle'
@@ -24,15 +23,16 @@ export interface UseBattleResult {
   isPlayerTurn: boolean
 
   // コマンド選択状態
-  availableCommands: (ExplorerWeapon | SpellInstance)[]
-  selectedCommand: ExplorerWeapon | SpellInstance | null
+  availableCommands: BattleCommand[]
+  selectedCommand: BattleCommand | null
   selectedTargetId: string | null
   damagePopups: DamagePopup[]
   playerDamagePopups: PlayerDamagePopup[]
   levelUpPopups: LevelUpPopup[]
+  potions: PotionInstance[]
 
   // アクション
-  selectCommand: (command: ExplorerWeapon | SpellInstance) => void
+  selectCommand: (command: BattleCommand) => void
   cancelCommand: () => void
   selectTarget: (targetId: string) => void
   executeCommand: () => void
@@ -59,7 +59,7 @@ export function useBattle(): UseBattleResult | null {
   }, [dispatch])
 
   // コマンド選択
-  const selectCommand = useCallback((command: ExplorerWeapon | SpellInstance) => {
+  const selectCommand = useCallback((command: BattleCommand) => {
     dispatchBattle({ type: 'SELECT_COMMAND', command })
   }, [dispatchBattle])
 
@@ -132,9 +132,10 @@ export function useBattle(): UseBattleResult | null {
 
   const explorer = run.party[0]  // MVPでは1人
   const gold = run.gold
+  const potions = run.potions
 
   // 使用可能なコマンド一覧
-  const availableCommands = getAvailableCommands(explorer, gold)
+  const availableCommands = getAvailableCommands(explorer, gold, potions)
 
   // 現在のアクター
   const currentActor = battleState.actionQueue[battleState.currentActorIndex]
@@ -167,6 +168,7 @@ export function useBattle(): UseBattleResult | null {
     damagePopups: battleState.damagePopups,
     playerDamagePopups: battleState.playerDamagePopups,
     levelUpPopups: battleState.levelUpPopups,
+    potions,
 
     // アクション
     selectCommand,

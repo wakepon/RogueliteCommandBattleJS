@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { EnemyInstance } from '../../Lib/Types/Enemy'
+import { ExplorerState } from '../../Lib/Types/Explorer'
 import { TargetType } from '../../Lib/Types/Command'
 
 interface TargetSelectorProps {
@@ -7,6 +8,7 @@ interface TargetSelectorProps {
   selectedTargetId: string | null
   targetType: TargetType
   columns?: number
+  party?: ExplorerState[]
   onSelectTarget: (targetId: string) => void
   onConfirm: () => void
   onCancel: () => void
@@ -22,10 +24,14 @@ export function TargetSelector({
   selectedTargetId,
   targetType,
   columns = 2,
+  party,
   onSelectTarget,
   onConfirm,
   onCancel,
 }: TargetSelectorProps) {
+  // allySingle の場合は味方をターゲット候補にする
+  const isAllyTarget = targetType === 'allySingle'
+
   // 選択可能な敵のリスト（メモ化）
   const selectableEnemies = useMemo(
     () => enemies.filter(isEnemySelectable),
@@ -38,15 +44,21 @@ export function TargetSelector({
   // 初期化フラグ
   const isInitialized = useRef(false)
 
-  // マウント時に最初の敵を選択
+  // マウント時に最初のターゲットを選択
   useEffect(() => {
-    if (!isInitialized.current && selectableEnemies.length > 0) {
-      if (targetType !== 'enemyAll') {
-        onSelectTarget(selectableEnemies[0].instanceId)
+    if (!isInitialized.current) {
+      if (isAllyTarget && party && party.length > 0) {
+        // 味方ターゲット: 最初のパーティメンバーを選択
+        onSelectTarget(party[0].id)
+        isInitialized.current = true
+      } else if (!isAllyTarget && selectableEnemies.length > 0) {
+        if (targetType !== 'enemyAll') {
+          onSelectTarget(selectableEnemies[0].instanceId)
+        }
+        isInitialized.current = true
       }
-      isInitialized.current = true
     }
-  }, [selectableEnemies, targetType, onSelectTarget])
+  }, [selectableEnemies, targetType, onSelectTarget, isAllyTarget, party])
 
   // カーソル位置のRef（循環依存を防ぐため）
   const prevCursorIndex = useRef(cursorIndex)
@@ -76,6 +88,11 @@ export function TargetSelector({
 
   // 確定処理
   const handleConfirm = useCallback(() => {
+    if (isAllyTarget) {
+      // allySingle: 初期化時にselectedTargetIdが設定済み
+      onConfirm()
+      return
+    }
     if (targetType === 'enemyAll') {
       // 全体攻撃の場合、最初の生存敵のIDを渡す
       if (selectableEnemies.length > 0) {
@@ -83,7 +100,7 @@ export function TargetSelector({
       }
     }
     onConfirm()
-  }, [targetType, selectableEnemies, onSelectTarget, onConfirm])
+  }, [isAllyTarget, targetType, selectableEnemies, onSelectTarget, onConfirm])
 
   // キーボード操作
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

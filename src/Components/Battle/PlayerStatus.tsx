@@ -7,11 +7,12 @@ interface PlayerStatusProps {
   gold: number
   levelUpPopupCount: number
   onExpFillComplete?: () => void
+  isTargeted?: boolean
 }
 
-export function PlayerStatus({ explorer, gold, levelUpPopupCount, onExpFillComplete }: PlayerStatusProps) {
+export function PlayerStatus({ explorer, gold, levelUpPopupCount, onExpFillComplete, isTargeted }: PlayerStatusProps) {
   return (
-    <div>
+    <div className={isTargeted ? 'ring-2 ring-lime-400 rounded p-1 -m-1' : ''}>
       {/* 名前とレベル */}
       <div className="flex justify-between items-center mb-2">
         <span className="text-white font-bold text-sm">{explorer.name}</span>
