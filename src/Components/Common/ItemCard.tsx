@@ -14,6 +14,7 @@ interface ItemCardProps {
   showPrice?: boolean
   showSellPrice?: boolean
   sellPrice?: number
+  compact?: boolean
 }
 
 /** レアリティに応じた色を返す */
@@ -160,6 +161,7 @@ export function ItemCard({
   showPrice = false,
   showSellPrice = false,
   sellPrice = 0,
+  compact = false,
 }: ItemCardProps) {
   const rarityColor = getRarityColor(item.rarity)
   const rarityTextColor = getRarityTextColor(item.rarity)
@@ -171,7 +173,8 @@ export function ItemCard({
   return (
     <div
       className={`
-        border-2 rounded-lg p-3 min-w-32
+        border-2 rounded-lg
+        ${compact ? 'p-1.5' : 'p-3 min-w-32'}
         ${rarityColor}
         ${isClickable ? 'cursor-pointer hover:brightness-110 active:brightness-90' : ''}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
@@ -180,24 +183,24 @@ export function ItemCard({
       onClick={isClickable ? onClick : undefined}
     >
       {/* カテゴリ */}
-      <div className="text-xs text-gray-400 mb-1">{category}</div>
+      <div className={`text-gray-400 ${compact ? 'text-[10px] mb-0.5' : 'text-xs mb-1'}`}>{category}</div>
 
       {/* アイテム名 */}
-      <div className={`font-bold ${rarityTextColor}`}>{item.name}</div>
+      <div className={`font-bold ${rarityTextColor} ${compact ? 'text-xs' : ''}`}>{item.name}</div>
 
       {/* 説明 */}
-      <div className="text-xs text-gray-300 mt-1">{description}</div>
+      <div className={`text-gray-300 ${compact ? 'text-[10px] mt-0.5' : 'text-xs mt-1'}`}>{description}</div>
 
       {/* 価格 */}
       {showPrice && (
-        <div className="text-sm text-yellow-400 mt-2 font-semibold">
+        <div className={`text-yellow-400 font-semibold ${compact ? 'text-xs mt-0.5' : 'text-sm mt-2'}`}>
           {item.price} G
         </div>
       )}
 
       {/* 売却価格 */}
       {showSellPrice && (
-        <div className="text-sm text-green-400 mt-2">
+        <div className={`text-green-400 ${compact ? 'text-xs mt-0.5' : 'text-sm mt-2'}`}>
           売却: {sellPrice} G
         </div>
       )}
