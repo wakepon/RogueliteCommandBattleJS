@@ -6,19 +6,19 @@
     "price": 6,
     "commandCategory": "spell",
     "targetType": "enemySingle",
-    "mpCost": 3,
-    "power": 8,
+    "mpCost": 4,
+    "power": 4,
     "effect": null
   },
   "firestorm": {
     "id": "firestorm",
     "name": "ファイアストーム",
     "rarity": "Uncommon",
-    "price": 10,
+    "price": 8,
     "commandCategory": "spell",
     "targetType": "enemyAll",
     "mpCost": 5,
-    "power": 5,
+    "power": 2,
     "effect": null
   },
   "heal": {
@@ -34,5 +34,38 @@
       "type": "heal",
       "value": 15
     }
+  },
+  "ice_bolt": {
+    "id": "ice_bolt",
+    "name": "アイスボルト",
+    "rarity": "Common",
+    "price": 4,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 3,
+    "power": 2,
+    "effect": null
+  },
+  "thunder": {
+    "id": "thunder",
+    "name": "サンダー",
+    "rarity": "Rare",
+    "price": 10,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 7,
+    "power": 6,
+    "effect": null
+  },
+  "blizzard": {
+    "id": "blizzard",
+    "name": "ブリザード",
+    "rarity": "Rare",
+    "price": 12,
+    "commandCategory": "spell",
+    "targetType": "enemyAll",
+    "mpCost": 9,
+    "power": 3,
+    "effect": null
   }
 }
