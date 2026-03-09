@@ -343,11 +343,22 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
 
         let finalExplorer = explorerAfterCost
+
+        // スペルの効果を適用（ヒールなど）
+        if (isSpell(selectedCommand) && selectedCommand.effect) {
+          if (selectedCommand.effect.type === 'heal') {
+            finalExplorer = {
+              ...finalExplorer,
+              hp: Math.min(finalExplorer.hp + selectedCommand.effect.value, finalExplorer.maxHp),
+            }
+          }
+        }
+
         let newLevelUps: LevelUpInfo[] = []
 
         // 敵を倒した場合、経験値加算とレベルアップ処理
         if (defeatedCount > 0) {
-          const levelUpResult = addExpAndProcessLevelUp(explorerAfterCost, defeatedCount)
+          const levelUpResult = addExpAndProcessLevelUp(finalExplorer, defeatedCount)
           finalExplorer = levelUpResult.updatedExplorer
           newLevelUps = levelUpResult.levelUps
 

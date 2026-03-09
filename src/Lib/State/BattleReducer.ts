@@ -113,6 +113,19 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         }
       }
 
+      // 味方対象スペル（ヒールなど）: ダメージなし、ターン消費のみ（効果適用はGameReducer側）
+      if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {
+        const { nextIndex, nextTurn } = calculateNextActorIndex(state)
+
+        return {
+          ...state,
+          selectedCommand: null,
+          selectedTargetId: null,
+          currentActorIndex: nextIndex,
+          turn: nextTurn,
+        }
+      }
+
       // ターゲットの敵を見つける
       const { enemies } = state
       const targetEnemy = enemies.find(e => e.instanceId === selectedTargetId)
