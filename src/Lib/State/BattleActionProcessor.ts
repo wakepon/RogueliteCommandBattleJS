@@ -3,6 +3,7 @@ import { RunState } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { BattleCommand, BattleState } from '../Types/Battle'
+import { SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
 import { battleReducer, BattleAction } from './BattleReducer'
 import { isSpell, isWeapon, isWeaponInstance, isPotion } from '../Core/CommandValidator'
@@ -167,6 +168,11 @@ function executeAttackCommand(
     return executeEnemyAllAttack(state, battleAction, relics, selectedCommand)
   }
 
+  // enemyAll魔法: 全敵にダメージ
+  if (isSpell(selectedCommand) && selectedCommand.targetType === 'enemyAll') {
+    return executeSpellAllAttack(state, battleAction, relics, selectedCommand)
+  }
+
   const isWeaponAttack = isWeapon(selectedCommand)
 
   const targetEnemy = state.battleState.enemies.find(e => e.instanceId === selectedTargetId)
@@ -243,6 +249,73 @@ function executeAttackCommand(
         type: 'UPDATE_RELIC_STATE',
         relicState: { killStreakActive: nextKillStreakActive },
       })
+    }
+  }
+
+  let newLevelUps: LevelUpInfo[] = []
+
+  if (defeatedCount > 0) {
+    const levelUpResult = addExpAndProcessLevelUp(finalExplorer, defeatedCount)
+    finalExplorer = levelUpResult.updatedExplorer
+    newLevelUps = levelUpResult.levelUps
+
+    if (newLevelUps.length > 0) {
+      newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
+    }
+  }
+
+  return {
+    ...state,
+    battleState: newBattleState,
+    run: {
+      ...updatePartyMember(state.run, finalExplorer),
+      gold: updatedGold,
+      battleLevelUps: [...state.run.battleLevelUps, ...newLevelUps],
+    },
+  }
+}
+
+/** enemyAll魔法攻撃を実行 */
+function executeSpellAllAttack(
+  state: GameState,
+  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' },
+  relics: RelicInstance[],
+  spell: SpellData
+): GameState {
+  if (!state.battleState || !state.run) return state
+
+  // 生存中の全敵に対してダメージ計算
+  const aliveEnemies = state.battleState.enemies.filter(e => e.currentHp > 0)
+  if (aliveEnemies.length === 0) {
+    return state
+  }
+  const calculatedDamages = aliveEnemies.map(enemy => {
+    const result = calculateSpellDamage(battleAction.explorer, spell, enemy, {
+      relics,
+    })
+    return { targetId: enemy.instanceId, damage: result.damage }
+  })
+
+  // BattleReducerに全体ダメージを渡す
+  let newBattleState = battleReducer(state.battleState, {
+    ...battleAction,
+    calculatedDamages,
+  })
+
+  // MP消費
+  const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
+    battleAction.explorer, spell, state.run.gold, 0
+  )
+
+  const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
+
+  let finalExplorer = explorerAfterCost
+
+  // スペルの効果を適用（ヒールなど）
+  if (spell.effect?.type === 'heal') {
+    finalExplorer = {
+      ...finalExplorer,
+      hp: Math.min(finalExplorer.hp + spell.effect.value, finalExplorer.maxHp),
     }
   }
 
