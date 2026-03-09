@@ -3,44 +3,84 @@
     "id": "rusty_knife",
     "name": "錆びたナイフ",
     "rarity": "Common",
-    "price": 5,
+    "price": 4,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
-    "power": 5,
+    "power": 3,
     "maxUses": 3
   },
   "short_sword": {
     "id": "short_sword",
     "name": "ショートソード",
     "rarity": "Common",
-    "price": 10,
+    "price": 7,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
-    "power": 8,
-    "maxUses": 6
+    "power": 4,
+    "maxUses": 5
   },
   "iron_sword": {
     "id": "iron_sword",
     "name": "鉄の剣",
     "rarity": "Uncommon",
-    "price": 20,
+    "price": 10,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
-    "power": 12,
-    "maxUses": 7
+    "power": 5,
+    "maxUses": 6
+  },
+  "great_axe": {
+    "id": "great_axe",
+    "name": "大斧",
+    "rarity": "Uncommon",
+    "price": 8,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 7,
+    "maxUses": 3
+  },
+  "greatsword": {
+    "id": "greatsword",
+    "name": "グレートソード",
+    "rarity": "Rare",
+    "price": 12,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 7,
+    "maxUses": 5
+  },
+  "throwing_knife": {
+    "id": "throwing_knife",
+    "name": "投げナイフ",
+    "rarity": "Common",
+    "price": 4,
+    "commandCategory": "weapon",
+    "targetType": "enemyAll",
+    "power": 2,
+    "maxUses": 3
+  },
+  "whirlwind_blade": {
+    "id": "whirlwind_blade",
+    "name": "旋風の刃",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "weapon",
+    "targetType": "enemyAll",
+    "power": 2,
+    "maxUses": 6
   },
   "vampiric_blade": {
     "id": "vampiric_blade",
     "name": "吸血の刃",
     "rarity": "Rare",
-    "price": 50,
+    "price": 9,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
-    "power": 10,
-    "maxUses": 5,
+    "power": 4,
+    "maxUses": 4,
     "effect": {
       "type": "lifesteal",
-      "value": 3
+      "value": 5
     }
   }
 }

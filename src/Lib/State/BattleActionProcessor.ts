@@ -162,12 +162,18 @@ function executeAttackCommand(
   const { selectedCommand, selectedTargetId } = state.battleState
   if (!selectedCommand || !selectedTargetId) return state
 
+  // enemyAll武器: 全敵にダメージ
+  if (isWeapon(selectedCommand) && isWeaponInstance(selectedCommand) && selectedCommand.targetType === 'enemyAll') {
+    return executeEnemyAllAttack(state, battleAction, relics, selectedCommand)
+  }
+
+  const isWeaponAttack = isWeapon(selectedCommand)
+
   const targetEnemy = state.battleState.enemies.find(e => e.instanceId === selectedTargetId)
   if (!targetEnemy) return state
 
   // ダメージ計算
   let calculatedDamage = 0
-  const isWeaponAttack = isWeapon(selectedCommand)
 
   if (isWeaponAttack) {
     const result = calculateWeaponDamage(battleAction.explorer, selectedCommand, targetEnemy, {
@@ -208,6 +214,15 @@ function executeAttackCommand(
     }
   }
 
+  // 武器の lifesteal 効果
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'lifesteal') {
+    const lifestealValue = selectedCommand.effect.value
+    finalExplorer = {
+      ...finalExplorer,
+      hp: Math.min(finalExplorer.hp + lifestealValue, finalExplorer.maxHp),
+    }
+  }
+
   // ストレス発散: パンチ以外の武器攻撃後にMP回復
   if (isWeaponAttack) {
     const mpRecover = getWeaponAttackMpRecover(relics)
@@ -229,6 +244,95 @@ function executeAttackCommand(
         relicState: { killStreakActive: nextKillStreakActive },
       })
     }
+  }
+
+  let newLevelUps: LevelUpInfo[] = []
+
+  if (defeatedCount > 0) {
+    const levelUpResult = addExpAndProcessLevelUp(finalExplorer, defeatedCount)
+    finalExplorer = levelUpResult.updatedExplorer
+    newLevelUps = levelUpResult.levelUps
+
+    if (newLevelUps.length > 0) {
+      newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
+    }
+  }
+
+  return {
+    ...state,
+    battleState: newBattleState,
+    run: {
+      ...updatePartyMember(state.run, finalExplorer),
+      gold: updatedGold,
+      battleLevelUps: [...state.run.battleLevelUps, ...newLevelUps],
+    },
+  }
+}
+
+/** enemyAll武器攻撃を実行 */
+function executeEnemyAllAttack(
+  state: GameState,
+  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' },
+  relics: RelicInstance[],
+  weapon: WeaponInstance
+): GameState {
+  if (!state.battleState || !state.run) return state
+
+  // 生存中の全敵に対してダメージ計算
+  const aliveEnemies = state.battleState.enemies.filter(e => e.currentHp > 0)
+  if (aliveEnemies.length === 0) {
+    return state
+  }
+  const calculatedDamages = aliveEnemies.map(enemy => {
+    const result = calculateWeaponDamage(battleAction.explorer, weapon, enemy, {
+      relics,
+      killStreakActive: state.battleState!.relicState.killStreakActive,
+    })
+    return { targetId: enemy.instanceId, damage: result.damage }
+  })
+
+  // BattleReducerに全体ダメージを渡す
+  let newBattleState = battleReducer(state.battleState, {
+    ...battleAction,
+    calculatedDamages,
+  })
+
+  // コスト消費
+  const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
+  const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
+    battleAction.explorer, weapon, state.run.gold, durabilitySaveChance
+  )
+
+  const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
+
+  let finalExplorer = explorerAfterCost
+
+  // 武器の lifesteal 効果（全体攻撃時は合計ダメージに対して1回）
+  if (weapon.effect?.type === 'lifesteal') {
+    const lifestealValue = weapon.effect.value
+    finalExplorer = {
+      ...finalExplorer,
+      hp: Math.min(finalExplorer.hp + lifestealValue, finalExplorer.maxHp),
+    }
+  }
+
+  // ストレス発散: パンチ以外の武器攻撃後にMP回復
+  const mpRecover = getWeaponAttackMpRecover(relics)
+  if (mpRecover && (!mpRecover.excludeWeaponId || weapon.id !== mpRecover.excludeWeaponId)) {
+    finalExplorer = {
+      ...finalExplorer,
+      mp: Math.min(finalExplorer.mp + mpRecover.value, finalExplorer.maxMp),
+    }
+  }
+
+  // 血染めの手袋: killStreakActive を1度に決定
+  const killedWithWeapon = defeatedCount > 0 && hasRelicEffect(relics, 'killStreakBonus')
+  const nextKillStreakActive = killedWithWeapon
+  if (nextKillStreakActive !== state.battleState.relicState.killStreakActive) {
+    newBattleState = battleReducer(newBattleState, {
+      type: 'UPDATE_RELIC_STATE',
+      relicState: { killStreakActive: nextKillStreakActive },
+    })
   }
 
   let newLevelUps: LevelUpInfo[] = []
