@@ -1,39 +1,53 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ExplorerWeapon, WeaponInstance } from '../../Lib/Types/Weapon'
-import { SpellInstance } from '../../Lib/Types/Spell'
+import { PotionInstance } from '../../Lib/Types/Potion'
+import { BattleCommand } from '../../Lib/Types/Battle'
+import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
 
 interface CommandListProps {
-  commands: (ExplorerWeapon | SpellInstance)[]
-  availableCommands: (ExplorerWeapon | SpellInstance)[]
-  selectedCommand: ExplorerWeapon | SpellInstance | null
-  onSelectCommand: (command: ExplorerWeapon | SpellInstance) => void
+  commands: BattleCommand[]
+  availableCommands: BattleCommand[]
+  selectedCommand: BattleCommand | null
+  onSelectCommand: (command: BattleCommand) => void
   disabled: boolean
+  potions?: PotionInstance[]
 }
 
 // コマンドが使用可能かどうかを判定
 function isCommandAvailableCheck(
-  command: ExplorerWeapon | SpellInstance,
-  availableCommands: (ExplorerWeapon | SpellInstance)[]
+  command: BattleCommand,
+  availableCommands: BattleCommand[]
 ): boolean {
   return availableCommands.some(c => c.id === command.id)
 }
 
-// 武器かどうかを判定
-function isWeapon(command: ExplorerWeapon | SpellInstance): command is ExplorerWeapon {
-  return command.commandCategory === 'weapon'
-}
-
 // 残り使用回数の表示
-function getUsesDisplay(command: ExplorerWeapon | SpellInstance): string {
+function getUsesDisplay(command: BattleCommand, potions?: PotionInstance[]): string {
   if (isWeapon(command)) {
     if (command.maxUses === null) {
       return ''
     }
-    const weapon = command as WeaponInstance
-    return `[${weapon.currentUses}/${weapon.maxUses}]`
+    return `[${command.currentUses}/${command.maxUses}]`
   }
-  const spell = command as SpellInstance
-  return `${spell.mpCost}MP`
+  if (isSpell(command)) {
+    return `${command.mpCost}MP`
+  }
+  if (isPotion(command) && potions) {
+    const count = potions.filter(p => p.id === command.id).length
+    return `×${count}`
+  }
+  return ''
+}
+
+// コマンドカテゴリに応じたアイコンの背景色とラベル
+function getCommandIcon(command: BattleCommand): { bgColor: string; label: string } {
+  switch (command.commandCategory) {
+    case 'weapon':
+      return { bgColor: 'bg-orange-600', label: '剣' }
+    case 'spell':
+      return { bgColor: 'bg-purple-600', label: '魔' }
+    case 'potion':
+      return { bgColor: 'bg-lime-600', label: '薬' }
+  }
 }
 
 export function CommandList({
@@ -42,6 +56,7 @@ export function CommandList({
   selectedCommand,
   onSelectCommand,
   disabled,
+  potions,
 }: CommandListProps) {
   // カーソル位置
   const [cursorIndex, setCursorIndex] = useState(0)
@@ -126,7 +141,8 @@ export function CommandList({
         {commands.map((command, index) => {
           const isAvailable = !disabled && isCommandAvailableCheck(command, availableCommands)
           const isCursor = index === cursorIndex
-          const usesDisplay = getUsesDisplay(command)
+          const usesDisplay = getUsesDisplay(command, potions)
+          const icon = getCommandIcon(command)
 
           return (
             <div
@@ -151,9 +167,9 @@ export function CommandList({
               {/* コマンドカテゴリアイコン */}
               <span className={`
                 w-4 h-4 rounded text-xs flex items-center justify-center
-                ${isWeapon(command) ? 'bg-orange-600' : 'bg-purple-600'}
+                ${icon.bgColor}
               `}>
-                {isWeapon(command) ? '剣' : '魔'}
+                {icon.label}
               </span>
 
               {/* コマンド名 */}

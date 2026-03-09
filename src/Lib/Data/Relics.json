@@ -3,35 +3,105 @@
     "id": "warrior_bracelet",
     "name": "戦士の腕輪",
     "rarity": "Common",
-    "price": 15,
+    "price": 7,
     "passiveEffect": { "type": "statBonus", "stat": "str", "value": 2 }
   },
   "sharp_whetstone": {
     "id": "sharp_whetstone",
     "name": "鋭い砥石",
     "rarity": "Uncommon",
-    "price": 20,
+    "price": 8,
     "passiveEffect": { "type": "weaponDamageBonus", "value": 3 }
   },
   "piggy_bank": {
     "id": "piggy_bank",
     "name": "貯金箱",
     "rarity": "Rare",
-    "price": 25,
+    "price": 10,
     "passiveEffect": { "type": "interestCap", "value": 10 }
   },
   "mage_ring": {
     "id": "mage_ring",
     "name": "魔術師の指輪",
     "rarity": "Common",
-    "price": 15,
+    "price": 7,
     "passiveEffect": { "type": "statBonus", "stat": "int", "value": 2 }
   },
   "swift_boots": {
     "id": "swift_boots",
     "name": "俊足のブーツ",
     "rarity": "Common",
-    "price": 15,
+    "price": 7,
     "passiveEffect": { "type": "statBonus", "stat": "agi", "value": 2 }
+  },
+  "cracked_armor": {
+    "id": "cracked_armor",
+    "name": "壊れかけの鎧",
+    "rarity": "Common",
+    "price": 6,
+    "passiveEffect": { "type": "firstHitShield" }
+  },
+  "weapon_oil": {
+    "id": "weapon_oil",
+    "name": "武器お手入れ用油",
+    "rarity": "Common",
+    "price": 6,
+    "passiveEffect": { "type": "weaponDurabilitySave", "chance": 0.5 }
+  },
+  "stress_relief": {
+    "id": "stress_relief",
+    "name": "ストレス発散",
+    "rarity": "Uncommon",
+    "price": 8,
+    "passiveEffect": { "type": "weaponAttackMpRecover", "value": 3, "excludeWeaponId": "punch" }
+  },
+  "bloodstained_gloves": {
+    "id": "bloodstained_gloves",
+    "name": "血染めの手袋",
+    "rarity": "Uncommon",
+    "price": 7,
+    "passiveEffect": { "type": "killStreakBonus", "multiplier": 1.5 }
+  },
+  "sharpener_card": {
+    "id": "sharpener_card",
+    "name": "研ぎ師の名刺",
+    "rarity": "Common",
+    "price": 6,
+    "passiveEffect": { "type": "lastStrikeDamageMultiplier", "multiplier": 2 }
+  },
+  "focus_crystal": {
+    "id": "focus_crystal",
+    "name": "集中の水晶",
+    "rarity": "Uncommon",
+    "price": 7,
+    "passiveEffect": { "type": "lowMpDamageBonus", "mpThreshold": 0.5, "multiplier": 1.3 }
+  },
+  "counter_thorns": {
+    "id": "counter_thorns",
+    "name": "反撃の棘",
+    "rarity": "Common",
+    "price": 5,
+    "passiveEffect": { "type": "thornsDamage", "value": 3 }
+  },
+  "regen_moss": {
+    "id": "regen_moss",
+    "name": "再生のコケ",
+    "rarity": "Uncommon",
+    "price": 7,
+    "passiveEffect": { "type": "regenPerTurn", "value": 2 }
+  },
+  "fury_flame": {
+    "id": "fury_flame",
+    "name": "怒りの炎",
+    "rarity": "Rare",
+    "price": 8,
+    "passiveEffect": { "type": "lowHpDamageMultiplier", "hpThreshold": 0.3, "multiplier": 1.5 }
+  },
+  "alchemy_catalyst": {
+    "id": "alchemy_catalyst",
+    "name": "錬金術の触媒",
+    "rarity": "Common",
+    "price": 5,
+    "passiveEffect": { "type": "potionEffectMultiplier", "multiplier": 1.5 }
   }
 }

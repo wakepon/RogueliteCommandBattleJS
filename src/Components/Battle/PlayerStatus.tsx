@@ -1,14 +1,18 @@
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { ResourceBar, BuffIcon } from '../Common'
+import { ExpGauge } from './ExpGauge'
 
 interface PlayerStatusProps {
   explorer: ExplorerState
   gold: number
+  levelUpPopupCount: number
+  onExpFillComplete?: () => void
+  isTargeted?: boolean
 }
 
-export function PlayerStatus({ explorer, gold }: PlayerStatusProps) {
+export function PlayerStatus({ explorer, gold, levelUpPopupCount, onExpFillComplete, isTargeted }: PlayerStatusProps) {
   return (
-    <div>
+    <div className={isTargeted ? 'ring-2 ring-lime-400 rounded p-1 -m-1' : ''}>
       {/* 名前とレベル */}
       <div className="flex justify-between items-center mb-2">
         <span className="text-white font-bold text-sm">{explorer.name}</span>
@@ -31,7 +35,7 @@ export function PlayerStatus({ explorer, gold }: PlayerStatusProps) {
       </div>
 
       {/* MP */}
-      <div className="mb-2">
+      <div className="mb-1">
         <div className="flex justify-between text-xs text-gray-400 mb-0.5">
           <span>MP</span>
           <span>{explorer.mp} / {explorer.maxMp}</span>
@@ -42,6 +46,16 @@ export function PlayerStatus({ explorer, gold }: PlayerStatusProps) {
           color="blue"
           showText={false}
           size="sm"
+        />
+      </div>
+
+      {/* EXP */}
+      <div className="mb-2">
+        <ExpGauge
+          exp={explorer.exp}
+          level={explorer.level}
+          levelUpPopupCount={levelUpPopupCount}
+          onFillComplete={onExpFillComplete}
         />
       </div>
 

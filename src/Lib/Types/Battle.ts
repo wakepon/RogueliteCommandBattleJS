@@ -1,7 +1,11 @@
 import { EnemyInstance } from './Enemy'
 import { ExplorerWeapon } from './Weapon'
 import { SpellInstance } from './Spell'
+import { PotionInstance } from './Potion'
 import { LevelUpInfo } from '../Core/LevelUpCalculator'
+
+/** バトルコマンド型（武器・魔法・ポーション） */
+export type BattleCommand = ExplorerWeapon | SpellInstance | PotionInstance
 
 /** アクターID（行動順管理用） */
 export type ActorId =
@@ -33,6 +37,12 @@ export interface LevelUpPopup {
   timestamp: number
 }
 
+/** レリック戦闘内状態 */
+export interface RelicBattleState {
+  shieldActive: boolean      // 壊れかけの鎧
+  killStreakActive: boolean   // 血染めの手袋
+}
+
 /** 戦闘状態 */
 export interface BattleState {
   turn: number
@@ -41,9 +51,10 @@ export interface BattleState {
   actionQueue: ActorId[]
   currentActorIndex: number
   stolenGold: number
+  relicState: RelicBattleState
 
   // UI状態
-  selectedCommand: ExplorerWeapon | SpellInstance | null
+  selectedCommand: BattleCommand | null
   selectedTargetId: string | null
   damagePopups: DamagePopup[]
   playerDamagePopups: PlayerDamagePopup[]

@@ -1,16 +1,13 @@
-import { GameState, ResultState, EventState, createInitialGameState } from '../Types/Game'
+import { GameState, ResultState, EventState, MapState, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
-import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
-import { SpellInstance, SpellData } from '../Types/Spell'
+import { WeaponInstance, WeaponData } from '../Types/Weapon'
+import { SpellData } from '../Types/Spell'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
-import { BattleState } from '../Types/Battle'
 import { createBattleState } from './BattleStateFactory'
 import { battleReducer, BattleAction } from './BattleReducer'
-import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
 import { calculateReward } from '../Core/RewardCalculator'
-import { addExpAndProcessLevelUp, LevelUpInfo } from '../Core/LevelUpCalculator'
 import {
   createStoreState,
   rerollStore,
@@ -26,6 +23,13 @@ import {
   replaceRelic,
   repairWeapons,
 } from '../Core/EventLogic'
+import { generateMapNodes } from '../Core/MapGenerator'
+import { getInterestCapBonus } from '../Core/RelicProcessor'
+import {
+  processExecuteCommand,
+  processEnemyAction,
+  processTurnEndAction,
+} from './BattleActionProcessor'
 
 export type GameAction =
   | { type: 'START_GAME' }
@@ -44,7 +48,6 @@ export type GameAction =
   | { type: 'SELL_POTION'; potionIndex: number }
   | { type: 'REROLL_STORE' }
   | { type: 'CLOSE_STORE' }
-  // イベント関連アクション
   | { type: 'OPEN_EVENT' }
   | { type: 'SELECT_REST' }
   | { type: 'SELECT_TREASURE' }
@@ -55,140 +58,57 @@ export type GameAction =
   | { type: 'TOGGLE_REPAIR_WEAPON'; weaponId: string }
   | { type: 'CONFIRM_REPAIR' }
   | { type: 'CLOSE_EVENT' }
+  | { type: 'ADVANCE_FROM_MAP' }
 
-/** 武器の使用回数を減らす */
-function consumeWeaponUse(weapon: ExplorerWeapon): ExplorerWeapon {
-  // パンチなど currentUses が null の場合は消費しない
-  if (weapon.currentUses === null) {
-    return weapon
-  }
-
-  return {
-    ...weapon,
-    currentUses: weapon.currentUses - 1,
-  } as WeaponInstance
-}
-
-/** ExplorerStateのMP/武器使用回数を消費 */
-function consumeCommandCost(
-  explorer: ExplorerState,
-  command: ExplorerWeapon | SpellInstance,
-  gold: number
-): { updatedExplorer: ExplorerState; updatedGold: number } {
-  if (isWeapon(command)) {
-    // 武器の使用回数を減らす
-    const updatedWeapons = explorer.weapons.map(w => {
-      if (w.id === command.id) {
-        return consumeWeaponUse(w)
-      }
-      return w
-    })
-
-    // goldCostの消費
-    let newGold = gold
-    if (isWeaponInstance(command) && command.goldCost !== undefined) {
-      newGold = gold - command.goldCost
-    }
-
-    return {
-      updatedExplorer: {
-        ...explorer,
-        weapons: updatedWeapons,
-      },
-      updatedGold: newGold,
-    }
-  }
-
-  if (isSpell(command)) {
-    // MPを消費
-    return {
-      updatedExplorer: {
-        ...explorer,
-        mp: explorer.mp - command.mpCost,
-      },
-      updatedGold: gold,
-    }
-  }
-
-  return { updatedExplorer: explorer, updatedGold: gold }
-}
-
-/** RunStateのpartyを更新 */
-function updatePartyMember(run: RunState, updatedExplorer: ExplorerState): RunState {
-  return {
+/** 次のステージへ進みマップ画面に遷移する共通ヘルパー */
+function advanceToMapPhase(state: GameState, run: RunState): GameState {
+  const newStage = run.currentStage + 1
+  const advancedRun: RunState = {
     ...run,
-    party: run.party.map(e =>
-      e.id === updatedExplorer.id ? updatedExplorer : e
-    ),
+    currentStage: newStage,
+    stats: {
+      ...run.stats,
+      maxStageReached: Math.max(run.stats.maxStageReached, newStage),
+    },
   }
-}
-
-/** 敵討伐数をカウント（今回倒した敵の数） */
-function countDefeatedEnemies(
-  previousEnemies: BattleState['enemies'],
-  currentEnemies: BattleState['enemies']
-): number {
-  return currentEnemies.filter((enemy, index) => {
-    const previousEnemy = previousEnemies[index]
-    // 今回のアクションでHPが0以下になった敵をカウント
-    return enemy.currentHp <= 0 && previousEnemy && previousEnemy.currentHp > 0
-  }).length
-}
-
-/** レベルアップポップアップをバトルステートに追加 */
-function addLevelUpPopupsToBattle(
-  battleState: BattleState,
-  levelUps: LevelUpInfo[]
-): BattleState {
-  if (levelUps.length === 0) {
-    return battleState
+  const mapState: MapState = {
+    nodes: generateMapNodes(advancedRun.seed),
+    currentStage: newStage,
   }
-
-  // 最初のレベルアップのみポップアップに追加（順次表示のため）
-  return battleReducer(battleState, {
-    type: 'ADD_LEVEL_UP_POPUP',
-    levelUpInfo: levelUps[0],
-  })
+  return {
+    ...state,
+    phase: 'map',
+    run: advancedRun,
+    mapState,
+    storeState: null,
+    eventState: null,
+  }
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'START_GAME': {
       const run = createInitialRun()
-      const battleState = createBattleState(run.currentStage, run.party, run.seed)
-      return {
-        ...state,
-        phase: 'battle',
-        run,
-        battleState,
-      }
+      const battleState = createBattleState(run.currentStage, run.party, run.seed, run.relics)
+      return { ...state, phase: 'battle', run, battleState }
     }
 
     case 'CONTINUE_GAME': {
       const { run } = action
-      // ストア画面から再開（セーブは戦闘終了後に行われるため）
       const storeState = createStoreState(run.seed + run.currentStage)
-      return {
-        ...state,
-        phase: 'store',
-        run,
-        storeState,
-      }
+      return { ...state, phase: 'store', run, storeState }
     }
 
     case 'RETURN_TITLE':
       return createInitialGameState()
 
     case 'END_BATTLE': {
-      if (!state.battleState || !state.run) {
-        return state
-      }
+      if (!state.battleState || !state.run) return state
 
       if (action.result === 'victory') {
-        // 貯金箱レリック判定
-        const hasPiggyBank = state.run.relics.some(r => r.id === 'piggy_bank')
+        const interestCapBonus = getInterestCapBonus(state.run.relics)
+        const hasPiggyBank = interestCapBonus > 0
 
-        // 報酬計算
         const reward = calculateReward(
           state.battleState.enemies,
           state.run.gold,
@@ -196,10 +116,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           hasPiggyBank
         )
 
-        // 討伐数 = 倒した敵の数
         const killCount = state.battleState.enemies.length
 
-        // ResultState を作成（レベルアップ情報を含む）
         const resultState: ResultState = {
           result: 'victory',
           goldEarned: reward.total,
@@ -210,7 +128,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           levelUps: state.run.battleLevelUps,
         }
 
-        // RunState を更新（ゴールド加算、討伐数更新、レベルアップ情報クリア）
         const newRun: RunState = {
           ...state.run,
           gold: state.run.gold + reward.total,
@@ -219,16 +136,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             totalKillCount: state.run.stats.totalKillCount + killCount,
             totalGoldEarned: state.run.stats.totalGoldEarned + reward.total,
           },
-          battleLevelUps: [], // 次の戦闘のためにクリア
+          battleLevelUps: [],
         }
 
-        return {
-          ...state,
-          phase: 'result',
-          run: newRun,
-          battleState: null,
-          resultState,
-        }
+        return { ...state, phase: 'result', run: newRun, battleState: null, resultState }
       }
 
       // 敗北時
@@ -242,154 +153,55 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         levelUps: [],
       }
 
-      return {
-        ...state,
-        phase: 'result',
-        battleState: null,
-        resultState,
-      }
+      return { ...state, phase: 'result', battleState: null, resultState }
     }
 
     case 'BATTLE_ACTION': {
-      if (!state.battleState || !state.run) {
-        return state
-      }
+      if (!state.battleState || !state.run) return state
 
       const battleAction = action.action
 
-      // EXECUTE_COMMANDの場合はExplorerStateとgoldも更新する
       if (battleAction.type === 'EXECUTE_COMMAND') {
-        const { selectedCommand } = state.battleState
-
-        if (!selectedCommand) {
-          return state
-        }
-
-        // BattleReducerで戦闘状態を更新
-        let newBattleState = battleReducer(state.battleState, battleAction)
-
-        // ExplorerStateとgoldを更新
-        const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
-          battleAction.explorer,
-          selectedCommand,
-          state.run.gold
-        )
-
-        // 敵討伐判定（今回倒した敵の数）
-        const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
-
-        let finalExplorer = explorerAfterCost
-        let newLevelUps: LevelUpInfo[] = []
-
-        // 敵を倒した場合、経験値加算とレベルアップ処理
-        if (defeatedCount > 0) {
-          const levelUpResult = addExpAndProcessLevelUp(explorerAfterCost, defeatedCount)
-          finalExplorer = levelUpResult.updatedExplorer
-          newLevelUps = levelUpResult.levelUps
-
-          // レベルアップポップアップを追加
-          if (newLevelUps.length > 0) {
-            newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
-          }
-        }
-
-        // RunStateを更新
-        const newRun: RunState = {
-          ...updatePartyMember(state.run, finalExplorer),
-          gold: updatedGold,
-          // レベルアップ情報を一時保存（END_BATTLEで使用）
-          battleLevelUps: [...state.run.battleLevelUps, ...newLevelUps],
-        }
-
-        return {
-          ...state,
-          battleState: newBattleState,
-          run: newRun,
-        }
+        return processExecuteCommand(state, battleAction)
       }
 
-      // ENEMY_ACTIONの場合はExplorerのHPを減らす
       if (battleAction.type === 'ENEMY_ACTION') {
-        const newBattleState = battleReducer(state.battleState, battleAction)
-
-        // explorer の HP を減らす
-        const updatedExplorer = {
-          ...battleAction.explorer,
-          hp: Math.max(0, battleAction.explorer.hp - battleAction.damage),
-        }
-
-        const newRun = updatePartyMember(state.run, updatedExplorer)
-
-        return {
-          ...state,
-          battleState: newBattleState,
-          run: newRun,
-        }
+        return processEnemyAction(state, battleAction)
       }
 
-      // PROCESS_TURN_ENDの場合は毒ダメージ等を反映したexplorerを更新
       if (battleAction.type === 'PROCESS_TURN_END') {
-        const newBattleState = battleReducer(state.battleState, battleAction)
-
-        const newRun = updatePartyMember(state.run, battleAction.updatedExplorer)
-
-        return {
-          ...state,
-          battleState: newBattleState,
-          run: newRun,
-        }
+        return processTurnEndAction(state, battleAction)
       }
 
       // その他のBattleActionはそのままBattleReducerに委譲
       const newBattleState = battleReducer(state.battleState, battleAction)
-
-      return {
-        ...state,
-        battleState: newBattleState,
-      }
+      return { ...state, battleState: newBattleState }
     }
 
     case 'OPEN_STORE': {
-      if (!state.run) {
-        return state
-      }
-
+      if (!state.run) return state
       const storeState = createStoreState(state.run.seed + state.run.currentStage)
-
-      return {
-        ...state,
-        phase: 'store',
-        storeState,
-        resultState: null,
-      }
+      return { ...state, phase: 'store', storeState, resultState: null }
     }
 
     case 'BUY_WEAPON': {
-      if (!state.run || !state.storeState) {
-        return state
-      }
+      if (!state.run || !state.storeState) return state
 
       const { slotIndex, item } = action
       const explorer = state.run.party[0]
 
-      // ゴールドが足りない
-      if (state.run.gold < item.price) {
-        return state
-      }
+      if (state.run.gold < item.price) return state
 
-      // WeaponInstanceを作成
       const weaponInstance: WeaponInstance = {
         ...item,
         currentUses: item.maxUses === null ? null : item.maxUses,
       }
 
-      // Explorerの武器を更新
       const updatedExplorer: ExplorerState = {
         ...explorer,
         weapons: [...explorer.weapons, weaponInstance],
       }
 
-      // スロットをnullに
       const newWeaponSlots = [...state.storeState.weaponSlots]
       newWeaponSlots[slotIndex] = null
 
@@ -400,33 +212,23 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold - item.price,
           party: [updatedExplorer, ...state.run.party.slice(1)],
         },
-        storeState: {
-          ...state.storeState,
-          weaponSlots: newWeaponSlots,
-        },
+        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
       }
     }
 
     case 'BUY_SPELL': {
-      if (!state.run || !state.storeState) {
-        return state
-      }
+      if (!state.run || !state.storeState) return state
 
       const { slotIndex, item } = action
       const explorer = state.run.party[0]
 
-      // ゴールドが足りない
-      if (state.run.gold < item.price) {
-        return state
-      }
+      if (state.run.gold < item.price) return state
 
-      // Explorerの魔法を更新
       const updatedExplorer: ExplorerState = {
         ...explorer,
         spells: [...explorer.spells, item],
       }
 
-      // スロットをnullに
       const newWeaponSlots = [...state.storeState.weaponSlots]
       newWeaponSlots[slotIndex] = null
 
@@ -437,26 +239,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold - item.price,
           party: [updatedExplorer, ...state.run.party.slice(1)],
         },
-        storeState: {
-          ...state.storeState,
-          weaponSlots: newWeaponSlots,
-        },
+        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
       }
     }
 
     case 'BUY_RELIC': {
-      if (!state.run || !state.storeState) {
-        return state
-      }
+      if (!state.run || !state.storeState) return state
 
       const { slotIndex, item } = action
+      if (state.run.gold < item.price) return state
 
-      // ゴールドが足りない
-      if (state.run.gold < item.price) {
-        return state
-      }
-
-      // スロットをnullに
       const newRelicSlots = [...state.storeState.relicSlots]
       newRelicSlots[slotIndex] = null
 
@@ -467,26 +259,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold - item.price,
           relics: [...state.run.relics, item],
         },
-        storeState: {
-          ...state.storeState,
-          relicSlots: newRelicSlots,
-        },
+        storeState: { ...state.storeState, relicSlots: newRelicSlots },
       }
     }
 
     case 'BUY_POTION': {
-      if (!state.run || !state.storeState) {
-        return state
-      }
+      if (!state.run || !state.storeState) return state
 
       const { slotIndex, item } = action
+      if (state.run.gold < item.price) return state
 
-      // ゴールドが足りない
-      if (state.run.gold < item.price) {
-        return state
-      }
-
-      // スロットをnullに
       const newRelicSlots = [...state.storeState.relicSlots]
       newRelicSlots[slotIndex] = null
 
@@ -497,28 +279,19 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold - item.price,
           potions: [...state.run.potions, item],
         },
-        storeState: {
-          ...state.storeState,
-          relicSlots: newRelicSlots,
-        },
+        storeState: { ...state.storeState, relicSlots: newRelicSlots },
       }
     }
 
     case 'SELL_WEAPON': {
-      if (!state.run) {
-        return state
-      }
+      if (!state.run) return state
 
       const explorer = state.run.party[0]
       const weapon = explorer.weapons[action.weaponIndex]
 
-      // パンチは売れない
-      if (!weapon || weapon.id === 'punch') {
-        return state
-      }
+      if (!weapon || weapon.id === 'punch') return state
 
       const sellPrice = getSellPrice(weapon)
-
       const updatedExplorer: ExplorerState = {
         ...explorer,
         weapons: explorer.weapons.filter((_, i) => i !== action.weaponIndex),
@@ -535,19 +308,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SELL_SPELL': {
-      if (!state.run) {
-        return state
-      }
+      if (!state.run) return state
 
       const explorer = state.run.party[0]
       const spell = explorer.spells[action.spellIndex]
-
-      if (!spell) {
-        return state
-      }
+      if (!spell) return state
 
       const sellPrice = getSellPriceItem(spell)
-
       const updatedExplorer: ExplorerState = {
         ...explorer,
         spells: explorer.spells.filter((_, i) => i !== action.spellIndex),
@@ -564,15 +331,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SELL_RELIC': {
-      if (!state.run) {
-        return state
-      }
+      if (!state.run) return state
 
       const relic = state.run.relics[action.relicIndex]
-
-      if (!relic) {
-        return state
-      }
+      if (!relic) return state
 
       const sellPrice = getSellPriceItem(relic)
 
@@ -587,15 +349,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SELL_POTION': {
-      if (!state.run) {
-        return state
-      }
+      if (!state.run) return state
 
       const potion = state.run.potions[action.potionIndex]
-
-      if (!potion) {
-        return state
-      }
+      if (!potion) return state
 
       const sellPrice = getSellPriceItem(potion)
 
@@ -610,78 +367,26 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'REROLL_STORE': {
-      if (!state.run || !state.storeState) {
-        return state
-      }
+      if (!state.run || !state.storeState) return state
+      if (state.run.gold < state.storeState.rerollCost) return state
 
-      // ゴールドが足りない
-      if (state.run.gold < state.storeState.rerollCost) {
-        return state
-      }
-
-      // 新しいシードを生成
       const newSeed = state.run.seed + state.run.currentStage + Date.now()
       const newStoreState = rerollStore(state.storeState, newSeed)
 
       return {
         ...state,
-        run: {
-          ...state.run,
-          gold: state.run.gold - state.storeState.rerollCost,
-        },
+        run: { ...state.run, gold: state.run.gold - state.storeState.rerollCost },
         storeState: newStoreState,
       }
     }
 
     case 'CLOSE_STORE': {
-      if (!state.run) {
-        return state
-      }
-
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
-      }
-
-      // イベントステージの場合はイベント画面へ遷移
-      if (isEventStage(newStage)) {
-        const eventState: EventState = {
-          subPhase: 'selecting',
-          revealedRelic: null,
-          selectedWeaponIds: [],
-        }
-
-        return {
-          ...state,
-          phase: 'event',
-          run: newRun,
-          storeState: null,
-          eventState,
-        }
-      }
-
-      // 通常のバトルを開始
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: newRun,
-        battleState,
-        storeState: null,
-      }
+      if (!state.run) return state
+      return advanceToMapPhase(state, state.run)
     }
 
     case 'OPEN_EVENT': {
-      if (!state.run) {
-        return state
-      }
+      if (!state.run) return state
 
       const eventState: EventState = {
         subPhase: 'selecting',
@@ -689,60 +394,21 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         selectedWeaponIds: [],
       }
 
-      return {
-        ...state,
-        phase: 'event',
-        eventState,
-        resultState: null,
-      }
+      return { ...state, phase: 'event', eventState, resultState: null }
     }
 
     case 'SELECT_REST': {
-      if (!state.run || !state.eventState) {
-        return state
-      }
-
-      // パーティメンバーのHPを回復
+      if (!state.run || !state.eventState) return state
       const updatedParty = state.run.party.map(applyRest)
-
-      const newRun: RunState = {
-        ...state.run,
-        party: updatedParty,
-      }
-
-      // 次のステージのバトルへ
-      const newStage = state.run.currentStage + 1
-      const finalRun: RunState = {
-        ...newRun,
-        currentStage: newStage,
-        stats: {
-          ...newRun.stats,
-          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: finalRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, { ...state.run, party: updatedParty })
     }
 
     case 'SELECT_TREASURE': {
-      if (!state.run || !state.eventState) {
-        return state
-      }
+      if (!state.run || !state.eventState) return state
 
-      // ランダムなレリックを取得
       const existingRelicIds = state.run.relics.map(r => r.id)
       const seed = state.run.seed + state.run.currentStage
       const revealedRelic = getRandomRelic(seed, existingRelicIds)
-
-      // レリック枠が満杯かどうかで次のサブフェーズを決定
       const isFull = isRelicSlotFull(state.run.relics)
 
       return {
@@ -756,121 +422,37 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'CONFIRM_TREASURE': {
-      if (!state.run || !state.eventState || !state.eventState.revealedRelic) {
-        return state
-      }
-
-      // レリックを追加
+      if (!state.run || !state.eventState?.revealedRelic) return state
       const newRun = addRelic(state.run, state.eventState.revealedRelic)
-
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const finalRun: RunState = {
-        ...newRun,
-        currentStage: newStage,
-        stats: {
-          ...newRun.stats,
-          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: finalRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, newRun)
     }
 
     case 'CANCEL_TREASURE': {
-      if (!state.run || !state.eventState) {
-        return state
-      }
-
-      // レリックを獲得せずに次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: newRun,
-        battleState,
-        eventState: null,
-      }
+      if (!state.run || !state.eventState) return state
+      return advanceToMapPhase(state, state.run)
     }
 
     case 'REPLACE_RELIC': {
-      if (!state.run || !state.eventState || !state.eventState.revealedRelic) {
-        return state
-      }
-
-      // 既存のレリックを売却して新しいレリックを追加
-      const newRun = replaceRelic(
-        state.run,
-        action.sellRelicId,
-        state.eventState.revealedRelic
-      )
-
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const finalRun: RunState = {
-        ...newRun,
-        currentStage: newStage,
-        stats: {
-          ...newRun.stats,
-          maxStageReached: Math.max(newRun.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, finalRun.party, finalRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: finalRun,
-        battleState,
-        eventState: null,
-      }
+      if (!state.run || !state.eventState?.revealedRelic) return state
+      const newRun = replaceRelic(state.run, action.sellRelicId, state.eventState.revealedRelic)
+      return advanceToMapPhase(state, newRun)
     }
 
     case 'SELECT_REPAIR': {
-      if (!state.run || !state.eventState) {
-        return state
-      }
-
+      if (!state.run || !state.eventState) return state
       return {
         ...state,
-        eventState: {
-          ...state.eventState,
-          subPhase: 'repairSelection',
-          selectedWeaponIds: [],
-        },
+        eventState: { ...state.eventState, subPhase: 'repairSelection', selectedWeaponIds: [] },
       }
     }
 
     case 'TOGGLE_REPAIR_WEAPON': {
-      if (!state.eventState) {
-        return state
-      }
+      if (!state.eventState) return state
 
       const { weaponId } = action
       const { selectedWeaponIds } = state.eventState
       const MAX_REPAIR_COUNT = 2
 
-      // 既に選択されていれば解除
       if (selectedWeaponIds.includes(weaponId)) {
         return {
           ...state,
@@ -881,10 +463,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
-      // 最大数に達している場合は追加しない
-      if (selectedWeaponIds.length >= MAX_REPAIR_COUNT) {
-        return state
-      }
+      if (selectedWeaponIds.length >= MAX_REPAIR_COUNT) return state
 
       return {
         ...state,
@@ -896,70 +475,40 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'CONFIRM_REPAIR': {
-      if (!state.run || !state.eventState) {
-        return state
-      }
+      if (!state.run || !state.eventState) return state
 
       const { selectedWeaponIds } = state.eventState
+      if (selectedWeaponIds.length === 0) return state
 
-      // 選択された武器がなければ何もしない
-      if (selectedWeaponIds.length === 0) {
-        return state
-      }
-
-      // パーティメンバーの武器を修理
       const updatedParty = state.run.party.map(explorer =>
         repairWeapons(explorer, selectedWeaponIds)
       )
 
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        party: updatedParty,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
-      }
-
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: newRun,
-        battleState,
-        eventState: null,
-      }
+      return advanceToMapPhase(state, { ...state.run, party: updatedParty })
     }
 
     case 'CLOSE_EVENT': {
-      if (!state.run) {
-        return state
+      if (!state.run) return state
+      return advanceToMapPhase(state, state.run)
+    }
+
+    case 'ADVANCE_FROM_MAP': {
+      if (!state.run || !state.mapState) return state
+
+      if (isEventStage(state.run.currentStage)) {
+        return {
+          ...state,
+          phase: 'event',
+          eventState: { subPhase: 'selecting', revealedRelic: null, selectedWeaponIds: [] },
+          mapState: null,
+        }
       }
 
-      // 次のステージへ
-      const newStage = state.run.currentStage + 1
-      const newRun: RunState = {
-        ...state.run,
-        currentStage: newStage,
-        stats: {
-          ...state.run.stats,
-          maxStageReached: Math.max(state.run.stats.maxStageReached, newStage),
-        },
-      }
+      const battleState = createBattleState(
+        state.run.currentStage, state.run.party, state.run.seed, state.run.relics
+      )
 
-      const battleState = createBattleState(newStage, newRun.party, newRun.seed)
-
-      return {
-        ...state,
-        phase: 'battle',
-        run: newRun,
-        battleState,
-        eventState: null,
-      }
+      return { ...state, phase: 'battle', battleState, mapState: null }
     }
 
     default:

@@ -37,6 +37,8 @@ interface GameContextType {
   toggleRepairWeapon: (weaponId: string) => void
   confirmRepair: () => void
   closeEvent: () => void
+  // マップ関連アクション
+  advanceFromMap: () => void
 }
 
 const GameContext = createContext<GameContextType | null>(null)
@@ -102,6 +104,8 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'TOGGLE_REPAIR_WEAPON', weaponId }), [])
   const confirmRepair = useCallback(() => dispatch({ type: 'CONFIRM_REPAIR' }), [])
   const closeEvent = useCallback(() => dispatch({ type: 'CLOSE_EVENT' }), [])
+  // マップ関連アクション
+  const advanceFromMap = useCallback(() => dispatch({ type: 'ADVANCE_FROM_MAP' }), [])
 
   // 自動セーブ: ストア画面に「遷移した」ときのみセーブ
   // （ストア画面での買い物ごとにセーブしない）
@@ -148,6 +152,7 @@ export function GameProvider({ children }: GameProviderProps) {
       toggleRepairWeapon,
       confirmRepair,
       closeEvent,
+      advanceFromMap,
     }}>
       {children}
     </GameContext.Provider>

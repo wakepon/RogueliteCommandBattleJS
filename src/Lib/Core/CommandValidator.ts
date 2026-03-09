@@ -1,6 +1,8 @@
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
+import { PotionInstance } from '../Types/Potion'
+import { BattleCommand } from '../Types/Battle'
 
 /**
  * 武器が WeaponInstance かどうかを判定する型ガード
@@ -12,15 +14,22 @@ export function isWeaponInstance(weapon: ExplorerWeapon): weapon is WeaponInstan
 /**
  * コマンドが武器かどうかを判定する型ガード
  */
-export function isWeapon(command: ExplorerWeapon | SpellInstance): command is ExplorerWeapon {
+export function isWeapon(command: BattleCommand): command is ExplorerWeapon {
   return command.commandCategory === 'weapon'
 }
 
 /**
  * コマンドが魔法かどうかを判定する型ガード
  */
-export function isSpell(command: ExplorerWeapon | SpellInstance): command is SpellInstance {
+export function isSpell(command: BattleCommand): command is SpellInstance {
   return command.commandCategory === 'spell'
+}
+
+/**
+ * コマンドがポーションかどうかを判定する型ガード
+ */
+export function isPotion(command: BattleCommand): command is PotionInstance {
+  return command.commandCategory === 'potion'
 }
 
 /**
@@ -79,7 +88,7 @@ function isSpellAvailable(spell: SpellInstance, explorer: ExplorerState): boolea
  * @returns 使用可能な場合 true
  */
 export function isCommandAvailable(
-  command: ExplorerWeapon | SpellInstance,
+  command: BattleCommand,
   explorer: ExplorerState,
   gold: number
 ): boolean {
@@ -89,6 +98,11 @@ export function isCommandAvailable(
 
   if (isSpell(command)) {
     return isSpellAvailable(command, explorer)
+  }
+
+  if (isPotion(command)) {
+    // ポーションは所持していれば常に使用可能
+    return true
   }
 
   // ここには到達しないはず
@@ -104,8 +118,9 @@ export function isCommandAvailable(
  */
 export function getAvailableCommands(
   explorer: ExplorerState,
-  gold: number
-): (ExplorerWeapon | SpellInstance)[] {
+  gold: number,
+  potions: PotionInstance[] = []
+): BattleCommand[] {
   const availableWeapons = explorer.weapons.filter(weapon =>
     isWeaponAvailable(weapon, gold)
   )
@@ -114,5 +129,10 @@ export function getAvailableCommands(
     isSpellAvailable(spell, explorer)
   )
 
-  return [...availableWeapons, ...availableSpells]
+  // 同名ポーションは重複排除して1つだけ返す（個数はUI側で計算）
+  const uniquePotions = potions.filter((potion, index, arr) =>
+    arr.findIndex(p => p.id === potion.id) === index
+  )
+
+  return [...availableWeapons, ...availableSpells, ...uniquePotions]
 }

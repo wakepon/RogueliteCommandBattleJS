@@ -95,7 +95,7 @@ describe('DamageCalculator', () => {
       const enemy = createMockEnemy()
 
       // ブレ補正を1.0に固定してテスト
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 1.0)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
 
       // 5 × 5 × 1.0 = 25
       expect(result.damage).toBe(25)
@@ -108,8 +108,8 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const weakResult = calculateWeaponDamage(weakExplorer, weapon, enemy, 1.0)
-      const strongResult = calculateWeaponDamage(strongExplorer, weapon, enemy, 1.0)
+      const weakResult = calculateWeaponDamage(weakExplorer, weapon, enemy, { randomFactor: 1.0 })
+      const strongResult = calculateWeaponDamage(strongExplorer, weapon, enemy, { randomFactor: 1.0 })
 
       // 3 × 5 = 15, 10 × 5 = 50
       expect(weakResult.damage).toBe(15)
@@ -122,8 +122,8 @@ describe('DamageCalculator', () => {
       const strongWeapon = createMockWeapon({ power: 10 })
       const enemy = createMockEnemy()
 
-      const weakResult = calculateWeaponDamage(explorer, weakWeapon, enemy, 1.0)
-      const strongResult = calculateWeaponDamage(explorer, strongWeapon, enemy, 1.0)
+      const weakResult = calculateWeaponDamage(explorer, weakWeapon, enemy, { randomFactor: 1.0 })
+      const strongResult = calculateWeaponDamage(explorer, strongWeapon, enemy, { randomFactor: 1.0 })
 
       // 5 × 2 = 10, 5 × 10 = 50
       expect(weakResult.damage).toBe(10)
@@ -135,7 +135,7 @@ describe('DamageCalculator', () => {
       const punch = createMockPunch()
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, punch, enemy, 1.0)
+      const result = calculateWeaponDamage(explorer, punch, enemy, { randomFactor: 1.0 })
 
       // 5 × 1 × 1.0 = 5
       expect(result.damage).toBe(5)
@@ -146,7 +146,7 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 10 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 0.9)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 0.9 })
 
       // 10 × 10 × 0.9 = 90
       expect(result.damage).toBe(90)
@@ -157,7 +157,7 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 10 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 1.1)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.1 })
 
       // 10 × 10 × 1.1 = 110
       expect(result.damage).toBe(110)
@@ -171,7 +171,7 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 1.0)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
 
       // 5 × 5 × 1.2 (バフ倍率) × 1.0 = 30
       expect(result.damage).toBe(30)
@@ -188,7 +188,7 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 1.0)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
 
       // 5 × 5 × 1.5 (2+3=5, 5×0.1=0.5, 1+0.5=1.5) × 1.0 = 37.5 → 37
       expect(result.damage).toBe(37)
@@ -202,7 +202,7 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 1.0)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
 
       // INTバフは無視される: 5 × 5 × 1.0 × 1.0 = 25
       expect(result.damage).toBe(25)
@@ -214,7 +214,7 @@ describe('DamageCalculator', () => {
       const enemy = createMockEnemy()
 
       // 3 × 3 × 0.95 = 8.55 → 8
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 0.95)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 0.95 })
 
       expect(result.damage).toBe(8)
     })
@@ -224,7 +224,7 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, 1.0)
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
 
       // 0 × 5 = 0
       expect(result.damage).toBe(0)
@@ -237,7 +237,7 @@ describe('DamageCalculator', () => {
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, spell, enemy, 1.0)
+      const result = calculateSpellDamage(explorer, spell, enemy, { randomFactor: 1.0 })
 
       // 5 × 8 × 1.0 = 40
       expect(result.damage).toBe(40)
@@ -250,8 +250,8 @@ describe('DamageCalculator', () => {
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const weakResult = calculateSpellDamage(weakExplorer, spell, enemy, 1.0)
-      const strongResult = calculateSpellDamage(strongExplorer, spell, enemy, 1.0)
+      const weakResult = calculateSpellDamage(weakExplorer, spell, enemy, { randomFactor: 1.0 })
+      const strongResult = calculateSpellDamage(strongExplorer, spell, enemy, { randomFactor: 1.0 })
 
       // 3 × 8 = 24, 10 × 8 = 80
       expect(weakResult.damage).toBe(24)
@@ -266,7 +266,7 @@ describe('DamageCalculator', () => {
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, spell, enemy, 1.0)
+      const result = calculateSpellDamage(explorer, spell, enemy, { randomFactor: 1.0 })
 
       // 5 × 8 × 1.2 (バフ倍率) × 1.0 = 48
       expect(result.damage).toBe(48)
@@ -280,7 +280,7 @@ describe('DamageCalculator', () => {
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, spell, enemy, 1.0)
+      const result = calculateSpellDamage(explorer, spell, enemy, { randomFactor: 1.0 })
 
       // STRバフは無視される: 5 × 8 × 1.0 × 1.0 = 40
       expect(result.damage).toBe(40)
@@ -296,7 +296,7 @@ describe('DamageCalculator', () => {
       })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, healSpell, enemy, 1.0)
+      const result = calculateSpellDamage(explorer, healSpell, enemy, { randomFactor: 1.0 })
 
       // 10 × 0 = 0
       expect(result.damage).toBe(0)

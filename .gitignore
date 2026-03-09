@@ -32,3 +32,6 @@ RawData/
 
 # Claude settings
 .claude/settings.local.json
+
+# Claude Plans
+Spec/Plan/

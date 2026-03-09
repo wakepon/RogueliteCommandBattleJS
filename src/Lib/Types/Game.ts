@@ -5,9 +5,32 @@ import { WeaponData } from './Weapon'
 import { SpellData } from './Spell'
 import { RelicData } from './Relic'
 import { PotionData } from './Potion'
+import { EnemyType } from './Enemy'
 
 // ゲームフェーズ
-export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result'
+export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result' | 'map'
+
+/** マップノードのタイプ */
+export type MapNodeType = 'battle' | 'event' | 'boss'
+
+/** マップ上の敵プレビュー情報 */
+export interface EnemyPreview {
+  enemyId: string
+  type: EnemyType
+}
+
+/** マップノード */
+export interface MapNode {
+  stage: number
+  nodeType: MapNodeType
+  enemies: EnemyPreview[]
+}
+
+/** マップ状態 */
+export interface MapState {
+  nodes: MapNode[]
+  currentStage: number
+}
 
 /** イベント画面のサブフェーズ */
 export type EventSubPhase =
@@ -52,6 +75,7 @@ export interface GameState {
   storeState: StoreState | null
   resultState: ResultState | null
   eventState: EventState | null
+  mapState: MapState | null
 }
 
 // 初期GameState
@@ -63,5 +87,6 @@ export function createInitialGameState(): GameState {
     storeState: null,
     resultState: null,
     eventState: null,
+    mapState: null,
   }
 }
