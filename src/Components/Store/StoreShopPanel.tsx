@@ -1,4 +1,5 @@
 import { ItemCard } from '../Common/ItemCard'
+import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RunState } from '../../Lib/Types/Run'
 import { StoreState } from '../../Lib/Types/Game'
@@ -162,6 +163,7 @@ export function StoreShopPanel({
                       ? 'border-gray-500 bg-gray-800 cursor-pointer hover:bg-gray-700'
                       : 'border-gray-700 bg-gray-900'
                   }`}
+                  title={getItemTooltip(weapon)}
                   onClick={canSell ? () => sellWeapon(index) : undefined}
                 >
                   <div className="flex justify-between items-center">
@@ -192,6 +194,7 @@ export function StoreShopPanel({
                   <div
                     key={`owned-spell-${index}`}
                     className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
+                    title={getItemTooltip(spell)}
                     onClick={() => sellSpell(index)}
                   >
                     <div className="flex justify-between items-center">
@@ -219,6 +222,7 @@ export function StoreShopPanel({
                   <div
                     key={`owned-relic-${index}`}
                     className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
+                    title={getItemTooltip(relic)}
                     onClick={() => sellRelic(index)}
                   >
                     <div className="text-white">{relic.name}</div>
@@ -243,6 +247,7 @@ export function StoreShopPanel({
                   <div
                     key={`owned-potion-${index}`}
                     className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
+                    title={getItemTooltip(potion)}
                     onClick={() => sellPotion(index)}
                   >
                     <div className="text-white">{potion.name}</div>

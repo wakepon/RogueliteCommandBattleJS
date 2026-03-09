@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { PotionInstance } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
+import { getCommandTooltip } from '../../Lib/Utils/ItemDescription'
 
 interface CommandListProps {
   commands: BattleCommand[]
@@ -153,6 +154,7 @@ export function CommandList({
                   onSelectCommand(command)
                 }
               }}
+              title={getCommandTooltip(command)}
               className={`
                 flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-sm
                 ${isCursor ? 'bg-yellow-600 text-white' : 'text-gray-300'}
@@ -173,7 +175,12 @@ export function CommandList({
               </span>
 
               {/* コマンド名 */}
-              <span className="flex-1">{command.name}</span>
+              <span className="flex-1">
+                {command.name}
+                {command.targetType === 'enemyAll' && (
+                  <span className="text-[10px] bg-red-700 text-white px-1 rounded ml-1">全体</span>
+                )}
+              </span>
 
               {/* 使用回数/MP */}
               {usesDisplay && (
