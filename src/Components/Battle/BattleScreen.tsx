@@ -10,6 +10,7 @@ import { CommandList } from './CommandList'
 import { TargetSelector, getTargetSelectionState } from './TargetSelector'
 import { DamagePopup } from './DamagePopup'
 import { LevelUpModal } from './LevelUpModal'
+import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
 
 // 敵ターンをスキップするまでの遅延（ミリ秒）
 const ENEMY_TURN_DELAY_MS = 500
@@ -192,7 +193,7 @@ export function BattleScreen() {
                 <div
                   key={`relic-${index}`}
                   className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-xs text-white"
-                  title={relic.name}
+                  title={getItemTooltip(relic)}
                 >
                   ?
                 </div>

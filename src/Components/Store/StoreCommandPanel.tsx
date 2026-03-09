@@ -1,4 +1,5 @@
 import { ExplorerState } from '../../Lib/Types/Explorer'
+import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
 
 interface StoreCommandPanelProps {
   explorer: ExplorerState
@@ -23,12 +24,16 @@ export function StoreCommandPanel({ explorer }: StoreCommandPanelProps) {
       name: w.name,
       category: 'weapon' as const,
       detail: w.currentUses !== null ? `[${w.currentUses}/${w.maxUses}]` : '',
+      targetType: w.targetType,
+      tooltip: getItemTooltip(w),
     })),
     ...explorer.spells.map(s => ({
       id: s.id,
       name: s.name,
       category: 'spell' as const,
       detail: `${s.mpCost}MP`,
+      targetType: s.targetType,
+      tooltip: getItemTooltip(s),
     })),
   ]
 
@@ -42,6 +47,7 @@ export function StoreCommandPanel({ explorer }: StoreCommandPanelProps) {
             <div
               key={`${command.id}-${index}`}
               className="flex items-center gap-2 px-2 py-1 rounded text-sm text-gray-300 cursor-not-allowed"
+              title={command.tooltip}
             >
               {/* カーソルインジケーター（非表示） */}
               <span className="w-4 text-transparent">▶</span>
@@ -52,7 +58,12 @@ export function StoreCommandPanel({ explorer }: StoreCommandPanelProps) {
               </span>
 
               {/* コマンド名 */}
-              <span className="flex-1">{command.name}</span>
+              <span className="flex-1">
+                {command.name}
+                {command.targetType === 'enemyAll' && (
+                  <span className="text-[10px] bg-red-700 text-white px-1 rounded ml-1">全体</span>
+                )}
+              </span>
 
               {/* 使用回数/MP */}
               {command.detail && (
