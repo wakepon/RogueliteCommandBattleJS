@@ -47,15 +47,34 @@ function getRarityTextColor(rarity: Rarity): string {
 /** パッシブ効果の説明を生成 */
 function getPassiveEffectDescription(effect: PassiveEffectType): string {
   switch (effect.type) {
-    case 'statBonus':
+    case 'statBonus': {
       const statName = effect.stat === 'str' ? 'STR' : effect.stat === 'int' ? 'INT' : 'AGI'
       return `${statName} +${effect.value}`
+    }
     case 'weaponDamageBonus':
       return `武器ダメージ +${effect.value}`
     case 'interestCap':
       return `利子上限 ${effect.value}G`
     case 'lowHpDamageMultiplier':
-      return `HP${effect.hpThreshold}%以下でダメージx${effect.multiplier}`
+      return `HP${Math.floor(effect.hpThreshold * 100)}%以下でダメージx${effect.multiplier}`
+    case 'firstHitShield':
+      return '最初の一撃を無効化（バトルごとに1回）'
+    case 'weaponDurabilitySave':
+      return `武器使用時、${Math.floor(effect.chance * 100)}%の確率で耐久値を消費しない`
+    case 'weaponAttackMpRecover':
+      return `武器攻撃時MP${effect.value}回復（パンチ除く）`
+    case 'killStreakBonus':
+      return `武器で敵を倒すと次の武器攻撃${effect.multiplier}倍`
+    case 'lastStrikeDamageMultiplier':
+      return `武器が壊れる直前の一振りはダメージ${effect.multiplier}倍`
+    case 'lowMpDamageBonus':
+      return `MP半分以下で魔法ダメージ+${Math.floor((effect.multiplier - 1) * 100)}%`
+    case 'thornsDamage':
+      return `被弾時に敵に${effect.value}ダメージ`
+    case 'regenPerTurn':
+      return `毎ターンHP${effect.value}回復`
+    case 'potionEffectMultiplier':
+      return `ポーション効果${effect.multiplier}倍`
   }
 }
 

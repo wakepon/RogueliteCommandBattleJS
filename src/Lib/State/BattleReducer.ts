@@ -1,13 +1,13 @@
-import { BattleState, BattleCommand, DamagePopup, PlayerDamagePopup, LevelUpPopup } from '../Types/Battle'
+import { BattleState, BattleCommand, DamagePopup, PlayerDamagePopup, LevelUpPopup, RelicBattleState } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
-import { calculateWeaponDamage, calculateSpellDamage, isSpell, isWeapon, isPotion, LevelUpInfo } from '../Core'
+import { isSpell, isPotion, LevelUpInfo } from '../Core'
 
 /** バトルアクション型 */
 export type BattleAction =
   | { type: 'SELECT_COMMAND'; command: BattleCommand }
   | { type: 'CANCEL_COMMAND' }
   | { type: 'SELECT_TARGET'; targetId: string }
-  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState }
+  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number }
   | { type: 'NEXT_ACTOR' }
   | { type: 'REMOVE_POPUP'; popupId: string }
   | { type: 'ENEMY_ACTION'; enemyId: string; damage: number; explorer: ExplorerState }
@@ -15,6 +15,8 @@ export type BattleAction =
   | { type: 'PROCESS_TURN_END'; poisonDamage: number; updatedExplorer: ExplorerState }
   | { type: 'ADD_LEVEL_UP_POPUP'; levelUpInfo: LevelUpInfo }
   | { type: 'REMOVE_LEVEL_UP_POPUP'; popupId: string }
+  | { type: 'UPDATE_RELIC_STATE'; relicState: Partial<RelicBattleState> }
+  | { type: 'UPDATE_ENEMIES'; enemies: BattleState['enemies'] }
 
 /** ユニークIDを生成 */
 function generatePopupId(): string {
@@ -126,22 +128,16 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         }
       }
 
+      // ダメージがGameReducer側で事前計算されている場合はそれを使う
+      const damage = action.calculatedDamage
+      if (damage === undefined) {
+        return state
+      }
+
       // ターゲットの敵を見つける
       const { enemies } = state
       const targetEnemy = enemies.find(e => e.instanceId === selectedTargetId)
       if (!targetEnemy) {
-        return state
-      }
-
-      // ダメージ計算
-      let damage: number
-      if (isWeapon(selectedCommand)) {
-        const result = calculateWeaponDamage(action.explorer, selectedCommand, targetEnemy)
-        damage = result.damage
-      } else if (isSpell(selectedCommand)) {
-        const result = calculateSpellDamage(action.explorer, selectedCommand, targetEnemy)
-        damage = result.damage
-      } else {
         return state
       }
 
@@ -233,6 +229,23 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       return {
         ...state,
         levelUpPopups: state.levelUpPopups.filter(popup => popup.id !== action.popupId),
+      }
+    }
+
+    case 'UPDATE_RELIC_STATE': {
+      return {
+        ...state,
+        relicState: {
+          ...state.relicState,
+          ...action.relicState,
+        },
+      }
+    }
+
+    case 'UPDATE_ENEMIES': {
+      return {
+        ...state,
+        enemies: action.enemies,
       }
     }
 

@@ -37,6 +37,12 @@ export interface LevelUpPopup {
   timestamp: number
 }
 
+/** レリック戦闘内状態 */
+export interface RelicBattleState {
+  shieldActive: boolean      // 壊れかけの鎧
+  killStreakActive: boolean   // 血染めの手袋
+}
+
 /** 戦闘状態 */
 export interface BattleState {
   turn: number
@@ -45,6 +51,7 @@ export interface BattleState {
   actionQueue: ActorId[]
   currentActorIndex: number
   stolenGold: number
+  relicState: RelicBattleState
 
   // UI状態
   selectedCommand: BattleCommand | null

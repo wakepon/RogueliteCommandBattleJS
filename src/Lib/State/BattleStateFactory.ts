@@ -1,6 +1,8 @@
-import { BattleState, ActorId } from '../Types/Battle'
+import { BattleState, ActorId, RelicBattleState } from '../Types/Battle'
 import { EnemyInstance, EnemyData } from '../Types/Enemy'
 import { ExplorerState } from '../Types/Explorer'
+import { RelicInstance } from '../Types/Relic'
+import { hasRelicEffect, getStatBonus } from '../Core/RelicProcessor'
 import EnemiesData from '../Data/Enemies.json'
 import StagePatternsData from '../Data/StagePatterns.json'
 
@@ -66,15 +68,18 @@ function getTurnLimitForStage(stage: number): number {
   return pattern?.turnLimit ?? DEFAULT_TURN_LIMIT
 }
 
-// アクターをAgi順でソート
+// アクターをAgi順でソート（レリックのAGIボーナスを反映）
 function sortActorsByAgi(
   party: ExplorerState[],
-  enemies: EnemyInstance[]
+  enemies: EnemyInstance[],
+  relics: RelicInstance[] = []
 ): ActorId[] {
-  // Explorerのアクター
+  const agiBonus = getStatBonus(relics, 'agi')
+
+  // Explorerのアクター（AGIボーナス加算）
   const explorerActors: { actorId: ActorId; agi: number }[] = party.map(e => ({
     actorId: { type: 'explorer' as const, id: e.id },
-    agi: e.agi,
+    agi: e.agi + agiBonus,
   }))
 
   // Enemyのアクター
@@ -90,14 +95,23 @@ function sortActorsByAgi(
   return allActors.map(actor => actor.actorId)
 }
 
+/** レリック戦闘状態を初期化 */
+function createRelicBattleState(relics: RelicInstance[]): RelicBattleState {
+  return {
+    shieldActive: hasRelicEffect(relics, 'firstHitShield'),
+    killStreakActive: false,
+  }
+}
+
 /** バトル状態を生成 */
 export function createBattleState(
   stage: number,
   party: ExplorerState[],
-  seed: number
+  seed: number,
+  relics: RelicInstance[] = []
 ): BattleState {
   const enemies = getEnemiesForStage(stage, seed)
-  const actionQueue = sortActorsByAgi(party, enemies)
+  const actionQueue = sortActorsByAgi(party, enemies, relics)
   const turnLimit = getTurnLimitForStage(stage)
 
   return {
@@ -107,6 +121,7 @@ export function createBattleState(
     actionQueue,
     currentActorIndex: 0,
     stolenGold: 0,
+    relicState: createRelicBattleState(relics),
     selectedCommand: null,
     selectedTargetId: null,
     damagePopups: [],
