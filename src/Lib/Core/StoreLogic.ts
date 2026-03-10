@@ -19,7 +19,7 @@ const potionsData = PotionsData as Record<string, PotionData>
 // 定数
 const WEAPON_SLOT_COUNT = 3
 const RELIC_SLOT_COUNT = 3
-const BASE_REROLL_COST = 5
+const BASE_REROLL_COST = 3
 const MAX_RELIC_COUNT = 5
 const MAX_POTION_COUNT = 2
 const MAX_WEAPON_COUNT = 4  // パンチ含む
@@ -132,7 +132,7 @@ export function rerollStore(storeState: StoreState, seed: number): StoreState {
   return {
     weaponSlots: generateWeaponSlotItems(seed),
     relicSlots: generateRelicSlotItems(seed),
-    rerollCost: storeState.rerollCost,
+    rerollCost: storeState.rerollCost + 1,
   }
 }
 

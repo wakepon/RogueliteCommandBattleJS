@@ -15,6 +15,9 @@ import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
 // 敵ターンをスキップするまでの遅延（ミリ秒）
 const ENEMY_TURN_DELAY_MS = 500
 
+// メッセージバナーの表示時間（ミリ秒）
+const MESSAGE_DISPLAY_MS = 1500
+
 export function BattleScreen() {
   const { state, returnToTitle, endBattle } = useGame()
   const battle = useBattle()
@@ -56,6 +59,22 @@ export function BattleScreen() {
     removePlayerPopup,
     removeLevelUpPopup,
   } = battle
+
+  // メッセージバナー表示状態
+  const [visibleMessage, setVisibleMessage] = useState<string | null>(null)
+  const [messageVisible, setMessageVisible] = useState(false)
+
+  // battleMessageが変わったらバナーを表示（IDで変化を検知）
+  useEffect(() => {
+    if (battleState.battleMessage) {
+      setVisibleMessage(battleState.battleMessage)
+      setMessageVisible(true)
+      const timer = setTimeout(() => {
+        setMessageVisible(false)
+      }, MESSAGE_DISPLAY_MS)
+      return () => clearTimeout(timer)
+    }
+  }, [battleState.battleMessageId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 経験値アニメーション状態
   const [expAnimating, setExpAnimating] = useState(false)
@@ -129,6 +148,17 @@ export function BattleScreen() {
       {/* 2. 敵エリア（大きなメインエリア） */}
       <div className="flex-1 bg-gray-900 border border-gray-600 p-3 rounded-lg mb-3 relative min-h-[160px] flex flex-col">
         <div className="text-xs text-gray-400 mb-2">enemies</div>
+
+        {/* 敵行動メッセージバナー */}
+        {visibleMessage && (
+          <div
+            className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-gray-800 border border-gray-500 px-4 py-1.5 rounded-lg text-white text-sm font-bold shadow-lg transition-opacity duration-300 ${
+              messageVisible ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {visibleMessage}
+          </div>
+        )}
         <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
           {enemies.map((enemy) => {
             // ターゲット選択中かつ敵ターゲットの場合のみ選択状態を取得

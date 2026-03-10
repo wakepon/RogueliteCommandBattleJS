@@ -1,6 +1,11 @@
 import { Buff, Debuff } from '../Types/Explorer'
 
 /**
+ * 毒の1ティックあたりの固定ダメージ
+ */
+const POISON_DAMAGE_PER_TICK = 2
+
+/**
  * 力溜めバフのタイプ名
  */
 const CHARGE_BUFF_TYPE = 'charge'
@@ -14,7 +19,7 @@ const CHARGE_MULTIPLIER = 2.0
  * 毒ダメージを計算し、スタックを1減少させる
  * @param debuffs - 現在のデバフ配列
  * @returns { damage: number, updatedDebuffs: Debuff[] }
- * - damage: スタック数がそのままダメージ量
+ * - damage: 固定2ダメージ（毒がある場合）
  * - updatedDebuffs: スタックを-1した配列（0になったら削除）
  */
 export function processPoisonDamage(debuffs: Debuff[]): {
@@ -30,7 +35,7 @@ export function processPoisonDamage(debuffs: Debuff[]): {
     }
   }
 
-  const damage = poisonDebuff.stacks
+  const damage = POISON_DAMAGE_PER_TICK
   const newStacks = poisonDebuff.stacks - 1
 
   // スタックが0以下になったら削除

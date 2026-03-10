@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useGame } from './UseGame'
 import { PotionInstance } from '../Lib/Types/Potion'
 import { BattleAction } from '../Lib/State/BattleReducer'
-import { getAvailableCommands, calculateEnemyDamage, processTurnEnd as processTurnEndLogic } from '../Lib/Core'
+import { getAvailableCommands, selectEnemyAction, processTurnEnd as processTurnEndLogic } from '../Lib/Core'
 import { BattleState, BattleCommand, PlayerDamagePopup, LevelUpPopup } from '../Lib/Types/Battle'
 import { ExplorerState } from '../Lib/Types/Explorer'
 import { EnemyInstance } from '../Lib/Types/Enemy'
@@ -90,14 +90,20 @@ export function useBattle(): UseBattleResult | null {
     const enemy = battleState.enemies.find(e => e.instanceId === enemyId)
     if (!enemy || enemy.currentHp <= 0) return
 
-    const damage = calculateEnemyDamage(enemy)
     const currentExplorer = run.party[0]
+    const actionResult = selectEnemyAction(enemy, currentExplorer)
 
     dispatchBattle({
       type: 'ENEMY_ACTION',
       enemyId,
-      damage,
+      damage: actionResult.damage,
       explorer: currentExplorer,
+      actionName: actionResult.actionName,
+      poisonStacks: actionResult.poisonStacks,
+      mpDrain: actionResult.mpDrain,
+      applyCharge: actionResult.applyCharge,
+      consumeCharge: actionResult.consumeCharge,
+      hits: actionResult.hits,
     })
   }, [battleState, run, dispatchBattle])
 

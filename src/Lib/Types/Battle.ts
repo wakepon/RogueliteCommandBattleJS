@@ -59,4 +59,6 @@ export interface BattleState {
   damagePopups: DamagePopup[]
   playerDamagePopups: PlayerDamagePopup[]
   levelUpPopups: LevelUpPopup[]
+  battleMessage: string | null
+  battleMessageId: number
 }
