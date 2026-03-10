@@ -212,14 +212,6 @@ function executeAttackCommand(
 
   let finalExplorer = explorerAfterCost
 
-  // スペルの効果を適用（ヒールなど）
-  if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'heal') {
-    finalExplorer = {
-      ...finalExplorer,
-      hp: Math.min(finalExplorer.hp + selectedCommand.effect.value, finalExplorer.maxHp),
-    }
-  }
-
   // 武器の lifesteal 効果
   if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'lifesteal') {
     const lifestealValue = selectedCommand.effect.value
@@ -431,6 +423,40 @@ function executeEnemyAllAttack(
   }
 }
 
+/** 味方対象スペル（ヒールなど）を実行 */
+function executeAllySpellCommand(
+  state: GameState,
+  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' },
+  _relics: RelicInstance[]
+): GameState {
+  if (!state.battleState || !state.run) return state
+
+  const { selectedCommand } = state.battleState
+  if (!selectedCommand || !isSpell(selectedCommand)) return state
+
+  const newBattleState = battleReducer(state.battleState, battleAction)
+
+  // MP消費（consumeCommandCostを使用して他パスと一貫性を保つ）
+  const { updatedExplorer: explorerAfterCost } = consumeCommandCost(
+    battleAction.explorer, selectedCommand, state.run.gold, 0
+  )
+
+  let updatedExplorer = explorerAfterCost
+
+  if (selectedCommand.effect?.type === 'heal') {
+    updatedExplorer = {
+      ...updatedExplorer,
+      hp: Math.min(updatedExplorer.hp + selectedCommand.effect.value, updatedExplorer.maxHp),
+    }
+  }
+
+  return {
+    ...state,
+    battleState: newBattleState,
+    run: updatePartyMember(state.run, updatedExplorer),
+  }
+}
+
 /** EXECUTE_COMMANDを処理 */
 export function processExecuteCommand(
   state: GameState,
@@ -445,6 +471,11 @@ export function processExecuteCommand(
 
   if (isPotion(selectedCommand)) {
     return executePotionCommand(state, battleAction, relics)
+  }
+
+  // 味方対象スペル（ヒールなど）
+  if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {
+    return executeAllySpellCommand(state, battleAction, relics)
   }
 
   return executeAttackCommand(state, battleAction, relics)
