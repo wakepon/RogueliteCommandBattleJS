@@ -10,7 +10,9 @@ export type BattleAction =
   | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}> }
   | { type: 'NEXT_ACTOR' }
   | { type: 'REMOVE_POPUP'; popupId: string }
-  | { type: 'ENEMY_ACTION'; enemyId: string; damage: number; explorer: ExplorerState }
+  | { type: 'ENEMY_ACTION'; enemyId: string; damage: number; explorer: ExplorerState;
+      actionName: string; poisonStacks: number; mpDrain: number;
+      applyCharge: boolean; consumeCharge: boolean; hits: number }
   | { type: 'REMOVE_PLAYER_POPUP'; popupId: string }
   | { type: 'PROCESS_TURN_END'; poisonDamage: number; updatedExplorer: ExplorerState }
   | { type: 'ADD_LEVEL_UP_POPUP'; levelUpInfo: LevelUpInfo }
@@ -212,17 +214,29 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
     }
 
     case 'ENEMY_ACTION': {
-      // プレイヤーダメージポップアップを追加
-      const newPlayerPopup = createPlayerDamagePopup(action.damage)
+      // 敵の名前を取得してメッセージを生成
+      const actingEnemy = state.enemies.find(e => e.instanceId === action.enemyId)
+      const enemyName = actingEnemy?.name ?? '敵'
+      const isIdle = action.damage === 0 && !action.applyCharge && action.poisonStacks === 0 && action.mpDrain === 0
+      const battleMessage = isIdle
+        ? `${enemyName}は${action.actionName}`
+        : `${enemyName}の${action.actionName}`
+
+      // damage=0の場合はポップアップを追加しない
+      const newPlayerPopups = action.damage > 0
+        ? [...state.playerDamagePopups, createPlayerDamagePopup(action.damage)]
+        : state.playerDamagePopups
 
       // 次のアクターへ遷移
       const { nextIndex, nextTurn } = calculateNextActorIndex(state)
 
       return {
         ...state,
-        playerDamagePopups: [...state.playerDamagePopups, newPlayerPopup],
+        playerDamagePopups: newPlayerPopups,
         currentActorIndex: nextIndex,
         turn: nextTurn,
+        battleMessage,
+        battleMessageId: state.battleMessageId + 1,
       }
     }
 

@@ -462,11 +462,43 @@ export function processEnemyAction(
 
   // 壊れかけの鎧: shieldActive時にダメージ0化
   let newBattleState = state.battleState
-  if (state.battleState.relicState.shieldActive) {
+  if (state.battleState.relicState.shieldActive && actualDamage > 0) {
     actualDamage = 0
     newBattleState = battleReducer(state.battleState, {
       type: 'UPDATE_RELIC_STATE',
       relicState: { shieldActive: false },
+    })
+  }
+
+  // 力溜め付与: 敵にchargeバフを追加
+  if (battleAction.applyCharge) {
+    const updatedEnemies = newBattleState.enemies.map(enemy => {
+      if (enemy.instanceId === battleAction.enemyId) {
+        const newBuff = { type: 'charge' as const, value: 2.0, duration: 'nextAction' as const }
+        return { ...enemy, battleBuffs: [...enemy.battleBuffs, newBuff] }
+      }
+      return enemy
+    })
+    newBattleState = battleReducer(newBattleState, {
+      type: 'UPDATE_ENEMIES',
+      enemies: updatedEnemies,
+    })
+  }
+
+  // 力溜め消費: 敵のchargeバフを除去
+  if (battleAction.consumeCharge) {
+    const updatedEnemies = newBattleState.enemies.map(enemy => {
+      if (enemy.instanceId === battleAction.enemyId) {
+        return {
+          ...enemy,
+          battleBuffs: enemy.battleBuffs.filter(b => !(b.type === 'charge' && b.duration === 'nextAction')),
+        }
+      }
+      return enemy
+    })
+    newBattleState = battleReducer(newBattleState, {
+      type: 'UPDATE_ENEMIES',
+      enemies: updatedEnemies,
     })
   }
 
@@ -475,16 +507,47 @@ export function processEnemyAction(
     damage: actualDamage,
   })
 
-  const updatedExplorer = {
+  let updatedExplorer = {
     ...battleAction.explorer,
     hp: Math.max(0, battleAction.explorer.hp - actualDamage),
   }
 
+  // 毒付与: プレイヤーのbattleDebuffsにpoisonを加算
+  if (battleAction.poisonStacks > 0) {
+    const existingPoison = updatedExplorer.battleDebuffs.find(d => d.type === 'poison')
+    if (existingPoison) {
+      updatedExplorer = {
+        ...updatedExplorer,
+        battleDebuffs: updatedExplorer.battleDebuffs.map(d =>
+          d.type === 'poison'
+            ? { ...d, stacks: d.stacks + battleAction.poisonStacks }
+            : d
+        ),
+      }
+    } else {
+      updatedExplorer = {
+        ...updatedExplorer,
+        battleDebuffs: [
+          ...updatedExplorer.battleDebuffs,
+          { type: 'poison' as const, stacks: battleAction.poisonStacks },
+        ],
+      }
+    }
+  }
+
+  // MPドレイン: プレイヤーのmpを減少（最低0）
+  if (battleAction.mpDrain > 0) {
+    updatedExplorer = {
+      ...updatedExplorer,
+      mp: Math.max(0, updatedExplorer.mp - battleAction.mpDrain),
+    }
+  }
+
   let newRun = updatePartyMember(state.run, updatedExplorer)
 
-  // 反撃の棘: 被攻撃時に敵にダメージ
+  // 反撃の棘: 被攻撃時に敵にダメージ（ダメージが発生した場合のみ）
   const thornsDmg = getThornsDamage(relics)
-  if (thornsDmg > 0) {
+  if (thornsDmg > 0 && actualDamage > 0) {
     const attackingEnemy = newBattleState.enemies.find(
       e => e.instanceId === battleAction.enemyId
     )

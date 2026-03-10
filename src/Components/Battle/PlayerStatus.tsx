@@ -22,7 +22,17 @@ export function PlayerStatus({ explorer, gold, levelUpPopupCount, onExpFillCompl
       {/* HP */}
       <div className="mb-1">
         <div className="flex justify-between text-xs text-gray-400 mb-0.5">
-          <span>HP</span>
+          <div className="flex items-center gap-1">
+            <span>HP</span>
+            {(() => {
+              const poisonDebuff = explorer.battleDebuffs.find(d => d.type === 'poison')
+              return poisonDebuff ? (
+                <span className="bg-purple-600 text-white text-[10px] px-1 rounded font-bold">
+                  毒{poisonDebuff.stacks}
+                </span>
+              ) : null
+            })()}
+          </div>
           <span>{explorer.hp} / {explorer.maxHp}</span>
         </div>
         <ResourceBar
