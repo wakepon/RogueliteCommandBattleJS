@@ -40,8 +40,12 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isP
     return () => clearTimeout(timer)
   }, [])
 
-  // プレイヤーダメージは黄色、敵へのダメージは赤
-  const textColorClass = isPlayerDamage ? 'text-yellow-500' : 'text-red-500'
+  // 回復（負のdamage）は緑、プレイヤーダメージは黄色、敵へのダメージは赤
+  const isHealing = damage < 0
+  const displayText = isHealing ? `+${Math.abs(damage)}` : `-${damage}`
+  const textColorClass = isHealing
+    ? 'text-green-400'
+    : isPlayerDamage ? 'text-yellow-500' : 'text-red-500'
 
   return (
     <div
@@ -53,7 +57,7 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isP
       }}
     >
       <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
-        -{damage}
+        {displayText}
       </span>
     </div>
   )

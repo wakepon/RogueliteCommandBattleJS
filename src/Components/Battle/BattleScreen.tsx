@@ -14,6 +14,8 @@ import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
 
 // 敵ターンをスキップするまでの遅延（ミリ秒）
 const ENEMY_TURN_DELAY_MS = 500
+// 回復ポップアップがある場合の敵行動遅延（ミリ秒）
+const REGEN_POPUP_DELAY_MS = 800
 
 // メッセージバナーの表示時間（ミリ秒）
 const MESSAGE_DISPLAY_MS = 1500
@@ -101,12 +103,14 @@ export function BattleScreen() {
         battle.nextActor()
         return
       }
+      const hasHealPopup = playerDamagePopups.some(p => p.damage < 0)
+      const delay = hasHealPopup ? REGEN_POPUP_DELAY_MS : ENEMY_TURN_DELAY_MS
       const timer = setTimeout(() => {
         enemyAction(currentActor.instanceId)
-      }, ENEMY_TURN_DELAY_MS)
+      }, delay)
       return () => clearTimeout(timer)
     }
-  }, [isPlayerTurn, currentActor, enemyAction, enemies, battle])
+  }, [isPlayerTurn, currentActor, enemyAction, enemies, battle]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 勝敗判定
   useEffect(() => {
