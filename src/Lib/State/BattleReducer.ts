@@ -36,7 +36,7 @@ function createDamagePopup(targetId: string, damage: number): DamagePopup {
 }
 
 /** プレイヤーダメージポップアップを作成 */
-function createPlayerDamagePopup(damage: number): PlayerDamagePopup {
+export function createPlayerDamagePopup(damage: number): PlayerDamagePopup {
   return {
     id: generatePopupId(),
     damage,

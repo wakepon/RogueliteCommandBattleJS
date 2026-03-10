@@ -5,7 +5,7 @@ import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { BattleCommand, BattleState } from '../Types/Battle'
 import { SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
-import { battleReducer, BattleAction } from './BattleReducer'
+import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
 import { isSpell, isWeapon, isWeaponInstance, isPotion } from '../Core/CommandValidator'
 import { calculateWeaponDamage, calculateSpellDamage } from '../Core/DamageCalculator'
 import { addExpAndProcessLevelUp, LevelUpInfo } from '../Core/LevelUpCalculator'
@@ -470,15 +470,41 @@ export function processExecuteCommand(
   const relics = state.run.relics
 
   if (isPotion(selectedCommand)) {
-    return executePotionCommand(state, battleAction, relics)
+    return applyRegenAfterAction(executePotionCommand(state, battleAction, relics))
   }
 
   // 味方対象スペル（ヒールなど）
   if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {
-    return executeAllySpellCommand(state, battleAction, relics)
+    return applyRegenAfterAction(executeAllySpellCommand(state, battleAction, relics))
   }
 
-  return executeAttackCommand(state, battleAction, relics)
+  return applyRegenAfterAction(executeAttackCommand(state, battleAction, relics))
+}
+
+/** 行動後に再生のコケの回復を適用 */
+function applyRegenAfterAction(result: GameState): GameState {
+  if (!result.run || !result.battleState) return result
+
+  const regenAmount = getRegenPerTurn(result.run.relics)
+  if (regenAmount <= 0) return result
+
+  const explorer = result.run.party[0]
+  const healedHp = Math.min(explorer.hp + regenAmount, explorer.maxHp)
+  const actualHeal = healedHp - explorer.hp
+  if (actualHeal <= 0) return result
+
+  const updatedExplorer = { ...explorer, hp: healedHp }
+  return {
+    ...result,
+    run: updatePartyMember(result.run, updatedExplorer),
+    battleState: {
+      ...result.battleState,
+      playerDamagePopups: [
+        ...result.battleState.playerDamagePopups,
+        createPlayerDamagePopup(-actualHeal),
+      ],
+    },
+  }
 }
 
 /** ENEMY_ACTIONを処理 */
@@ -612,19 +638,9 @@ export function processTurnEndAction(
 
   const newBattleState = battleReducer(state.battleState, battleAction)
 
-  // 再生のコケ: ターン終了時にHP回復
-  let finalExplorer = battleAction.updatedExplorer
-  const regenAmount = getRegenPerTurn(state.run.relics)
-  if (regenAmount > 0) {
-    finalExplorer = {
-      ...finalExplorer,
-      hp: Math.min(finalExplorer.hp + regenAmount, finalExplorer.maxHp),
-    }
-  }
-
   return {
     ...state,
     battleState: newBattleState,
-    run: updatePartyMember(state.run, finalExplorer),
+    run: updatePartyMember(state.run, battleAction.updatedExplorer),
   }
 }
