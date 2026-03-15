@@ -1,12 +1,31 @@
 import { WeaponData, ExplorerWeapon } from '../Types/Weapon'
 import { SpellData } from '../Types/Spell'
-import { RelicData } from '../Types/Relic'
+import { RelicData, RelicInstance } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
 import { PassiveEffectType } from '../Types/Passive'
 import { BattleCommand } from '../Types/Battle'
+import { ExplorerState } from '../Types/Explorer'
 import { isWeapon, isSpell, isPotion } from '../Core/CommandValidator'
+import { predictWeaponDamage, predictSpellDamage, formatDamageRange, type DamagePredictOptions } from './DamagePredictor'
 
 type ItemType = WeaponData | SpellData | RelicData | PotionData | ExplorerWeapon
+
+/** ダメージ予測表示用コンテキスト */
+export interface DamageContext {
+  explorer: ExplorerState
+  relics: RelicInstance[]
+  killStreakActive?: boolean
+  includeConditionalRelics?: boolean
+}
+
+/** DamageContextからDamagePredictOptionsへ変換 */
+function toPredictOptions(context: DamageContext): DamagePredictOptions {
+  return {
+    relics: context.relics,
+    killStreakActive: context.killStreakActive,
+    includeConditionalRelics: context.includeConditionalRelics,
+  }
+}
 
 /** パッシブ効果の説明を生成 */
 export function getPassiveEffectDescription(effect: PassiveEffectType): string {
@@ -43,15 +62,21 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
 }
 
 /** アイテムの説明を生成 */
-export function getItemDescription(item: ItemType): string {
+export function getItemDescription(item: ItemType, context?: DamageContext): string {
   // 武器
   if ('commandCategory' in item && item.commandCategory === 'weapon') {
-    const weapon = item as WeaponData
-    let desc = `威力: ${weapon.power}`
+    const weapon = item as WeaponData | ExplorerWeapon
+    let desc: string
+    if (context) {
+      const range = predictWeaponDamage(context.explorer, weapon, toPredictOptions(context))
+      desc = `ダメージ: ${formatDamageRange(range)}`
+    } else {
+      desc = `威力: ${weapon.power}`
+    }
     if (weapon.maxUses !== null) {
       desc += ` | 使用回数: ${weapon.maxUses}`
     }
-    if (weapon.effect) {
+    if ('effect' in weapon && weapon.effect) {
       if (weapon.effect.type === 'lifesteal') {
         desc += ` | 吸血: ${weapon.effect.value}`
       }
@@ -64,7 +89,12 @@ export function getItemDescription(item: ItemType): string {
     const spell = item as SpellData
     let desc = `MP: ${spell.mpCost}`
     if (spell.power > 0) {
-      desc += ` | 威力: ${spell.power}`
+      if (context) {
+        const range = predictSpellDamage(context.explorer, spell, toPredictOptions(context))
+        desc += ` | ダメージ: ${formatDamageRange(range)}`
+      } else {
+        desc += ` | 威力: ${spell.power}`
+      }
     }
     if (spell.effect) {
       if (spell.effect.type === 'heal') {
@@ -118,16 +148,22 @@ export function getItemCategory(item: ItemType): string {
 }
 
 /** アイテムのツールチップ文字列を生成 */
-export function getItemTooltip(item: ItemType): string {
+export function getItemTooltip(item: ItemType, context?: DamageContext): string {
   const category = getItemCategory(item)
-  const description = getItemDescription(item)
+  const description = getItemDescription(item, context)
   return `「${category}」${item.name} - ${description}`
 }
 
 /** BattleCommand用のツールチップ文字列を生成 */
-export function getCommandTooltip(command: BattleCommand): string {
+export function getCommandTooltip(command: BattleCommand, context?: DamageContext): string {
   if (isWeapon(command)) {
-    let desc = `「武器」${command.name} - 威力:${command.power}`
+    let desc: string
+    if (context) {
+      const range = predictWeaponDamage(context.explorer, command, toPredictOptions(context))
+      desc = `「武器」${command.name} - ダメージ:${formatDamageRange(range)}`
+    } else {
+      desc = `「武器」${command.name} - 威力:${command.power}`
+    }
     if (command.currentUses !== null) {
       desc += ` 使用:${command.currentUses}/${command.maxUses}`
     }
@@ -141,7 +177,12 @@ export function getCommandTooltip(command: BattleCommand): string {
   if (isSpell(command)) {
     let desc = `「魔法」${command.name} - MP:${command.mpCost}`
     if (command.power > 0) {
-      desc += ` 威力:${command.power}`
+      if (context) {
+        const range = predictSpellDamage(context.explorer, command, toPredictOptions(context))
+        desc += ` ダメージ:${formatDamageRange(range)}`
+      } else {
+        desc += ` 威力:${command.power}`
+      }
     }
     if (command.effect) {
       if (command.effect.type === 'heal') {

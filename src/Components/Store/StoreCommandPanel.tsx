@@ -1,8 +1,11 @@
 import { ExplorerState } from '../../Lib/Types/Explorer'
-import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
+import { RelicInstance } from '../../Lib/Types/Relic'
+import { getItemTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
+import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
 interface StoreCommandPanelProps {
   explorer: ExplorerState
+  relics?: RelicInstance[]
 }
 
 /** コマンドカテゴリに応じたアイコンの背景色とラベル */
@@ -17,24 +20,37 @@ function getCommandIcon(category: string): { bgColor: string; label: string } {
   }
 }
 
-export function StoreCommandPanel({ explorer }: StoreCommandPanelProps) {
+export function StoreCommandPanel({ explorer, relics = [] }: StoreCommandPanelProps) {
+  const damageContext: DamageContext = { explorer, relics }
+
   const commands = [
-    ...explorer.weapons.map(w => ({
-      id: w.id,
-      name: w.name,
-      category: 'weapon' as const,
-      detail: w.currentUses !== null ? `[${w.currentUses}/${w.maxUses}]` : '',
-      targetType: w.targetType,
-      tooltip: getItemTooltip(w),
-    })),
-    ...explorer.spells.map(s => ({
-      id: s.id,
-      name: s.name,
-      category: 'spell' as const,
-      detail: `${s.mpCost}MP`,
-      targetType: s.targetType,
-      tooltip: getItemTooltip(s),
-    })),
+    ...explorer.weapons.map(w => {
+      const range = predictWeaponDamage(explorer, w, { relics })
+      return {
+        id: w.id,
+        name: w.name,
+        category: 'weapon' as const,
+        detail: w.currentUses !== null ? `[${w.currentUses}/${w.maxUses}]` : '',
+        targetType: w.targetType,
+        tooltip: getItemTooltip(w, damageContext),
+        damageDisplay: formatDamageRange(range),
+        isBoosted: range.isBoosted,
+      }
+    }),
+    ...explorer.spells.map(s => {
+      const hasPower = s.power > 0
+      const range = hasPower ? predictSpellDamage(explorer, s, { relics }) : null
+      return {
+        id: s.id,
+        name: s.name,
+        category: 'spell' as const,
+        detail: `${s.mpCost}MP`,
+        targetType: s.targetType,
+        tooltip: getItemTooltip(s, damageContext),
+        damageDisplay: range ? formatDamageRange(range) : null,
+        isBoosted: range?.isBoosted ?? false,
+      }
+    }),
   ]
 
   return (
@@ -64,6 +80,13 @@ export function StoreCommandPanel({ explorer }: StoreCommandPanelProps) {
                   <span className="text-[10px] bg-red-700 text-white px-1 rounded ml-1">全体</span>
                 )}
               </span>
+
+              {/* ダメージ予測値 */}
+              {command.damageDisplay && (
+                <span className={`text-xs ${command.isBoosted ? 'text-orange-400' : 'text-gray-400'}`}>
+                  {command.damageDisplay}
+                </span>
+              )}
 
               {/* 使用回数/MP */}
               {command.detail && (

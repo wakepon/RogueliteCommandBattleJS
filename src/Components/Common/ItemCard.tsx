@@ -1,9 +1,10 @@
 import { Rarity } from '../../Lib/Types/Item'
 import { WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData } from '../../Lib/Types/Spell'
-import { RelicData } from '../../Lib/Types/Relic'
+import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
-import { getItemDescription, getItemCategory } from '../../Lib/Utils/ItemDescription'
+import { ExplorerState } from '../../Lib/Types/Explorer'
+import { getItemDescription, getItemCategory, DamageContext } from '../../Lib/Utils/ItemDescription'
 
 type ItemType = WeaponData | SpellData | RelicData | PotionData
 
@@ -15,6 +16,8 @@ interface ItemCardProps {
   showSellPrice?: boolean
   sellPrice?: number
   compact?: boolean
+  explorer?: ExplorerState
+  relics?: RelicInstance[]
 }
 
 /** レアリティに応じた色を返す */
@@ -53,10 +56,15 @@ export function ItemCard({
   showSellPrice = false,
   sellPrice = 0,
   compact = false,
+  explorer,
+  relics,
 }: ItemCardProps) {
   const rarityColor = getRarityColor(item.rarity)
   const rarityTextColor = getRarityTextColor(item.rarity)
-  const description = getItemDescription(item)
+  const damageContext: DamageContext | undefined = explorer && relics
+    ? { explorer, relics }
+    : undefined
+  const description = getItemDescription(item, damageContext)
   const category = getItemCategory(item)
 
   const isClickable = onClick && !disabled
