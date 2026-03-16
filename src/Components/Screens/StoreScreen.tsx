@@ -86,7 +86,7 @@ export function StoreScreen() {
       {/* [4] コマンド | ステータス */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
-          <StoreCommandPanel explorer={explorer} />
+          <StoreCommandPanel explorer={explorer} relics={run.relics} />
         </div>
         <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
           <div className="text-xs text-gray-400 mb-1">explorer status</div>

@@ -249,6 +249,9 @@ export function BattleScreen() {
             onSelectCommand={selectCommand}
             disabled={!isPlayerTurn}
             potions={potions}
+            explorer={explorer}
+            relics={run.relics}
+            killStreakActive={battleState.relicState.killStreakActive}
           />
         </div>
 

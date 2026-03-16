@@ -1,5 +1,5 @@
 import { ItemCard } from '../Common/ItemCard'
-import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
+import { getItemTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RunState } from '../../Lib/Types/Run'
 import { StoreState } from '../../Lib/Types/Game'
@@ -89,6 +89,8 @@ export function StoreShopPanel({
     return false
   }
 
+  const damageContext: DamageContext = { explorer, relics: run.relics }
+
   return (
     <div className="grid grid-cols-2 gap-3 h-full overflow-hidden">
       {/* 左側: ショップ */}
@@ -108,6 +110,8 @@ export function StoreShopPanel({
                     compact
                     onClick={() => handleBuyWeaponSlot(index, item)}
                     disabled={!canBuyWeaponSlot(item)}
+                    explorer={explorer}
+                    relics={run.relics}
                   />
                 ) : (
                   <div className="border-2 border-dashed border-gray-600 rounded-lg p-1.5 h-12 flex items-center justify-center">
@@ -132,6 +136,8 @@ export function StoreShopPanel({
                     compact
                     onClick={() => handleBuyRelicSlot(index, item)}
                     disabled={!canBuyRelicSlot(item)}
+                    explorer={explorer}
+                    relics={run.relics}
                   />
                 ) : (
                   <div className="border-2 border-dashed border-gray-600 rounded-lg p-1.5 h-12 flex items-center justify-center">
@@ -163,7 +169,7 @@ export function StoreShopPanel({
                       ? 'border-gray-500 bg-gray-800 cursor-pointer hover:bg-gray-700'
                       : 'border-gray-700 bg-gray-900'
                   }`}
-                  title={getItemTooltip(weapon)}
+                  title={getItemTooltip(weapon, damageContext)}
                   onClick={canSell ? () => sellWeapon(index) : undefined}
                 >
                   <div className="flex justify-between items-center">
@@ -194,7 +200,7 @@ export function StoreShopPanel({
                   <div
                     key={`owned-spell-${index}`}
                     className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
-                    title={getItemTooltip(spell)}
+                    title={getItemTooltip(spell, damageContext)}
                     onClick={() => sellSpell(index)}
                   >
                     <div className="flex justify-between items-center">

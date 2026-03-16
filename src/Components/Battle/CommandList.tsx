@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PotionInstance } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
+import { ExplorerState } from '../../Lib/Types/Explorer'
+import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
-import { getCommandTooltip } from '../../Lib/Utils/ItemDescription'
+import { getCommandTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
+import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
 interface CommandListProps {
   commands: BattleCommand[]
@@ -11,6 +14,9 @@ interface CommandListProps {
   onSelectCommand: (command: BattleCommand) => void
   disabled: boolean
   potions?: PotionInstance[]
+  explorer?: ExplorerState
+  relics?: RelicInstance[]
+  killStreakActive?: boolean
 }
 
 // コマンドが使用可能かどうかを判定
@@ -58,7 +64,13 @@ export function CommandList({
   onSelectCommand,
   disabled,
   potions,
+  explorer,
+  relics = [],
+  killStreakActive = false,
 }: CommandListProps) {
+  const damageContext: DamageContext | undefined = explorer
+    ? { explorer, relics, killStreakActive, includeConditionalRelics: true }
+    : undefined
   // カーソル位置
   const [cursorIndex, setCursorIndex] = useState(0)
 
@@ -145,6 +157,22 @@ export function CommandList({
           const usesDisplay = getUsesDisplay(command, potions)
           const icon = getCommandIcon(command)
 
+          // ダメージ予測値の計算
+          let damageDisplay: string | null = null
+          let isBoosted = false
+          if (explorer) {
+            const opts = { relics, killStreakActive, includeConditionalRelics: true }
+            if (isWeapon(command)) {
+              const range = predictWeaponDamage(explorer, command, opts)
+              damageDisplay = formatDamageRange(range)
+              isBoosted = range.isBoosted
+            } else if (isSpell(command) && command.power > 0) {
+              const range = predictSpellDamage(explorer, command, opts)
+              damageDisplay = formatDamageRange(range)
+              isBoosted = range.isBoosted
+            }
+          }
+
           return (
             <div
               key={command.id}
@@ -154,7 +182,7 @@ export function CommandList({
                   onSelectCommand(command)
                 }
               }}
-              title={getCommandTooltip(command)}
+              title={getCommandTooltip(command, damageContext)}
               className={`
                 flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-sm
                 ${isCursor ? 'bg-yellow-600 text-white' : 'text-gray-300'}
@@ -181,6 +209,13 @@ export function CommandList({
                   <span className="text-[10px] bg-red-700 text-white px-1 rounded ml-1">全体</span>
                 )}
               </span>
+
+              {/* ダメージ予測値 */}
+              {damageDisplay && (
+                <span className={`text-xs ${isBoosted ? 'text-orange-400' : 'text-gray-400'}`}>
+                  {damageDisplay}
+                </span>
+              )}
 
               {/* 使用回数/MP */}
               {usesDisplay && (
