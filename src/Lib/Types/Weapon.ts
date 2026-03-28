@@ -10,6 +10,7 @@ export type WeaponEffect = { type: 'lifesteal'; value: number }
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {
   commandCategory: 'weapon'
   power: number
+  variance: number  // ダメージブレ幅（±variance の加算ブレ）
   goldCost?: number
   hpCost?: number
   effect?: WeaponEffect
@@ -27,6 +28,7 @@ export interface PunchInstance {
   commandCategory: 'weapon'
   targetType: 'enemySingle'
   power: number
+  variance: number
   maxUses: null
   currentUses: null
 }
@@ -37,6 +39,7 @@ export const PUNCH: PunchInstance = {
   commandCategory: 'weapon',
   targetType: 'enemySingle',
   power: 1,  // STR × 1 = STR分のダメージ
+  variance: 2,
   maxUses: null,
   currentUses: null,
 }

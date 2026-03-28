@@ -54,6 +54,7 @@ function createMockWeapon(overrides: Partial<WeaponInstance> = {}): WeaponInstan
     commandCategory: 'weapon',
     targetType: 'enemySingle',
     power: 5,
+    variance: 5,
     maxUses: 10,
     currentUses: 10,
     ...overrides,
@@ -67,6 +68,7 @@ function createMockPunch(): PunchInstance {
     commandCategory: 'weapon',
     targetType: 'enemySingle',
     power: 1,
+    variance: 2,
     maxUses: null,
     currentUses: null,
   }
@@ -82,6 +84,7 @@ function createMockSpell(overrides: Partial<SpellInstance> = {}): SpellInstance 
     targetType: 'enemySingle',
     mpCost: 3,
     power: 8,
+    variance: 5,
     effect: null,
     ...overrides,
   }
@@ -89,15 +92,15 @@ function createMockSpell(overrides: Partial<SpellInstance> = {}): SpellInstance 
 
 describe('DamageCalculator', () => {
   describe('calculateWeaponDamage', () => {
-    it('基本ダメージ計算: STR × power × ブレ補正', () => {
+    it('基本ダメージ計算: STR × power（ブレなし）', () => {
       const explorer = createMockExplorer({ str: 5 })
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      // ブレ補正を1.0に固定してテスト
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
+      // ブレ補正を0に固定してテスト
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: 0 })
 
-      // 5 × 5 × 1.0 = 25
+      // 5 × 5 = 25
       expect(result.damage).toBe(25)
       expect(result.isCritical).toBe(false)
     })
@@ -108,8 +111,8 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const weakResult = calculateWeaponDamage(weakExplorer, weapon, enemy, { randomFactor: 1.0 })
-      const strongResult = calculateWeaponDamage(strongExplorer, weapon, enemy, { randomFactor: 1.0 })
+      const weakResult = calculateWeaponDamage(weakExplorer, weapon, enemy, { varianceOffset: 0 })
+      const strongResult = calculateWeaponDamage(strongExplorer, weapon, enemy, { varianceOffset: 0 })
 
       // 3 × 5 = 15, 10 × 5 = 50
       expect(weakResult.damage).toBe(15)
@@ -122,8 +125,8 @@ describe('DamageCalculator', () => {
       const strongWeapon = createMockWeapon({ power: 10 })
       const enemy = createMockEnemy()
 
-      const weakResult = calculateWeaponDamage(explorer, weakWeapon, enemy, { randomFactor: 1.0 })
-      const strongResult = calculateWeaponDamage(explorer, strongWeapon, enemy, { randomFactor: 1.0 })
+      const weakResult = calculateWeaponDamage(explorer, weakWeapon, enemy, { varianceOffset: 0 })
+      const strongResult = calculateWeaponDamage(explorer, strongWeapon, enemy, { varianceOffset: 0 })
 
       // 5 × 2 = 10, 5 × 10 = 50
       expect(weakResult.damage).toBe(10)
@@ -135,32 +138,32 @@ describe('DamageCalculator', () => {
       const punch = createMockPunch()
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, punch, enemy, { randomFactor: 1.0 })
+      const result = calculateWeaponDamage(explorer, punch, enemy, { varianceOffset: 0 })
 
-      // 5 × 1 × 1.0 = 5
+      // 5 × 1 = 5
       expect(result.damage).toBe(5)
     })
 
-    it('ブレ補正0.9でダメージが10%減少', () => {
-      const explorer = createMockExplorer({ str: 10 })
-      const weapon = createMockWeapon({ power: 10 })
+    it('加算ブレ: +5のオフセットでダメージが5増加', () => {
+      const explorer = createMockExplorer({ str: 5 })
+      const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 0.9 })
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: 5 })
 
-      // 10 × 10 × 0.9 = 90
-      expect(result.damage).toBe(90)
+      // 5 × 5 + 5 = 30
+      expect(result.damage).toBe(30)
     })
 
-    it('ブレ補正1.1でダメージが10%増加', () => {
-      const explorer = createMockExplorer({ str: 10 })
-      const weapon = createMockWeapon({ power: 10 })
+    it('加算ブレ: -5のオフセットでダメージが5減少', () => {
+      const explorer = createMockExplorer({ str: 5 })
+      const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.1 })
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: -5 })
 
-      // 10 × 10 × 1.1 = 110
-      expect(result.damage).toBe(110)
+      // 5 × 5 - 5 = 20
+      expect(result.damage).toBe(20)
     })
 
     it('STRバフがダメージを増加させる', () => {
@@ -171,9 +174,9 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: 0 })
 
-      // 5 × 5 × 1.2 (バフ倍率) × 1.0 = 30
+      // 5 × 5 × 1.2 (バフ倍率) = 30
       expect(result.damage).toBe(30)
     })
 
@@ -188,9 +191,9 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: 0 })
 
-      // 5 × 5 × 1.5 (2+3=5, 5×0.1=0.5, 1+0.5=1.5) × 1.0 = 37.5 → 37
+      // 5 × 5 × 1.5 (2+3=5, 5×0.1=0.5, 1+0.5=1.5) = 37.5 → 37
       expect(result.damage).toBe(37)
     })
 
@@ -202,44 +205,47 @@ describe('DamageCalculator', () => {
       const weapon = createMockWeapon({ power: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: 0 })
 
-      // INTバフは無視される: 5 × 5 × 1.0 × 1.0 = 25
+      // INTバフは無視される: 5 × 5 = 25
       expect(result.damage).toBe(25)
     })
 
     it('ダメージは小数点以下切り捨て', () => {
-      const explorer = createMockExplorer({ str: 3 })
+      const explorer = createMockExplorer({
+        str: 3,
+        battleBuffs: [{ type: 'str', value: 1, duration: 'battle' }],
+      })
       const weapon = createMockWeapon({ power: 3 })
       const enemy = createMockEnemy()
 
-      // 3 × 3 × 0.95 = 8.55 → 8
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 0.95 })
+      // 3 × 3 × 1.1 = 9.9 → 9 + 0 = 9
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: 0 })
 
-      expect(result.damage).toBe(8)
+      expect(result.damage).toBe(9)
     })
 
-    it('ダメージは最低0', () => {
-      const explorer = createMockExplorer({ str: 0 })
-      const weapon = createMockWeapon({ power: 5 })
+    it('ダメージは最低0（ブレでマイナスになっても0）', () => {
+      const explorer = createMockExplorer({ str: 1 })
+      const weapon = createMockWeapon({ power: 1, variance: 5 })
       const enemy = createMockEnemy()
 
-      const result = calculateWeaponDamage(explorer, weapon, enemy, { randomFactor: 1.0 })
+      // 1 × 1 - 5 = -4 → 0
+      const result = calculateWeaponDamage(explorer, weapon, enemy, { varianceOffset: -5 })
 
-      // 0 × 5 = 0
       expect(result.damage).toBe(0)
     })
   })
 
   describe('calculateSpellDamage', () => {
-    it('基本ダメージ計算: INT × power × ブレ補正', () => {
+    it('基本ダメージ計算: INT × power（ブレなし）', () => {
       const explorer = createMockExplorer({ int: 5 })
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, spell, enemy, { randomFactor: 1.0 })
+      const result = calculateSpellDamage(explorer, spell, enemy, { varianceOffset: 0 })
 
-      // 5 × 8 × 1.0 = 40
+      // 5 × 8 = 40
       expect(result.damage).toBe(40)
       expect(result.isCritical).toBe(false)
     })
@@ -250,8 +256,8 @@ describe('DamageCalculator', () => {
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const weakResult = calculateSpellDamage(weakExplorer, spell, enemy, { randomFactor: 1.0 })
-      const strongResult = calculateSpellDamage(strongExplorer, spell, enemy, { randomFactor: 1.0 })
+      const weakResult = calculateSpellDamage(weakExplorer, spell, enemy, { varianceOffset: 0 })
+      const strongResult = calculateSpellDamage(strongExplorer, spell, enemy, { varianceOffset: 0 })
 
       // 3 × 8 = 24, 10 × 8 = 80
       expect(weakResult.damage).toBe(24)
@@ -266,9 +272,9 @@ describe('DamageCalculator', () => {
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, spell, enemy, { randomFactor: 1.0 })
+      const result = calculateSpellDamage(explorer, spell, enemy, { varianceOffset: 0 })
 
-      // 5 × 8 × 1.2 (バフ倍率) × 1.0 = 48
+      // 5 × 8 × 1.2 (バフ倍率) = 48
       expect(result.damage).toBe(48)
     })
 
@@ -280,9 +286,9 @@ describe('DamageCalculator', () => {
       const spell = createMockSpell({ power: 8 })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, spell, enemy, { randomFactor: 1.0 })
+      const result = calculateSpellDamage(explorer, spell, enemy, { varianceOffset: 0 })
 
-      // STRバフは無視される: 5 × 8 × 1.0 × 1.0 = 40
+      // STRバフは無視される: 5 × 8 = 40
       expect(result.damage).toBe(40)
     })
 
@@ -292,29 +298,41 @@ describe('DamageCalculator', () => {
         id: 'heal',
         name: 'ヒール',
         power: 0,
+        variance: 0,
         effect: { type: 'heal', value: 15 },
       })
       const enemy = createMockEnemy()
 
-      const result = calculateSpellDamage(explorer, healSpell, enemy, { randomFactor: 1.0 })
+      const result = calculateSpellDamage(explorer, healSpell, enemy, { varianceOffset: 0 })
 
       // 10 × 0 = 0
       expect(result.damage).toBe(0)
     })
   })
 
-  describe('ブレ補正の範囲', () => {
-    it('ブレ補正なしの場合、ランダムな値が使われる', () => {
+  describe('加算ブレの範囲', () => {
+    it('ブレオフセット未指定の場合、ランダムな加算ブレが適用される', () => {
       const explorer = createMockExplorer({ str: 10 })
-      const weapon = createMockWeapon({ power: 10 })
+      const weapon = createMockWeapon({ power: 10, variance: 5 })
       const enemy = createMockEnemy()
 
       // 複数回実行して結果が範囲内であることを確認
+      // baseDamage = 10 × 10 = 100, variance = ±5 → 95〜105
       for (let i = 0; i < 100; i++) {
         const result = calculateWeaponDamage(explorer, weapon, enemy)
-        // 10 × 10 × (0.9〜1.1) = 90〜110
-        expect(result.damage).toBeGreaterThanOrEqual(90)
-        expect(result.damage).toBeLessThanOrEqual(110)
+        expect(result.damage).toBeGreaterThanOrEqual(95)
+        expect(result.damage).toBeLessThanOrEqual(105)
+      }
+    })
+
+    it('variance=0の場合、ブレなし', () => {
+      const explorer = createMockExplorer({ str: 5 })
+      const weapon = createMockWeapon({ power: 5, variance: 0 })
+      const enemy = createMockEnemy()
+
+      for (let i = 0; i < 50; i++) {
+        const result = calculateWeaponDamage(explorer, weapon, enemy)
+        expect(result.damage).toBe(25)
       }
     })
   })

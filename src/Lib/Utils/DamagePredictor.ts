@@ -31,9 +31,6 @@ export interface DamagePredictOptions {
   includeConditionalRelics?: boolean
 }
 
-const VARIANCE_MIN = 0.90
-const VARIANCE_MAX = 1.10
-
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
 function calculateBuffMultiplier(explorer: ExplorerState, stat: 'str' | 'int'): number {
   const statBuffs = explorer.battleBuffs.filter(buff => buff.type === stat)
@@ -70,8 +67,9 @@ export function predictWeaponDamage(
 
   baseDamage *= relicMultiplier
 
-  const min = Math.max(0, Math.floor(baseDamage * VARIANCE_MIN))
-  const max = Math.max(0, Math.floor(baseDamage * VARIANCE_MAX))
+  const base = Math.floor(baseDamage)
+  const min = Math.max(0, base - weapon.variance)
+  const max = Math.max(0, base + weapon.variance)
 
   const isBoosted = strBonus > 0
     || weaponDmgBonus > 0
@@ -104,8 +102,9 @@ export function predictSpellDamage(
 
   baseDamage *= relicMultiplier
 
-  const min = Math.max(0, Math.floor(baseDamage * VARIANCE_MIN))
-  const max = Math.max(0, Math.floor(baseDamage * VARIANCE_MAX))
+  const base = Math.floor(baseDamage)
+  const min = Math.max(0, base - spell.variance)
+  const max = Math.max(0, base + spell.variance)
 
   const isBoosted = intBonus > 0
     || buffMultiplier > 1.0

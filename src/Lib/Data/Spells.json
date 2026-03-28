@@ -8,6 +8,7 @@
     "targetType": "enemySingle",
     "mpCost": 4,
     "power": 4,
+    "variance": 5,
     "effect": null
   },
   "firestorm": {
@@ -19,6 +20,7 @@
     "targetType": "enemyAll",
     "mpCost": 5,
     "power": 2,
+    "variance": 4,
     "effect": null
   },
   "heal": {
@@ -30,6 +32,7 @@
     "targetType": "allySingle",
     "mpCost": 5,
     "power": 0,
+    "variance": 0,
     "effect": {
       "type": "heal",
       "value": 15
@@ -44,6 +47,7 @@
     "targetType": "enemySingle",
     "mpCost": 3,
     "power": 2,
+    "variance": 4,
     "effect": null
   },
   "thunder": {
@@ -55,6 +59,7 @@
     "targetType": "enemySingle",
     "mpCost": 7,
     "power": 6,
+    "variance": 7,
     "effect": null
   },
   "blizzard": {
@@ -66,6 +71,7 @@
     "targetType": "enemyAll",
     "mpCost": 9,
     "power": 3,
+    "variance": 5,
     "effect": null
   }
 }

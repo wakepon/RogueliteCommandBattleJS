@@ -7,6 +7,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 3,
+    "variance": 5,
     "maxUses": 3
   },
   "short_sword": {
@@ -17,6 +18,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 4,
+    "variance": 5,
     "maxUses": 5
   },
   "iron_sword": {
@@ -27,6 +29,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 5,
+    "variance": 6,
     "maxUses": 6
   },
   "great_axe": {
@@ -37,6 +40,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 7,
+    "variance": 8,
     "maxUses": 3
   },
   "greatsword": {
@@ -47,6 +51,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 7,
+    "variance": 8,
     "maxUses": 5
   },
   "throwing_knife": {
@@ -57,6 +62,7 @@
     "commandCategory": "weapon",
     "targetType": "enemyAll",
     "power": 2,
+    "variance": 4,
     "maxUses": 3
   },
   "whirlwind_blade": {
@@ -67,6 +73,7 @@
     "commandCategory": "weapon",
     "targetType": "enemyAll",
     "power": 2,
+    "variance": 4,
     "maxUses": 6
   },
   "vampiric_blade": {
@@ -77,6 +84,7 @@
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 4,
+    "variance": 5,
     "maxUses": 4,
     "effect": {
       "type": "lifesteal",

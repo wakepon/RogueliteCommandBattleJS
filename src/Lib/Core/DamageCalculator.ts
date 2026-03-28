@@ -22,26 +22,17 @@ export interface DamageResult {
 
 /** ダメージ計算のオプション */
 interface DamageOptions {
-  randomFactor?: number
+  varianceOffset?: number  // ブレのオフセット値（テスト用に固定値を指定）
   relics?: RelicInstance[]
   killStreakActive?: boolean
 }
 
 /**
- * ブレ補正の最小値
+ * ランダムなブレオフセットを生成する（-variance 〜 +variance の整数、均等分布）
  */
-const VARIANCE_MIN = 0.90
-
-/**
- * ブレ補正の最大値
- */
-const VARIANCE_MAX = 1.10
-
-/**
- * ランダムファクターを生成する（0.90〜1.10）
- */
-function generateRandomFactor(): number {
-  return VARIANCE_MIN + Math.random() * (VARIANCE_MAX - VARIANCE_MIN)
+function generateVarianceOffset(variance: number): number {
+  if (variance <= 0) return 0
+  return Math.floor(Math.random() * (2 * variance + 1)) - variance
 }
 
 /**
@@ -58,7 +49,7 @@ function calculateBuffMultiplier(buffs: Buff[], stat: 'str' | 'int'): number {
  * 武器ダメージを計算する
  *
  * ダメージ計算式:
- *   (Str + statBonus) × (power + weaponDamageBonus) × バフ倍率 × レリック倍率 × ブレ補正
+ *   (Str + statBonus) × (power + weaponDamageBonus) × バフ倍率 × レリック倍率 + ブレ補正
  */
 export function calculateWeaponDamage(
   attacker: ExplorerState,
@@ -66,8 +57,8 @@ export function calculateWeaponDamage(
   _target: EnemyInstance,
   options: DamageOptions = {}
 ): DamageResult {
-  const { randomFactor, relics = [], killStreakActive = false } = options
-  const factor = randomFactor ?? generateRandomFactor()
+  const { varianceOffset, relics = [], killStreakActive = false } = options
+  const offset = varianceOffset ?? generateVarianceOffset(weapon.variance)
 
   const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, 'str')
 
@@ -78,7 +69,7 @@ export function calculateWeaponDamage(
   const weaponDmgBonus = getWeaponDamageBonus(relics)
 
   // 基本ダメージ計算
-  let rawDamage = effectiveStr * (weapon.power + weaponDmgBonus) * buffMultiplier * factor
+  let rawDamage = effectiveStr * (weapon.power + weaponDmgBonus) * buffMultiplier
 
   // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
   rawDamage *= getLowHpDamageMultiplier(relics, attacker)
@@ -93,7 +84,8 @@ export function calculateWeaponDamage(
     rawDamage *= getLastStrikeMultiplier(relics)
   }
 
-  const damage = Math.floor(rawDamage)
+  // 基本ダメージを切り捨て後にブレを加算
+  const damage = Math.floor(rawDamage) + offset
 
   return {
     damage: Math.max(0, damage),
@@ -105,7 +97,7 @@ export function calculateWeaponDamage(
  * 魔法ダメージを計算する
  *
  * ダメージ計算式:
- *   (Int + statBonus) × power × バフ倍率 × レリック倍率 × ブレ補正
+ *   (Int + statBonus) × power × バフ倍率 × レリック倍率 + ブレ補正
  */
 export function calculateSpellDamage(
   attacker: ExplorerState,
@@ -113,8 +105,8 @@ export function calculateSpellDamage(
   _target: EnemyInstance,
   options: DamageOptions = {}
 ): DamageResult {
-  const { randomFactor, relics = [] } = options
-  const factor = randomFactor ?? generateRandomFactor()
+  const { varianceOffset, relics = [] } = options
+  const offset = varianceOffset ?? generateVarianceOffset(spell.variance)
 
   const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, 'int')
 
@@ -122,7 +114,7 @@ export function calculateSpellDamage(
   const effectiveInt = attacker.int + getStatBonus(relics, 'int')
 
   // 基本ダメージ計算
-  let rawDamage = effectiveInt * spell.power * buffMultiplier * factor
+  let rawDamage = effectiveInt * spell.power * buffMultiplier
 
   // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
   rawDamage *= getLowHpDamageMultiplier(relics, attacker)
@@ -130,7 +122,8 @@ export function calculateSpellDamage(
   // レリック倍率: 集中の水晶（lowMpDamageBonus）
   rawDamage *= getLowMpDamageMultiplier(relics, attacker)
 
-  const damage = Math.floor(rawDamage)
+  // 基本ダメージを切り捨て後にブレを加算
+  const damage = Math.floor(rawDamage) + offset
 
   return {
     damage: Math.max(0, damage),

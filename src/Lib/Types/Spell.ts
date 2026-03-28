@@ -14,6 +14,7 @@ export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetabl
   commandCategory: 'spell'
   targetType: TargetType
   power: number
+  variance: number  // ダメージブレ幅（±variance の加算ブレ）
   effect?: SpellEffect | null
 }
 
