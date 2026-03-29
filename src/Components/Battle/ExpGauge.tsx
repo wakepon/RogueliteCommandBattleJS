@@ -93,16 +93,17 @@ export function ExpGauge({ exp, level, levelUpPopupCount, onFillComplete }: ExpG
 
   const required = getRequiredKillsForNextLevel(visualLevel)
   const percentage = required > 0 ? Math.max(0, Math.min(100, (visualExp / required) * 100)) : 0
+  const shouldBlink = required - visualExp === 1 && levelUpPopupCount === 0
 
   return (
     <div>
-      <div className="flex justify-between text-xs text-gray-400 mb-0.5">
+      <div className={`flex justify-between text-xs mb-0.5 ${shouldBlink ? 'text-yellow-400 animate-exp-blink' : 'text-gray-400'}`}>
         <span>EXP</span>
         <span>{visualExp} / {required}</span>
       </div>
       <div className="w-full bg-gray-700 rounded h-2 overflow-hidden">
         <div
-          className={`bg-yellow-500 h-2 ${transitionEnabled ? 'transition-all duration-1000' : ''}`}
+          className={`bg-yellow-500 h-2 ${transitionEnabled ? 'transition-[width] duration-1000' : ''} ${shouldBlink ? 'animate-exp-blink' : ''}`}
           style={{ width: `${percentage}%` }}
         />
       </div>

@@ -8,11 +8,16 @@ export default {
     extend: {
       animation: {
         'damage-popup': 'damagePopup 1s ease-out forwards',
+        'exp-blink': 'expBlink 0.8s ease-in-out infinite',
       },
       keyframes: {
         damagePopup: {
           '0%': { opacity: '1', transform: 'translate(-50%, -50%) translateY(0)' },
           '100%': { opacity: '0', transform: 'translate(-50%, -50%) translateY(-30px)' },
+        },
+        expBlink: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.4' },
         },
       },
     },
