@@ -11,6 +11,7 @@ import { TargetSelector, getTargetSelectionState } from './TargetSelector'
 import { DamagePopup } from './DamagePopup'
 import { LevelUpModal } from './LevelUpModal'
 import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
+import { NextStagePreview } from './NextStagePreview'
 
 // 敵ターンをスキップするまでの遅延（ミリ秒）
 const ENEMY_TURN_DELAY_MS = 500
@@ -152,6 +153,12 @@ export function BattleScreen() {
       {/* 2. 敵エリア（大きなメインエリア） */}
       <div className="flex-1 bg-gray-900 border border-gray-600 p-3 rounded-lg mb-3 relative min-h-[160px] flex flex-col">
         <div className="text-xs text-gray-400 mb-2">enemies</div>
+
+        {/* Next枠: 右上に次ステージプレビュー */}
+        <div className="absolute top-2 right-2 z-[5] flex gap-1">
+          <NextStagePreview seed={run.seed} currentStage={run.currentStage} />
+          <NextStagePreview seed={run.seed} currentStage={run.currentStage} offset={2} label="Next+" />
+        </div>
 
         {/* 敵行動メッセージバナー */}
         {visibleMessage && (
