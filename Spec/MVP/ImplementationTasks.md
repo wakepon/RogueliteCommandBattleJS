@@ -72,7 +72,7 @@
 | 3.2 | マスターデータ | Spells.json, Potions.json | ✅ 完了 |
 | 3.3 | DamageCalculator | ダメージ計算式 | ✅ 完了 |
 | 3.4 | CommandValidator | コマンド使用可否判定 | ✅ 完了 |
-| 3.5 | TurnOrder | 行動順計算 | ✅ 完了 |
+| 3.5 | 行動順計算 | BattleStateFactory.ts 内の sortActorsByAgi 関数として実装 | ✅ 完了 |
 | 3.6 | BattleReducer | 戦闘状態遷移 | ✅ 完了 |
 | 3.7 | useBattle Hook | 戦闘画面用Hook | ✅ 完了 |
 | 3.8 | 戦闘UI | CommandList, TargetSelector, DamagePopup | ✅ 完了 |
@@ -204,24 +204,39 @@ src/
 │   ├── Core/            # コアロジック
 │   │   ├── DamageCalculator.ts
 │   │   ├── CommandValidator.ts
-│   │   ├── TurnOrder.ts
 │   │   ├── BattleEngine.ts
-│   │   ├── InitialState.ts
 │   │   ├── StageManager.ts
 │   │   ├── RewardCalculator.ts
 │   │   ├── LevelUpCalculator.ts
 │   │   ├── StoreLogic.ts
+│   │   ├── EnemyAI.ts
+│   │   ├── BuffProcessor.ts
+│   │   ├── EventLogic.ts
+│   │   ├── MapGenerator.ts
+│   │   ├── RelicProcessor.ts
 │   │   └── index.ts
 │   ├── State/           # 状態管理
 │   │   ├── BattleReducer.ts
 │   │   ├── GameReducer.ts
+│   │   ├── BattleActionProcessor.ts
+│   │   ├── BattleStateFactory.ts    # sortActorsByAgi を含む
 │   │   └── index.ts
+│   ├── Utils/           # ユーティリティ
+│   │   ├── ItemDescription.ts
+│   │   └── DamagePredictor.ts
+│   ├── Data/            # マスターデータ
+│   │   ├── Weapons.json
+│   │   ├── Spells.json
+│   │   ├── Relics.json
+│   │   ├── Potions.json
+│   │   ├── Enemies.json
+│   │   └── StagePatterns.json
 │   └── Storage/         # 永続化
 │       ├── SaveManager.ts
 │       └── index.ts
 ├── Hooks/               # React Hooks
 │   ├── UseGame.tsx
-│   ├── UseBattle.ts
+│   ├── UseBattle.tsx
 │   └── index.ts
 ├── Components/
 │   ├── Common/          # 共通UI部品
@@ -229,28 +244,29 @@ src/
 │   │   ├── ResourceBar.tsx
 │   │   ├── BuffIcon.tsx
 │   │   ├── ItemCard.tsx
+│   │   ├── MapContent.tsx
 │   │   └── index.ts
 │   ├── Battle/          # 戦闘UI部品
+│   │   ├── BattleScreen.tsx
 │   │   ├── PlayerStatus.tsx
 │   │   ├── EnemyDisplay.tsx
 │   │   ├── CommandList.tsx
 │   │   ├── TurnIndicator.tsx
 │   │   ├── DamagePopup.tsx
 │   │   ├── TargetSelector.tsx
+│   │   ├── LevelUpModal.tsx
+│   │   ├── ExpGauge.tsx
 │   │   └── index.ts
+│   ├── Store/           # ストアUI部品
+│   │   ├── MapOverlay.tsx
+│   │   ├── StoreCommandPanel.tsx
+│   │   └── StoreShopPanel.tsx
 │   └── Screens/         # 画面コンポーネント
 │       ├── TitleScreen.tsx
-│       ├── BattleScreen.tsx
 │       ├── StoreScreen.tsx
 │       ├── EventScreen.tsx
 │       ├── ResultScreen.tsx
+│       ├── MapScreen.tsx
 │       └── index.ts
-├── Data/                # マスターデータ
-│   ├── Weapons.json
-│   ├── Spells.json
-│   ├── Relics.json
-│   ├── Potions.json
-│   ├── Enemies.json
-│   └── StagePatterns.json
 └── App.tsx              # エントリーポイント
 ```

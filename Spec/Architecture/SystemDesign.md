@@ -8,7 +8,7 @@
 
 | 項目 | 決定 | 理由 |
 |------|------|------|
-| データ管理 | JSONファイル（`src/Data/`に配置） | 型チェック可能、ビルド時バンドル |
+| データ管理 | JSONファイル（`src/Lib/Data/`に配置） | 型チェック可能、ビルド時バンドル |
 | セーブ/ロード | localStorage、戦闘終了後のみ | シンプル、中断再開は戦闘後から |
 | 画面遷移 | state切り替え | React Router不要、シンプル |
 | 状態管理 | useReducer + Context | MVPの規模に十分、外部依存なし |
@@ -39,31 +39,53 @@ src/
 │   │   ├── CommandValidator.ts   # コマンド使用可能判定
 │   │   ├── BattleEngine.ts       # 戦闘進行ロジック
 │   │   ├── StoreLogic.ts         # ストアの売買・抽選・売却可否判定
-│   │   └── RewardCalculator.ts   # 報酬・利子計算
+│   │   ├── RewardCalculator.ts   # 報酬・利子計算
+│   │   ├── StageManager.ts       # ステージ管理
+│   │   ├── LevelUpCalculator.ts  # レベルアップ計算
+│   │   ├── EnemyAI.ts            # 敵行動決定
+│   │   ├── BuffProcessor.ts      # バフ処理
+│   │   ├── EventLogic.ts         # イベント画面ロジック
+│   │   ├── MapGenerator.ts       # マップ生成
+│   │   ├── RelicProcessor.ts     # レリック効果処理
+│   │   └── index.ts
 │   ├── State/              # 状態遷移
 │   │   ├── GameReducer.ts        # ゲーム全体の状態遷移
-│   │   └── BattleReducer.ts      # 戦闘中の状態遷移
+│   │   ├── BattleReducer.ts      # 戦闘中の状態遷移
+│   │   ├── BattleActionProcessor.ts  # 戦闘アクション処理
+│   │   ├── BattleStateFactory.ts     # 戦闘状態生成
+│   │   └── index.ts
+│   ├── Utils/              # ユーティリティ
+│   │   ├── ItemDescription.ts    # アイテム説明文生成
+│   │   └── DamagePredictor.ts    # ダメージ予測計算
+│   ├── Data/               # JSONマスターデータ
+│   │   ├── Weapons.json
+│   │   ├── Spells.json
+│   │   ├── Relics.json
+│   │   ├── Potions.json
+│   │   ├── Enemies.json
+│   │   └── StagePatterns.json
 │   └── Storage/            # 永続化
 │       └── SaveManager.ts        # localStorage操作
 ├── Hooks/                  # React Hooks（ロジックとUIの橋渡し）
-│   ├── UseGame.ts          # ゲーム全体の状態管理
-│   └── UseBattle.ts        # 戦闘画面用
+│   ├── UseGame.tsx         # ゲーム全体の状態管理
+│   └── UseBattle.tsx       # 戦闘画面用
 ├── Components/             # UIコンポーネント
 │   ├── Screens/            # 画面単位
 │   │   ├── TitleScreen.tsx
-│   │   ├── BattleScreen.tsx
 │   │   ├── StoreScreen.tsx
 │   │   ├── EventScreen.tsx     # Stage 4の選択
-│   │   └── ResultScreen.tsx
+│   │   ├── ResultScreen.tsx
+│   │   └── MapScreen.tsx       # マップ画面
 │   ├── Battle/             # 戦闘UI部品
+│   │   ├── BattleScreen.tsx
+│   │   ├── LevelUpModal.tsx
+│   │   └── ExpGauge.tsx
+│   ├── Store/              # ストアUI部品
+│   │   ├── MapOverlay.tsx
+│   │   ├── StoreCommandPanel.tsx
+│   │   └── StoreShopPanel.tsx
 │   └── Common/             # 共通UI部品
-├── Data/                   # JSONマスターデータ
-│   ├── Weapons.json
-│   ├── Spells.json
-│   ├── Relics.json
-│   ├── Potions.json
-│   ├── Enemies.json
-│   └── StagePatterns.json
+│       └── MapContent.tsx
 └── App.tsx                 # エントリーポイント、画面切り替え
 ```
 
@@ -166,6 +188,15 @@ export type PassiveEffectType =
   | { type: 'weaponDamageBonus'; value: number }
   | { type: 'interestCap'; value: number }
   | { type: 'lowHpDamageMultiplier'; hpThreshold: number; multiplier: number }
+  | { type: 'firstHitShield' }
+  | { type: 'weaponDurabilitySave'; chance: number }
+  | { type: 'weaponAttackMpRecover'; value: number }
+  | { type: 'killStreakBonus'; value: number }
+  | { type: 'lastStrikeDamageMultiplier'; multiplier: number }
+  | { type: 'lowMpDamageBonus'; mpThreshold: number; value: number }
+  | { type: 'thornsDamage'; value: number }
+  | { type: 'regenPerTurn'; value: number }
+  | { type: 'potionEffectMultiplier'; multiplier: number }
 
 /** パッシブ効果を持つ */
 export interface IPassiveEffect {
@@ -185,6 +216,7 @@ export type WeaponEffect =
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {
   commandCategory: 'weapon'
   power: number
+  variance: number    // ダメージブレ幅（±variance の加算ブレ）
   goldCost?: number   // ゴールド消費（黄金の斧など）
   hpCost?: number     // HP消費（呪われた槍など）
   effect?: WeaponEffect
@@ -201,7 +233,8 @@ export interface PunchInstance extends ICommandable, ITargetable {
   name: 'パンチ'
   commandCategory: 'weapon'
   targetType: 'enemySingle'
-  power: 0
+  power: number
+  variance: number
   maxUses: null      // 無限
   currentUses: null  // 無限
 }
@@ -212,7 +245,8 @@ export const PUNCH: PunchInstance = {
   name: 'パンチ',
   commandCategory: 'weapon',
   targetType: 'enemySingle',
-  power: 0,
+  power: 1,
+  variance: 2,
   maxUses: null,
   currentUses: null
 }
@@ -234,6 +268,7 @@ export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetabl
   commandCategory: 'spell'
   targetType: TargetType  // ITargetableから継承
   power: number
+  variance: number    // ダメージブレ幅（±variance の加算ブレ）
   effect?: SpellEffect
 }
 
@@ -351,7 +386,8 @@ function getSellPrice(weapon: ExplorerWeapon): number | null {
   if (weapon.currentUses === null || weapon.maxUses === null) {
     return basePrice
   }
-  return Math.floor((weapon.currentUses / weapon.maxUses) * basePrice)
+  const usageRatio = weapon.currentUses / weapon.maxUses
+  return Math.floor(basePrice * usageRatio * 0.5)  // 常に半額ベースで使用回数按分
 }
 ```
 
@@ -363,7 +399,8 @@ function getSellPrice(weapon: ExplorerWeapon): number | null {
 // Lib/Core/CommandValidator.ts
 export function isCommandAvailable(
   command: ExplorerWeapon | SpellData | PotionData,
-  explorer: ExplorerState
+  explorer: ExplorerState,
+  gold: number
 ): boolean {
   switch (command.commandCategory) {
     case 'weapon':
@@ -404,10 +441,13 @@ export function isCommandAvailable(
 ```typescript
 // ===== Lib/Types/Game.ts =====
 interface GameState {
-  phase: 'title' | 'battle' | 'store' | 'event' | 'result'
+  phase: 'title' | 'battle' | 'store' | 'event' | 'result' | 'map'
   run: RunState | null        // タイトル画面ではnull
   battleState: BattleState | null
   storeState: StoreState | null
+  resultState: ResultState | null
+  eventState: EventState | null
+  mapState: MapState | null
 }
 ```
 
@@ -430,6 +470,9 @@ interface RunState {
 
   // パーティー
   party: ExplorerState[]    // MVPでは1人、将来は複数人
+
+  // 戦闘中のレベルアップ情報
+  battleLevelUps: LevelUpInfo[]
 
   // 統計（結果画面表示用）
   stats: RunStats
@@ -516,11 +559,19 @@ export type ActorId =
 
 interface BattleState {
   turn: number
-  turnLimit: number
+  turnLimit: number           // ステージごとに異なる。デフォルトは5ターン
   enemies: EnemyInstance[]
-  actionQueue: ActorId[]  // 行動順（Agi順）
+  actionQueue: ActorId[]      // 行動順（Agi順）
   currentActorIndex: number
-  stolenGold: number      // ゴールドラッシュで盗んだ金額
+  stolenGold: number          // ゴールドラッシュで盗んだ金額
+  selectedCommand: ExplorerWeapon | SpellData | PotionData | null
+  selectedTargetId: string | null
+  damagePopups: DamagePopup[]
+  playerDamagePopups: DamagePopup[]
+  levelUpPopups: LevelUpPopup[]
+  battleMessage: string | null
+  battleMessageId: number
+  relicState: RelicBattleState
 }
 ```
 
@@ -528,9 +579,9 @@ interface BattleState {
 
 ```typescript
 interface StoreState {
-  weaponSlots: (WeaponData | SpellData)[]  // 3枠
-  relicSlots: (RelicData | PotionData)[]   // 3枠
-  rerollCost: number  // MVP: 固定5G
+  weaponSlots: (WeaponData | SpellData | null)[]  // 3枠。購入済みスロットはnull
+  relicSlots: (RelicData | PotionData | null)[]   // 3枠。購入済みスロットはnull
+  rerollCost: number  // 初期値3G、リロールするごとに1G増加
 }
 ```
 
@@ -577,8 +628,8 @@ interface SaveData {
 ```typescript
 // Lib/Storage/SaveManager.ts
 export const SaveManager = {
-  save(state: GameState): void
-  load(): GameState | null
+  save(run: RunState): boolean
+  load(): RunState | null
   clear(): void
   hasSave(): boolean
 }
@@ -604,6 +655,8 @@ function App() {
       return <EventScreen />
     case 'result':
       return <ResultScreen />
+    case 'map':
+      return <MapScreen />
   }
 }
 ```
@@ -613,11 +666,13 @@ function App() {
 ```
 [title]
    ↓ START_GAME（新規） or CONTINUE_GAME（ロード）
+[map]
+   ↓ ADVANCE_FROM_MAP（ステージ選択）
 [battle] ←──────────────────────┐
    ↓ 勝利                        │
-[store] ─────────→ 次のStageへ ──┘
+[store] ─────────→ [map] ────────┘
    ↓ Stage 4の場合
-[event] ─────────→ 次のStageへ ──┘
+[event] ─────────→ [map] ────────┘
    ↓ ボス撃破 or 敗北
 [result]
    ↓ RETURN_TITLE
@@ -628,268 +683,91 @@ function App() {
 
 ### Weapons.json
 
+8種の武器データ（オブジェクト辞書形式）。全武器に `variance` フィールドあり。
+
 ```json
-[
-  {
-    "id": "rusty_knife",
-    "name": "錆びたナイフ",
-    "rarity": "Common",
-    "price": 3,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 3,
-    "maxUses": 5
-  },
-  {
-    "id": "iron_sword",
-    "name": "鉄の剣",
-    "rarity": "Common",
-    "price": 8,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 6,
-    "maxUses": 8
-  },
-  {
-    "id": "vampire_dagger",
-    "name": "吸血の短剣",
-    "rarity": "Uncommon",
-    "price": 12,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 4,
-    "maxUses": 5,
-    "effect": {
-      "type": "lifesteal",
-      "value": 0.5
-    }
-  },
-  {
-    "id": "golden_axe",
-    "name": "黄金の斧",
-    "rarity": "Uncommon",
-    "price": 10,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 10,
-    "maxUses": 3,
-    "goldCost": 1
-  },
-  {
-    "id": "cursed_spear",
-    "name": "呪われた槍",
-    "rarity": "Rare",
-    "price": 5,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 15,
-    "maxUses": 10,
-    "hpCost": 2
-  },
-  {
-    "id": "scythe",
-    "name": "大鎌",
-    "rarity": "Uncommon",
-    "price": 12,
-    "commandCategory": "weapon",
-    "targetType": "enemyAll",
-    "power": 4,
-    "maxUses": 5
-  },
-  {
-    "id": "crossbow",
-    "name": "連弩",
-    "rarity": "Rare",
-    "price": 15,
-    "commandCategory": "weapon",
-    "targetType": "enemyRandom",
-    "minTargetCount": 4,
-    "maxTargetCount": 4,
-    "power": 3,
-    "maxUses": 4
-  }
-]
+{
+  "rusty_knife":     { "id": "rusty_knife",      "name": "錆びたナイフ",   "rarity": "Common",   "price": 3,  "commandCategory": "weapon", "targetType": "enemySingle", "power": 3,  "variance": 1, "maxUses": 5  },
+  "short_sword":     { "id": "short_sword",       "name": "ショートソード", "rarity": "Common",   "price": 5,  "commandCategory": "weapon", "targetType": "enemySingle", "power": 4,  "variance": 1, "maxUses": 8  },
+  "iron_sword":      { "id": "iron_sword",        "name": "鉄の剣",         "rarity": "Common",   "price": 8,  "commandCategory": "weapon", "targetType": "enemySingle", "power": 6,  "variance": 2, "maxUses": 8  },
+  "great_axe":       { "id": "great_axe",         "name": "グレートアックス","rarity": "Uncommon", "price": 12, "commandCategory": "weapon", "targetType": "enemySingle", "power": 10, "variance": 3, "maxUses": 5  },
+  "greatsword":      { "id": "greatsword",        "name": "グレートソード", "rarity": "Uncommon", "price": 12, "commandCategory": "weapon", "targetType": "enemyAll",    "power": 5,  "variance": 2, "maxUses": 4  },
+  "throwing_knife":  { "id": "throwing_knife",    "name": "投げナイフ",     "rarity": "Common",   "price": 6,  "commandCategory": "weapon", "targetType": "enemyRandom", "power": 3,  "variance": 1, "maxUses": 6, "minTargetCount": 3, "maxTargetCount": 3 },
+  "whirlwind_blade": { "id": "whirlwind_blade",   "name": "旋風の刃",       "rarity": "Rare",     "price": 15, "commandCategory": "weapon", "targetType": "enemyAll",    "power": 6,  "variance": 2, "maxUses": 4  },
+  "vampiric_blade":  { "id": "vampiric_blade",    "name": "吸血の刃",       "rarity": "Rare",     "price": 15, "commandCategory": "weapon", "targetType": "enemySingle", "power": 7,  "variance": 2, "maxUses": 5, "effect": { "type": "lifesteal", "value": 0.5 } }
+}
 ```
 
 ### Spells.json
 
+6種の魔法データ（オブジェクト辞書形式）。全魔法に `variance` フィールドあり。
+
 ```json
-[
-  {
-    "id": "fire",
-    "name": "ファイア",
-    "rarity": "Common",
-    "price": 6,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 3,
-    "power": 8,
-    "effect": null
-  },
-  {
-    "id": "heal",
-    "name": "ヒール",
-    "rarity": "Common",
-    "price": 8,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 5,
-    "power": 0,
-    "effect": {
-      "type": "heal",
-      "value": 15
-    }
-  },
-  {
-    "id": "firestorm",
-    "name": "ファイアストーム",
-    "rarity": "Uncommon",
-    "price": 10,
-    "commandCategory": "spell",
-    "targetType": "enemyAll",
-    "mpCost": 5,
-    "power": 5,
-    "effect": null
-  }
-]
+{
+  "fire":      { "id": "fire",      "name": "ファイア",       "rarity": "Common",   "price": 6,  "commandCategory": "spell", "targetType": "enemySingle", "mpCost": 3, "power": 8,  "variance": 2 },
+  "firestorm": { "id": "firestorm", "name": "ファイアストーム","rarity": "Uncommon", "price": 10, "commandCategory": "spell", "targetType": "enemyAll",    "mpCost": 5, "power": 5,  "variance": 1 },
+  "heal":      { "id": "heal",      "name": "ヒール",          "rarity": "Common",   "price": 8,  "commandCategory": "spell", "targetType": "allySingle",  "mpCost": 5, "power": 0,  "variance": 0, "effect": { "type": "heal", "value": 15 } },
+  "ice_bolt":  { "id": "ice_bolt",  "name": "アイスボルト",   "rarity": "Common",   "price": 7,  "commandCategory": "spell", "targetType": "enemySingle", "mpCost": 3, "power": 6,  "variance": 2 },
+  "thunder":   { "id": "thunder",   "name": "サンダー",        "rarity": "Uncommon", "price": 9,  "commandCategory": "spell", "targetType": "enemySingle", "mpCost": 4, "power": 10, "variance": 3 },
+  "blizzard":  { "id": "blizzard",  "name": "ブリザード",      "rarity": "Rare",     "price": 12, "commandCategory": "spell", "targetType": "enemyAll",    "mpCost": 7, "power": 7,  "variance": 2 }
+}
 ```
 
 ### Relics.json
 
+15種のレリックデータ（オブジェクト辞書形式）。新規レリック効果多数。
+
+主なレリック例:
+
 ```json
-[
-  {
-    "id": "warrior_bracelet",
-    "name": "戦士の腕輪",
-    "rarity": "Common",
-    "price": 15,
-    "passiveEffect": {
-      "type": "statBonus",
-      "stat": "str",
-      "value": 2
-    }
-  },
-  {
-    "id": "sharp_whetstone",
-    "name": "鋭い砥石",
-    "rarity": "Uncommon",
-    "price": 20,
-    "passiveEffect": {
-      "type": "weaponDamageBonus",
-      "value": 3
-    }
-  },
-  {
-    "id": "piggy_bank",
-    "name": "貯金箱",
-    "rarity": "Rare",
-    "price": 25,
-    "passiveEffect": {
-      "type": "interestCap",
-      "value": 10
-    }
-  }
-]
+{
+  "warrior_bracelet": { "id": "warrior_bracelet", "name": "戦士の腕輪",   "rarity": "Common",   "price": 15, "passiveEffect": { "type": "statBonus", "stat": "str", "value": 2 } },
+  "sharp_whetstone":  { "id": "sharp_whetstone",  "name": "鋭い砥石",     "rarity": "Uncommon", "price": 20, "passiveEffect": { "type": "weaponDamageBonus", "value": 3 } },
+  "piggy_bank":       { "id": "piggy_bank",        "name": "貯金箱",       "rarity": "Rare",     "price": 25, "passiveEffect": { "type": "interestCap", "value": 10 } },
+  "thorns_ring":      { "id": "thorns_ring",       "name": "いばらの指輪", "rarity": "Uncommon", "price": 18, "passiveEffect": { "type": "thornsDamage", "value": 2 } },
+  "regen_charm":      { "id": "regen_charm",       "name": "再生のお守り", "rarity": "Uncommon", "price": 20, "passiveEffect": { "type": "regenPerTurn", "value": 1 } }
+}
 ```
+
+（全15種。効果の詳細値はバランス調整対象のため概要記載）
 
 ### Potions.json
 
+2種のポーションデータ（オブジェクト辞書形式）。`targetType: 'allySingle'` フィールドあり。
+
 ```json
-[
-  {
-    "id": "hp_potion",
-    "name": "HPポーション",
-    "rarity": "Common",
-    "price": 5,
-    "commandCategory": "potion",
-    "effect": {
-      "type": "healHp",
-      "value": 20
-    }
-  },
-  {
-    "id": "mp_potion",
-    "name": "MPポーション",
-    "rarity": "Common",
-    "price": 5,
-    "commandCategory": "potion",
-    "effect": {
-      "type": "healMp",
-      "value": 10
-    }
-  }
-]
+{
+  "hp_potion": { "id": "hp_potion", "name": "HPポーション", "rarity": "Common", "price": 5, "commandCategory": "potion", "targetType": "allySingle", "effect": { "type": "healHp", "value": 20 } },
+  "mp_potion": { "id": "mp_potion", "name": "MPポーション", "rarity": "Common", "price": 5, "commandCategory": "potion", "targetType": "allySingle", "effect": { "type": "healMp", "value": 10 } }
+}
 ```
 
 ### Enemies.json
 
+4種の敵データ（オブジェクト辞書形式）。敵種別ごとに行動バリエーションが定義されている。
+
 ```json
-[
-  {
-    "id": "slime",
-    "name": "スライム",
-    "type": "normal",
-    "hp": 20,
-    "attack": 3,
-    "agi": 2,
-    "gold": 1,
-    "behavior": "basic_attack"
-  },
-  {
-    "id": "ghost",
-    "name": "ゴースト",
-    "type": "normal",
-    "hp": 15,
-    "attack": 2,
-    "agi": 6,
-    "gold": 1,
-    "behavior": "mp_drain"
-  },
-  {
-    "id": "orc",
-    "name": "オーク",
-    "type": "elite",
-    "hp": 50,
-    "attack": 8,
-    "agi": 3,
-    "gold": 2,
-    "behavior": "charge_attack"
-  },
-  {
-    "id": "chimera",
-    "name": "キメラ",
-    "type": "boss",
-    "hp": 150,
-    "attack": 5,
-    "agi": 4,
-    "gold": 3,
-    "behavior": "boss_pattern"
-  }
-]
+{
+  "slime":  { "id": "slime",  "name": "スライム", "type": "normal", "hp": 20,  "attack": 3, "agi": 2, "gold": 1, "behavior": "basic_attack" },
+  "goblin": { "id": "goblin", "name": "ゴブリン", "type": "normal", "hp": 18,  "attack": 4, "agi": 5, "gold": 1, "behavior": "agile_attack" },
+  "orc":    { "id": "orc",    "name": "オーク",   "type": "elite",  "hp": 50,  "attack": 8, "agi": 3, "gold": 2, "behavior": "charge_attack" },
+  "dragon": { "id": "dragon", "name": "ドラゴン", "type": "boss",   "hp": 150, "attack": 5, "agi": 4, "gold": 3, "behavior": "boss_pattern"  }
+}
 ```
 
 ### StagePatterns.json
 
+`stage_1` 〜 `stage_7` の個別形式。各ステージに `turnLimit` フィールドあり。
+
 ```json
 {
-  "stage_1_2": [
-    { "pattern": "A", "enemies": ["slime"] },
-    { "pattern": "B", "enemies": ["slime", "slime"] },
-    { "pattern": "C", "enemies": ["slime", "slime", "slime"] },
-    { "pattern": "D", "enemies": ["slime", "ghost"] }
-  ],
-  "stage_3": [
-    { "pattern": "A", "enemies": ["orc"] },
-    { "pattern": "B", "enemies": ["orc", "slime"] }
-  ],
-  "stage_5_6": [
-    { "pattern": "A", "enemies": ["slime", "slime", "ghost", "ghost"] },
-    { "pattern": "B", "enemies": ["ghost", "ghost", "ghost"] }
-  ],
-  "stage_7": [
-    { "pattern": "A", "enemies": ["chimera"] },
-    { "pattern": "B", "enemies": ["chimera", "slime", "slime"] }
-  ]
+  "stage_1": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["slime"] }, { "pattern": "B", "enemies": ["slime", "slime"] }] },
+  "stage_2": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["slime", "goblin"] }, { "pattern": "B", "enemies": ["goblin"] }] },
+  "stage_3": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["orc"] }, { "pattern": "B", "enemies": ["orc", "slime"] }] },
+  "stage_4": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["orc", "goblin"] }] },
+  "stage_5": { "turnLimit": 6, "patterns": [{ "pattern": "A", "enemies": ["orc", "orc"] }] },
+  "stage_6": { "turnLimit": 6, "patterns": [{ "pattern": "A", "enemies": ["orc", "orc", "goblin"] }] },
+  "stage_7": { "turnLimit": 7, "patterns": [{ "pattern": "A", "enemies": ["dragon"] }] }
 }
 ```
 
@@ -899,8 +777,8 @@ function App() {
 |---------|---------|
 | **Phase 1: 戦闘ロジック** | `Lib/Types/`、`Lib/Core/DamageCalculator.ts`、`Lib/Core/CommandValidator.ts`、`Lib/State/BattleReducer.ts` |
 | **Phase 2: ゲームループ** | `Lib/State/GameReducer.ts`、`Lib/Core/RewardCalculator.ts`、`Lib/Core/StoreLogic.ts`、`Lib/Storage/SaveManager.ts` |
-| **Phase 3: データとUI** | `Data/*.json`、`Components/`、`Hooks/` |
-| **Phase 4: バランス調整** | `Data/*.json`の数値調整 |
+| **Phase 3: データとUI** | `Lib/Data/*.json`、`Components/`、`Hooks/` |
+| **Phase 4: バランス調整** | `Lib/Data/*.json`の数値調整 |
 
 ## 設計原則
 
