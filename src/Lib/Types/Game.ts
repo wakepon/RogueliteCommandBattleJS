@@ -62,8 +62,9 @@ export interface ResultState {
 
 /** ストア状態 */
 export interface StoreState {
-  weaponSlots: (WeaponData | SpellData | null)[]  // 3枠
-  relicSlots: (RelicData | PotionData | null)[]   // 3枠
+  weaponSlots: (WeaponData | SpellData | null)[]  // 4枠（武器・魔法混合）
+  relicSlots: (RelicData | null)[]                // 2枠
+  potionSlots: (PotionData | null)[]              // 2枠
   rerollCost: number
 }
 

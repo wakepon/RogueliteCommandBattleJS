@@ -115,6 +115,8 @@ function CharacterPanel({
                   explorerId={member.id}
                   disabled={!isCommandPhase}
                   isAvailable={isAvail}
+                  attackerStr={member.str}
+                  attackerInt={member.int}
                 />
               )
             })}

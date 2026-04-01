@@ -17,8 +17,9 @@ const relicsData = RelicsData as Record<string, RelicData>
 const potionsData = PotionsData as Record<string, PotionData>
 
 // 定数
-const WEAPON_SLOT_COUNT = 3
-const RELIC_SLOT_COUNT = 3
+const WEAPON_SLOT_COUNT = 4
+const RELIC_SLOT_COUNT = 2
+const POTION_SLOT_COUNT = 2
 const BASE_REROLL_COST = 3
 const MAX_RELIC_COUNT = 5
 const MAX_POTION_COUNT = 2
@@ -54,13 +55,16 @@ export function generateWeaponSlotItems(seed: number): (WeaponData | SpellData)[
   return pickRandom(allItems, WEAPON_SLOT_COUNT, seed)
 }
 
-/** レリック/ポーション枠の商品を抽選 */
-export function generateRelicSlotItems(seed: number): (RelicData | PotionData)[] {
+/** レリック枠の商品を抽選 */
+export function generateRelicSlotItems(seed: number): RelicData[] {
   const allRelics = Object.values(relicsData)
-  const allPotions = Object.values(potionsData)
-  const allItems = [...allRelics, ...allPotions]
+  return pickRandom(allRelics, RELIC_SLOT_COUNT, seed + 100)
+}
 
-  return pickRandom(allItems, RELIC_SLOT_COUNT, seed + 100) // シードをずらす
+/** ポーション枠の商品を抽選 */
+export function generatePotionSlotItems(seed: number): PotionData[] {
+  const allPotions = Object.values(potionsData)
+  return pickRandom(allPotions, POTION_SLOT_COUNT, seed + 200)
 }
 
 /** ストア状態を生成 */
@@ -68,6 +72,7 @@ export function createStoreState(seed: number): StoreState {
   return {
     weaponSlots: generateWeaponSlotItems(seed),
     relicSlots: generateRelicSlotItems(seed),
+    potionSlots: generatePotionSlotItems(seed),
     rerollCost: BASE_REROLL_COST,
   }
 }
@@ -133,6 +138,7 @@ export function rerollStore(storeState: StoreState, seed: number): StoreState {
   return {
     weaponSlots: generateWeaponSlotItems(seed),
     relicSlots: generateRelicSlotItems(seed),
+    potionSlots: generatePotionSlotItems(seed),
     rerollCost: storeState.rerollCost + 1,
   }
 }

@@ -7,6 +7,8 @@ interface DraggableCommandProps {
   explorerId: string
   disabled?: boolean
   isAvailable: boolean
+  attackerStr?: number  // ダメージ予測用: キャラのSTR
+  attackerInt?: number  // ダメージ予測用: キャラのINT
 }
 
 /** コマンドカテゴリに応じたアイコン */
@@ -28,7 +30,7 @@ function getCommandStyle(command: BattleCommand): { bgColor: string; label: stri
  * ドラッグ可能なコマンドアイテム
  * 武器/魔法を敵や味方にドラッグ&ドロップしてコマンドをセット
  */
-export function DraggableCommand({ command, explorerId, disabled, isAvailable }: DraggableCommandProps) {
+export function DraggableCommand({ command, explorerId, disabled, isAvailable, attackerStr = 0, attackerInt = 0 }: DraggableCommandProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `cmd-${explorerId}-${command.id}`,
     data: { command, explorerId },
@@ -41,6 +43,22 @@ export function DraggableCommand({ command, explorerId, disabled, isAvailable }:
     : isSpell(command)
       ? `${command.mpCost}MP`
       : ''
+
+  // 素のダメージ予測（バフ/レリックなし、ブレ幅込み）
+  let damageText = ''
+  const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll'
+  if (isEnemyTarget && command.power > 0) {
+    let stat = attackerStr
+    if (isWeapon(command) && 'scaleStat' in command && command.scaleStat === 'int') {
+      stat = attackerInt
+    } else if (isSpell(command)) {
+      stat = attackerInt
+    }
+    const base = stat * command.power
+    const min = Math.max(0, base - command.variance)
+    const max = Math.max(0, base + command.variance)
+    damageText = min === max ? `${min}` : `${min}-${max}`
+  }
 
   return (
     <div
@@ -63,6 +81,9 @@ export function DraggableCommand({ command, explorerId, disabled, isAvailable }:
       <span className="flex-1 truncate">{command.name}</span>
       {command.targetType === 'enemyAll' && (
         <span className="text-[9px] bg-red-700 text-white px-0.5 rounded">全</span>
+      )}
+      {damageText && (
+        <span className="text-[10px] text-gray-400 flex-shrink-0">{damageText}</span>
       )}
       {usesText && (
         <span className="text-[10px] text-gray-400 flex-shrink-0">{usesText}</span>

@@ -300,8 +300,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const { slotIndex, item } = action
       if (state.run.gold < item.price) return state
 
-      const newRelicSlots = [...state.storeState.relicSlots]
-      newRelicSlots[slotIndex] = null
+      const newPotionSlots = [...state.storeState.potionSlots]
+      newPotionSlots[slotIndex] = null
 
       return {
         ...state,
@@ -310,7 +310,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold - item.price,
           potions: [...state.run.potions, item],
         },
-        storeState: { ...state.storeState, relicSlots: newRelicSlots },
+        storeState: { ...state.storeState, potionSlots: newPotionSlots },
       }
     }
 
