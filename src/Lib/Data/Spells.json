@@ -73,5 +73,22 @@
     "power": 3,
     "variance": 5,
     "effect": null
+  },
+  "precision": {
+    "id": "precision",
+    "name": "精密",
+    "rarity": "Common",
+    "price": 6,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 3,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "buff",
+      "stat": "precision",
+      "value": 1,
+      "duration": "nextAction"
+    }
   }
 }

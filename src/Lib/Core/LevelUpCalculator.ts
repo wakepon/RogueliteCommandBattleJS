@@ -1,4 +1,4 @@
-import { ExplorerState } from '../Types/Explorer'
+import { ExplorerState, CharacterClass } from '../Types/Explorer'
 
 /** レベルアップ時の情報 */
 export interface LevelUpInfo {
@@ -6,12 +6,12 @@ export interface LevelUpInfo {
   newLevel: number
   hpRecovered: number
   mpRecovered: number
+  characterName: string
   statsGained: {
-    maxHp: number    // +5
-    maxMp: number    // +2
-    str: number      // +1
-    int: number      // +1
-    agi: number      // +1
+    maxHp: number
+    maxMp: number
+    str: number
+    int: number
   }
 }
 
@@ -38,13 +38,19 @@ export function canLevelUp(explorer: ExplorerState): boolean {
   return explorer.exp >= required
 }
 
+// クラス別レベルアップ成長値
+const CLASS_GROWTH: Record<CharacterClass, { maxHp: number; maxMp: number; str: number; int: number }> = {
+  warrior: { maxHp: 7, maxMp: 1, str: 2, int: 0 },
+  mage:    { maxHp: 3, maxMp: 4, str: 0, int: 2 },
+  cleric:  { maxHp: 5, maxMp: 3, str: 1, int: 1 },
+}
+
 /**
  * レベルアップを1回適用
  * - level +1
  * - exp から必要分を消費
- * - maxHP +5, maxMP +2
- * - HP/MP: 新しい最大値の50%を回復（端数切り捨て、上限キャップ）
- * - str +1, int +1, agi +1
+ * - クラス別の成長値でステータス増加
+ * - HP/MP: 全回復
  */
 export function applyLevelUp(explorer: ExplorerState): {
   updatedExplorer: ExplorerState
@@ -54,22 +60,12 @@ export function applyLevelUp(explorer: ExplorerState): {
   const previousLevel = explorer.level
   const newLevel = previousLevel + 1
 
-  // ステータス増加量
-  const maxHpGain = 5
-  const maxMpGain = 2
-  const statGain = 1
+  // クラス別成長値を取得
+  const growth = CLASS_GROWTH[explorer.characterClass]
 
   // 新しい最大値を計算
-  const newMaxHp = explorer.maxHp + maxHpGain
-  const newMaxMp = explorer.maxMp + maxMpGain
-
-  // HP/MP回復量: 新しい最大値の50%（端数切り捨て）
-  const hpRecovery = Math.floor(newMaxHp * 0.5)
-  const mpRecovery = Math.floor(newMaxMp * 0.5)
-
-  // 回復後のHP/MP（上限キャップ）
-  const newHp = Math.min(explorer.hp + hpRecovery, newMaxHp)
-  const newMp = Math.min(explorer.mp + mpRecovery, newMaxMp)
+  const newMaxHp = explorer.maxHp + growth.maxHp
+  const newMaxMp = explorer.maxMp + growth.maxMp
 
   const updatedExplorer: ExplorerState = {
     ...explorer,
@@ -77,24 +73,23 @@ export function applyLevelUp(explorer: ExplorerState): {
     exp: explorer.exp - requiredExp,
     maxHp: newMaxHp,
     maxMp: newMaxMp,
-    hp: newHp,
-    mp: newMp,
-    str: explorer.str + statGain,
-    int: explorer.int + statGain,
-    agi: explorer.agi + statGain,
+    hp: newMaxHp,   // 全回復
+    mp: newMaxMp,   // 全回復
+    str: explorer.str + growth.str,
+    int: explorer.int + growth.int,
   }
 
   const levelUpInfo: LevelUpInfo = {
     previousLevel,
     newLevel,
-    hpRecovered: newHp - explorer.hp,  // 実際に回復した量
-    mpRecovered: newMp - explorer.mp,
+    characterName: explorer.name,
+    hpRecovered: newMaxHp - explorer.hp,
+    mpRecovered: newMaxMp - explorer.mp,
     statsGained: {
-      maxHp: maxHpGain,
-      maxMp: maxMpGain,
-      str: statGain,
-      int: statGain,
-      agi: statGain,
+      maxHp: growth.maxHp,
+      maxMp: growth.maxMp,
+      str: growth.str,
+      int: growth.int,
     },
   }
 
@@ -103,7 +98,7 @@ export function applyLevelUp(explorer: ExplorerState): {
 
 /**
  * 経験値を加算し、レベルアップを処理（複数回レベルアップ対応）
- * 1体倒すごとに経験値+1が加算される
+ * killCount が必要討伐数以上ならレベルアップ
  */
 export function addExpAndProcessLevelUp(
   explorer: ExplorerState,
@@ -129,4 +124,45 @@ export function addExpAndProcessLevelUp(
     updatedExplorer: currentExplorer,
     levelUps,
   }
+}
+
+/**
+ * パーティー全体にEXPを配分し、レベルアップを処理
+ *
+ * ルール:
+ * - 敵を倒すと全員のkillCount+1（EXP+1）
+ * - 止めを刺したキャラはさらに+1（合計+2）
+ * - 戦闘不能キャラにもEXPは入る（次バトルで復活するため）
+ */
+export function distributeExpToParty(
+  party: ExplorerState[],
+  killerExplorerId: string,
+  defeatedCount: number
+): {
+  updatedParty: ExplorerState[]
+  allLevelUps: LevelUpInfo[]
+} {
+  if (defeatedCount <= 0) {
+    return { updatedParty: party, allLevelUps: [] }
+  }
+
+  const allLevelUps: LevelUpInfo[] = []
+
+  const updatedParty = party.map(member => {
+    // 全員にdefeatedCount分のEXP
+    const baseExp = defeatedCount
+    // 止めを刺したキャラにはさらに+defeatedCount
+    const bonusExp = member.id === killerExplorerId ? defeatedCount : 0
+    const totalExp = baseExp + bonusExp
+
+    const { updatedExplorer, levelUps } = addExpAndProcessLevelUp(member, totalExp)
+    allLevelUps.push(...levelUps)
+
+    return {
+      ...updatedExplorer,
+      killCount: updatedExplorer.killCount + totalExp,
+    }
+  })
+
+  return { updatedParty, allLevelUps }
 }

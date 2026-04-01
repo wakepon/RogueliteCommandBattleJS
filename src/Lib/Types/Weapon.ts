@@ -4,7 +4,9 @@ import { ICommandable, ITargetable } from './Command'
 import { IUseLimited } from './Consumable'
 
 /** 武器効果 */
-export type WeaponEffect = { type: 'lifesteal'; value: number }
+export type WeaponEffect =
+  | { type: 'lifesteal'; value: number }
+  | { type: 'targetRateUp'; value: number }  // 祈り: 被ターゲット率UP
 
 /** 武器データ（マスター） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {
@@ -14,6 +16,7 @@ export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetab
   goldCost?: number
   hpCost?: number
   effect?: WeaponEffect
+  scaleStat?: 'str' | 'int'  // ダメージ計算に使うステータス（デフォルト: str）
 }
 
 /** 武器インスタンス */

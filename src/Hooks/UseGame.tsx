@@ -16,12 +16,12 @@ interface GameContextType {
   returnToTitle: () => void
   endBattle: (result: 'victory' | 'defeat') => void
   openStore: () => void
-  buyWeapon: (slotIndex: number, item: WeaponData) => void
-  buySpell: (slotIndex: number, item: SpellData) => void
+  buyWeapon: (slotIndex: number, item: WeaponData, memberIndex: number) => void
+  buySpell: (slotIndex: number, item: SpellData, memberIndex: number) => void
   buyRelic: (slotIndex: number, item: RelicData) => void
   buyPotion: (slotIndex: number, item: PotionData) => void
-  sellWeapon: (weaponIndex: number) => void
-  sellSpell: (spellIndex: number) => void
+  sellWeapon: (weaponIndex: number, memberIndex: number) => void
+  sellSpell: (spellIndex: number, memberIndex: number) => void
   sellRelic: (relicIndex: number) => void
   sellPotion: (potionIndex: number) => void
   rerollStore: () => void
@@ -73,18 +73,18 @@ export function GameProvider({ children }: GameProviderProps) {
   }, [])
   const endBattle = useCallback((result: 'victory' | 'defeat') => dispatch({ type: 'END_BATTLE', result }), [])
   const openStore = useCallback(() => dispatch({ type: 'OPEN_STORE' }), [])
-  const buyWeapon = useCallback((slotIndex: number, item: WeaponData) =>
-    dispatch({ type: 'BUY_WEAPON', slotIndex, item }), [])
-  const buySpell = useCallback((slotIndex: number, item: SpellData) =>
-    dispatch({ type: 'BUY_SPELL', slotIndex, item }), [])
+  const buyWeapon = useCallback((slotIndex: number, item: WeaponData, memberIndex: number) =>
+    dispatch({ type: 'BUY_WEAPON', slotIndex, item, memberIndex }), [])
+  const buySpell = useCallback((slotIndex: number, item: SpellData, memberIndex: number) =>
+    dispatch({ type: 'BUY_SPELL', slotIndex, item, memberIndex }), [])
   const buyRelic = useCallback((slotIndex: number, item: RelicData) =>
     dispatch({ type: 'BUY_RELIC', slotIndex, item }), [])
   const buyPotion = useCallback((slotIndex: number, item: PotionData) =>
     dispatch({ type: 'BUY_POTION', slotIndex, item }), [])
-  const sellWeapon = useCallback((weaponIndex: number) =>
-    dispatch({ type: 'SELL_WEAPON', weaponIndex }), [])
-  const sellSpell = useCallback((spellIndex: number) =>
-    dispatch({ type: 'SELL_SPELL', spellIndex }), [])
+  const sellWeapon = useCallback((weaponIndex: number, memberIndex: number) =>
+    dispatch({ type: 'SELL_WEAPON', weaponIndex, memberIndex }), [])
+  const sellSpell = useCallback((spellIndex: number, memberIndex: number) =>
+    dispatch({ type: 'SELL_SPELL', spellIndex, memberIndex }), [])
   const sellRelic = useCallback((relicIndex: number) =>
     dispatch({ type: 'SELL_RELIC', relicIndex }), [])
   const sellPotion = useCallback((potionIndex: number) =>

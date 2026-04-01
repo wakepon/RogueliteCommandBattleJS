@@ -1,8 +1,9 @@
-import { BattleState, ActorId, RelicBattleState } from '../Types/Battle'
+import { BattleState, ActorId, RelicBattleState, CommandSlot, EnemyIntent } from '../Types/Battle'
 import { EnemyInstance, EnemyData } from '../Types/Enemy'
 import { ExplorerState } from '../Types/Explorer'
 import { RelicInstance } from '../Types/Relic'
-import { hasRelicEffect, getStatBonus } from '../Core/RelicProcessor'
+import { hasRelicEffect } from '../Core/RelicProcessor'
+import { selectEnemyAction } from '../Core/EnemyAI'
 import EnemiesData from '../Data/Enemies.json'
 import StagePatternsData from '../Data/StagePatterns.json'
 
@@ -42,16 +43,13 @@ function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
   const pattern = stagePatternsData[stageKey]
 
   if (!pattern) {
-    // パターンがない場合はスライムを1体
     return [createEnemyInstance('slime')]
   }
 
-  // パターンが空の場合は敵なし（イベントステージ等）
   if (pattern.patterns.length === 0) {
     return []
   }
 
-  // シードを使ってパターンを選択（簡易的な疑似乱数）
   const patternIndex = seed % pattern.patterns.length
   const selectedPattern = pattern.patterns[patternIndex]
 
@@ -68,31 +66,42 @@ function getTurnLimitForStage(stage: number): number {
   return pattern?.turnLimit ?? DEFAULT_TURN_LIMIT
 }
 
-// アクターをAgi順でソート（レリックのAGIボーナスを反映）
-function sortActorsByAgi(
+// パーティー→敵の固定順でアクションキューを生成（AGI不要）
+// Phase 1: party[0]のみ操作可能。Phase 2で全パーティーメンバーに拡張予定
+function createActionQueue(
   party: ExplorerState[],
-  enemies: EnemyInstance[],
-  relics: RelicInstance[] = []
+  enemies: EnemyInstance[]
 ): ActorId[] {
-  const agiBonus = getStatBonus(relics, 'agi')
-
-  // Explorerのアクター（AGIボーナス加算）
-  const explorerActors: { actorId: ActorId; agi: number }[] = party.map(e => ({
-    actorId: { type: 'explorer' as const, id: e.id },
-    agi: e.agi + agiBonus,
+  // Phase 1: 先頭メンバーのみ
+  const explorerActors: ActorId[] = party.slice(0, 1).map(e => ({
+    type: 'explorer' as const,
+    id: e.id,
   }))
 
-  // Enemyのアクター
-  const enemyActors: { actorId: ActorId; agi: number }[] = enemies.map(e => ({
-    actorId: { type: 'enemy' as const, instanceId: e.instanceId },
-    agi: e.agi,
+  const enemyActors: ActorId[] = enemies.map(e => ({
+    type: 'enemy' as const,
+    instanceId: e.instanceId,
   }))
 
-  // Agi順でソート（降順 = 速い順）
-  const allActors = [...explorerActors, ...enemyActors]
-  allActors.sort((a, b) => b.agi - a.agi)
+  return [...explorerActors, ...enemyActors]
+}
 
-  return allActors.map(actor => actor.actorId)
+/** 敵行動予告を生成 */
+export function generateEnemyIntents(
+  enemies: EnemyInstance[],
+  party: ExplorerState[]
+): EnemyIntent[] {
+  return enemies
+    .filter(e => e.currentHp > 0)
+    .map(enemy => {
+      const dummyTarget = party.find(m => m.hp > 0) ?? party[0]
+      const action = selectEnemyAction(enemy, dummyTarget)
+      return {
+        enemyInstanceId: enemy.instanceId,
+        actionName: action.actionName,
+        damage: action.damage,
+      }
+    })
 }
 
 /** レリック戦闘状態を初期化 */
@@ -103,6 +112,17 @@ function createRelicBattleState(relics: RelicInstance[]): RelicBattleState {
   }
 }
 
+/** 生存中のパーティーメンバーからコマンドスロットを生成 */
+function createCommandSlots(party: ExplorerState[]): CommandSlot[] {
+  return party
+    .filter(member => member.hp > 0)
+    .map(member => ({
+      explorerId: member.id,
+      command: null,
+      targetId: null,
+    }))
+}
+
 /** バトル状態を生成 */
 export function createBattleState(
   stage: number,
@@ -111,17 +131,33 @@ export function createBattleState(
   relics: RelicInstance[] = []
 ): BattleState {
   const enemies = getEnemiesForStage(stage, seed)
-  const actionQueue = sortActorsByAgi(party, enemies, relics)
+  const actionQueue = createActionQueue(party, enemies)
   const turnLimit = getTurnLimitForStage(stage)
+  const commandSlots = createCommandSlots(party)
+  const enemyIntents = generateEnemyIntents(enemies, party)
 
   return {
     turn: 1,
     turnLimit,
+    phase: 'command',
     enemies,
-    actionQueue,
-    currentActorIndex: 0,
+
+    // コマンド選択
+    commandSlots,
+    activeExplorerIndex: 0,
+
+    // パーティー行動
+    currentCommandIndex: 0,
+
+    // 敵行動
+    currentEnemyIndex: 0,
+    enemyIntents,
+
+    // 共有
     stolenGold: 0,
     relicState: createRelicBattleState(relics),
+
+    // UI
     selectedCommand: null,
     selectedTargetId: null,
     damagePopups: [],
@@ -129,5 +165,9 @@ export function createBattleState(
     levelUpPopups: [],
     battleMessage: null,
     battleMessageId: 0,
+
+    // 後方互換
+    actionQueue,
+    currentActorIndex: 0,
   }
 }

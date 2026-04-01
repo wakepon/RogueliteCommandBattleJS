@@ -1,7 +1,7 @@
 /** パッシブ効果タイプ */
 export type PassiveEffectType =
   // 既存
-  | { type: 'statBonus'; stat: 'str' | 'int' | 'agi'; value: number }
+  | { type: 'statBonus'; stat: 'str' | 'int'; value: number }
   | { type: 'weaponDamageBonus'; value: number }
   | { type: 'interestCap'; value: number }
   | { type: 'lowHpDamageMultiplier'; hpThreshold: number; multiplier: number }

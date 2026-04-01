@@ -22,6 +22,7 @@ import {
 
 interface StoreShopPanelProps {
   explorer: ExplorerState
+  memberIndex: number
   run: RunState
   storeState: StoreState
   gold: number
@@ -37,6 +38,7 @@ interface StoreShopPanelProps {
 
 export function StoreShopPanel({
   explorer,
+  memberIndex: _memberIndex,
   run,
   storeState,
   gold,
@@ -156,10 +158,11 @@ export function StoreShopPanel({
 
         {/* 武器 */}
         <div className="mb-2">
-          <div className="text-xs text-gray-500 mb-1">武器 ({explorer.weapons.length}/4)</div>
+          <div className="text-xs text-gray-500 mb-1">武器 ({explorer.weapons.filter(w => w.maxUses !== null).length}/{explorer.weaponSlotCount})</div>
           <div className="grid grid-cols-2 gap-1">
             {explorer.weapons.map((weapon, index) => {
-              const canSell = weapon.id !== 'punch'
+              // 無限使用の無料武器は売却不可（パンチ、魔力弾、祈り等）
+              const canSell = weapon.id !== 'punch' && weapon.maxUses !== null
               const price = getSellPrice(weapon)
               return (
                 <div
@@ -189,7 +192,7 @@ export function StoreShopPanel({
 
         {/* 魔法 */}
         <div className="mb-2">
-          <div className="text-xs text-gray-500 mb-1">魔法 ({explorer.spells.length}/2)</div>
+          <div className="text-xs text-gray-500 mb-1">魔法 ({explorer.spells.length}/{explorer.magicSlotCount})</div>
           <div className="grid grid-cols-2 gap-1">
             {explorer.spells.length === 0 ? (
               <span className="text-gray-500 text-xs">なし</span>

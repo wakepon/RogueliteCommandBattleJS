@@ -38,12 +38,12 @@ export type GameAction =
   | { type: 'BATTLE_ACTION'; action: BattleAction }
   | { type: 'END_BATTLE'; result: 'victory' | 'defeat' }
   | { type: 'OPEN_STORE' }
-  | { type: 'BUY_WEAPON'; slotIndex: number; item: WeaponData }
-  | { type: 'BUY_SPELL'; slotIndex: number; item: SpellData }
+  | { type: 'BUY_WEAPON'; slotIndex: number; item: WeaponData; memberIndex: number }
+  | { type: 'BUY_SPELL'; slotIndex: number; item: SpellData; memberIndex: number }
   | { type: 'BUY_RELIC'; slotIndex: number; item: RelicData }
   | { type: 'BUY_POTION'; slotIndex: number; item: PotionData }
-  | { type: 'SELL_WEAPON'; weaponIndex: number }
-  | { type: 'SELL_SPELL'; spellIndex: number }
+  | { type: 'SELL_WEAPON'; weaponIndex: number; memberIndex: number }
+  | { type: 'SELL_SPELL'; spellIndex: number; memberIndex: number }
   | { type: 'SELL_RELIC'; relicIndex: number }
   | { type: 'SELL_POTION'; potionIndex: number }
   | { type: 'REROLL_STORE' }
@@ -132,9 +132,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           levelUps: state.run.battleLevelUps,
         }
 
+        // 戦闘不能キャラをHP1で復活 + バフ/デバフをクリア
+        const revivedParty = state.run.party.map(member => ({
+          ...member,
+          hp: member.hp <= 0 ? 1 : member.hp,
+          battleBuffs: [],
+          battleDebuffs: [],
+        }))
+
         const newRun: RunState = {
           ...state.run,
           gold: state.run.gold + reward.total,
+          party: revivedParty,
           stats: {
             ...state.run.stats,
             totalKillCount: state.run.stats.totalKillCount + killCount,
@@ -166,7 +175,23 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const battleAction = action.action
 
       if (battleAction.type === 'EXECUTE_COMMAND') {
-        return processExecuteCommand(state, battleAction)
+        // パーティー行動フェーズ: commandSlotsから現在のスロットの情報を使用
+        const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
+        if (!currentSlot?.command || !currentSlot.targetId) return state
+
+        // BattleActionProcessorに渡すために、selectedCommand/selectedTargetIdを一時的にセット
+        const stateWithSlotInfo: GameState = {
+          ...state,
+          battleState: {
+            ...state.battleState,
+            selectedCommand: currentSlot.command,
+            selectedTargetId: currentSlot.targetId,
+          },
+        }
+
+        // 該当するExplorerを取得
+        const explorer = state.run.party.find(e => e.id === currentSlot.explorerId) ?? state.run.party[0]
+        return processExecuteCommand(stateWithSlotInfo, { ...battleAction, explorer })
       }
 
       if (battleAction.type === 'ENEMY_ACTION') {
@@ -195,8 +220,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'BUY_WEAPON': {
       if (!state.run || !state.storeState) return state
 
-      const { slotIndex, item } = action
-      const explorer = state.run.party[0]
+      const { slotIndex, item, memberIndex } = action
+      const explorer = state.run.party[memberIndex]
+      if (!explorer) return state
 
       if (state.run.gold < item.price) return state
 
@@ -213,13 +239,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const newWeaponSlots = [...state.storeState.weaponSlots]
       newWeaponSlots[slotIndex] = null
 
+      const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
+
       return {
         ...state,
-        run: {
-          ...state.run,
-          gold: state.run.gold - item.price,
-          party: [updatedExplorer, ...state.run.party.slice(1)],
-        },
+        run: { ...state.run, gold: state.run.gold - item.price, party: updatedParty },
         storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
       }
     }
@@ -227,8 +251,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'BUY_SPELL': {
       if (!state.run || !state.storeState) return state
 
-      const { slotIndex, item } = action
-      const explorer = state.run.party[0]
+      const { slotIndex, item, memberIndex } = action
+      const explorer = state.run.party[memberIndex]
+      if (!explorer) return state
 
       if (state.run.gold < item.price) return state
 
@@ -240,13 +265,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const newWeaponSlots = [...state.storeState.weaponSlots]
       newWeaponSlots[slotIndex] = null
 
+      const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
+
       return {
         ...state,
-        run: {
-          ...state.run,
-          gold: state.run.gold - item.price,
-          party: [updatedExplorer, ...state.run.party.slice(1)],
-        },
+        run: { ...state.run, gold: state.run.gold - item.price, party: updatedParty },
         storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
       }
     }
@@ -294,10 +317,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'SELL_WEAPON': {
       if (!state.run) return state
 
-      const explorer = state.run.party[0]
+      const explorer = state.run.party[action.memberIndex]
+      if (!explorer) return state
       const weapon = explorer.weapons[action.weaponIndex]
 
       if (!weapon || weapon.id === 'punch') return state
+      // 無限使用の無料武器（魔力弾、祈り）は売却不可
+      if (weapon.maxUses === null && !('price' in weapon && weapon.price > 0)) return state
 
       const sellPrice = getSellPrice(weapon)
       const updatedExplorer: ExplorerState = {
@@ -305,20 +331,19 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         weapons: explorer.weapons.filter((_, i) => i !== action.weaponIndex),
       }
 
+      const updatedParty = state.run.party.map((m, i) => i === action.memberIndex ? updatedExplorer : m)
+
       return {
         ...state,
-        run: {
-          ...state.run,
-          gold: state.run.gold + sellPrice,
-          party: [updatedExplorer, ...state.run.party.slice(1)],
-        },
+        run: { ...state.run, gold: state.run.gold + sellPrice, party: updatedParty },
       }
     }
 
     case 'SELL_SPELL': {
       if (!state.run) return state
 
-      const explorer = state.run.party[0]
+      const explorer = state.run.party[action.memberIndex]
+      if (!explorer) return state
       const spell = explorer.spells[action.spellIndex]
       if (!spell) return state
 
@@ -328,13 +353,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         spells: explorer.spells.filter((_, i) => i !== action.spellIndex),
       }
 
+      const updatedParty = state.run.party.map((m, i) => i === action.memberIndex ? updatedExplorer : m)
+
       return {
         ...state,
-        run: {
-          ...state.run,
-          gold: state.run.gold + sellPrice,
-          party: [updatedExplorer, ...state.run.party.slice(1)],
-        },
+        run: { ...state.run, gold: state.run.gold + sellPrice, party: updatedParty },
       }
     }
 

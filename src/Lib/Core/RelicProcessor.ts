@@ -15,10 +15,10 @@ export function hasRelicEffect(
   return relics.some(r => r.passiveEffect.type === type)
 }
 
-/** ステータスボーナス合算（str/int/agi） */
+/** ステータスボーナス合算（str/int） */
 export function getStatBonus(
   relics: RelicInstance[],
-  stat: 'str' | 'int' | 'agi'
+  stat: 'str' | 'int'
 ): number {
   return relics.reduce((sum, r) => {
     if (r.passiveEffect.type === 'statBonus' && r.passiveEffect.stat === stat) {

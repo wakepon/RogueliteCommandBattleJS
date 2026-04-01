@@ -6,7 +6,6 @@ import {
   canRepairWeapons,
 } from '../../Lib/Core/EventLogic'
 import { Rarity } from '../../Lib/Types/Item'
-import { WeaponInstance } from '../../Lib/Types/Weapon'
 
 /** レアリティに応じた色を取得 */
 function getRarityColor(rarity: Rarity): string {
@@ -56,10 +55,7 @@ export function EventScreen() {
     return null
   }
 
-  const explorer = run.party[0]
-  const restHealAmount = calculateRestHeal(explorer.maxHp)
   const canRepair = canRepairWeapons(run.party)
-  const repairableWeapons = getRepairableWeapons(explorer.weapons)
 
   // 選択画面
   const renderSelecting = () => (
@@ -79,10 +75,12 @@ export function EventScreen() {
         >
           <div className="text-lg text-white font-semibold">休憩</div>
           <div className="text-sm text-gray-300">
-            HPを{restHealAmount}回復（最大HPの50%）
+            全員のHPを最大HPの50%回復
           </div>
-          <div className="text-xs text-gray-400 mt-1">
-            現在HP: {explorer.hp}/{explorer.maxHp}
+          <div className="text-xs text-gray-400 mt-1 space-y-0.5">
+            {run.party.map(m => (
+              <div key={m.id}>{m.name}: HP {m.hp}/{m.maxHp} (+{calculateRestHeal(m.maxHp)})</div>
+            ))}
           </div>
         </button>
 
@@ -114,7 +112,7 @@ export function EventScreen() {
             武器修理
           </div>
           <div className={`text-sm ${canRepair ? 'text-gray-300' : 'text-gray-500'}`}>
-            武器の使用回数を最大まで回復（最大2本）
+            1人を選択 → その人の全武器の使用回数を全回復
           </div>
           {!canRepair && (
             <div className="text-xs text-gray-500 mt-1">
@@ -126,13 +124,35 @@ export function EventScreen() {
     </div>
   )
 
-  // 武器修理選択画面
+  // 武器修理選択画面（キャラ選択方式: 1人を選んで全武器修理）
   const renderRepairSelection = () => {
-    const selectedWeaponIds = eventState.selectedWeaponIds
-    const canConfirm = selectedWeaponIds.length > 0
+    // selectedWeaponIdsの最初の要素をキャラIDとして流用
+    const selectedCharId = eventState.selectedWeaponIds[0] ?? null
 
-    const handleToggle = (weaponId: string) => {
-      toggleRepairWeapon(weaponId)
+    const handleSelectCharacter = (charId: string) => {
+      // 既に選択中なら解除、そうでなければ選択（toggleで実現）
+      if (selectedCharId === charId) {
+        toggleRepairWeapon(charId)
+      } else {
+        // まず既存の選択をクリア（最大2の制限に引っかからないよう）
+        if (selectedCharId) {
+          toggleRepairWeapon(selectedCharId)
+        }
+        toggleRepairWeapon(charId)
+      }
+    }
+
+    const handleConfirm = () => {
+      if (!selectedCharId) return
+      // selectedWeaponIdsにキャラIDが入っているが、confirmRepairはweaponIdsとして処理する
+      // GameReducerのCONFIRM_REPAIRでparty全員に適用されるので、対象キャラの全武器IDを渡す
+      const targetMember = run.party.find(m => m.id === selectedCharId)
+      if (!targetMember) return
+      const allWeaponIds = targetMember.weapons.map(w => w.id)
+      // 一旦全クリアしてから全武器IDを設定
+      if (selectedCharId) toggleRepairWeapon(selectedCharId)
+      allWeaponIds.forEach(id => toggleRepairWeapon(id))
+      confirmRepair()
     }
 
     return (
@@ -141,33 +161,44 @@ export function EventScreen() {
           武器修理
         </h1>
         <p className="text-gray-300 text-center mb-6">
-          修理する武器を選んでください（最大2本）
+          修理するキャラクターを選んでください
         </p>
 
-        <div className="flex flex-wrap gap-3 justify-center mb-8">
-          {repairableWeapons.map((weapon: WeaponInstance) => {
-            const isSelected = selectedWeaponIds.includes(weapon.id)
-            const canSelect = selectedWeaponIds.length < 2 || isSelected
+        <div className="flex flex-wrap gap-4 justify-center mb-8">
+          {run.party.map((member) => {
+            const repairables = getRepairableWeapons(member.weapons)
+            const hasRepairableWeapons = repairables.length > 0
+            const isSelected = selectedCharId === member.id
 
             return (
               <button
-                key={weapon.id}
-                onClick={() => handleToggle(weapon.id)}
-                disabled={!canSelect && !isSelected}
-                className={`p-4 rounded-lg border-2 transition-colors min-w-40 ${
+                key={member.id}
+                onClick={() => hasRepairableWeapons && handleSelectCharacter(member.id)}
+                disabled={!hasRepairableWeapons}
+                className={`p-4 rounded-lg border-2 transition-colors min-w-44 ${
                   isSelected
                     ? 'border-blue-400 bg-blue-800/50 ring-2 ring-blue-400'
-                    : canSelect
+                    : hasRepairableWeapons
                     ? 'border-gray-500 bg-gray-800 hover:bg-gray-700'
                     : 'border-gray-700 bg-gray-900 opacity-50 cursor-not-allowed'
                 }`}
               >
-                <div className="text-white font-semibold">{weapon.name}</div>
-                <div className="text-sm text-gray-400 mt-1">
-                  使用回数: {weapon.currentUses}/{weapon.maxUses}
+                <div className="text-white font-semibold text-lg">{member.name}</div>
+                <div className="text-xs text-gray-400 mt-2 space-y-1">
+                  {member.weapons.map(w => {
+                    if (w.currentUses === null) return null
+                    return (
+                      <div key={w.id} className={w.currentUses < (w.maxUses ?? 0) ? 'text-yellow-300' : 'text-gray-500'}>
+                        {w.name}: {w.currentUses}/{w.maxUses}
+                      </div>
+                    )
+                  })}
+                  {!hasRepairableWeapons && (
+                    <div className="text-gray-500">修理不要</div>
+                  )}
                 </div>
                 {isSelected && (
-                  <div className="text-xs text-blue-300 mt-2">選択中</div>
+                  <div className="text-xs text-blue-300 mt-2 font-bold">選択中</div>
                 )}
               </button>
             )
@@ -180,8 +211,8 @@ export function EventScreen() {
           </Button>
           <Button
             variant="primary"
-            onClick={confirmRepair}
-            disabled={!canConfirm}
+            onClick={handleConfirm}
+            disabled={!selectedCharId}
           >
             修理する
           </Button>

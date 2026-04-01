@@ -2,6 +2,8 @@ import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../Types/Weapon'
 import { SpellInstance, SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
+import { CommandSlot } from '../Types/Battle'
+import { isWeapon, isSpell } from '../Core/CommandValidator'
 import {
   getStatBonus,
   getWeaponDamageBonus,
@@ -46,12 +48,14 @@ export function predictWeaponDamage(
 ): DamageRange {
   const { relics = [], killStreakActive = false, includeConditionalRelics = false } = options
 
-  const strBonus = getStatBonus(relics, 'str')
+  // scaleStat対応（魔力弾はINT依存）
+  const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
+  const statBonus = getStatBonus(relics, scaleStat)
   const weaponDmgBonus = getWeaponDamageBonus(relics)
-  const effectiveStr = explorer.str + strBonus
-  const buffMultiplier = calculateBuffMultiplier(explorer, 'str')
+  const effectiveStat = (scaleStat === 'int' ? explorer.int : explorer.str) + statBonus
+  const buffMultiplier = calculateBuffMultiplier(explorer, scaleStat)
 
-  let baseDamage = effectiveStr * (weapon.power + weaponDmgBonus) * buffMultiplier
+  let baseDamage = effectiveStat * (weapon.power + weaponDmgBonus) * buffMultiplier
 
   // 条件付きレリック倍率（バトル中のみ）
   let relicMultiplier = 1.0
@@ -71,7 +75,7 @@ export function predictWeaponDamage(
   const min = Math.max(0, base - weapon.variance)
   const max = Math.max(0, base + weapon.variance)
 
-  const isBoosted = strBonus > 0
+  const isBoosted = statBonus > 0
     || weaponDmgBonus > 0
     || buffMultiplier > 1.0
     || relicMultiplier > 1.0
@@ -117,4 +121,64 @@ export function predictSpellDamage(
 export function formatDamageRange(range: DamageRange): string {
   if (range.min === range.max) return `${range.min}`
   return `${range.min}-${range.max}`
+}
+
+/** 特定の敵への累計ダメージプレビュー（全コマンドスロットから） */
+export function calculateCumulativeDamagePreview(
+  commandSlots: CommandSlot[],
+  targetEnemyId: string,
+  party: ExplorerState[],
+  options: DamagePredictOptions = {}
+): DamageRange {
+  let totalMin = 0
+  let totalMax = 0
+  let anyBoosted = false
+
+  for (const slot of commandSlots) {
+    if (!slot.command || slot.targetId !== targetEnemyId) continue
+
+    const explorer = party.find(e => e.id === slot.explorerId)
+    if (!explorer) continue
+
+    let range: DamageRange | null = null
+
+    if (isWeapon(slot.command)) {
+      // 味方対象武器（祈り等）はダメージなし
+      if (slot.command.targetType === 'allySingle') continue
+      range = predictWeaponDamage(explorer, slot.command, options)
+    } else if (isSpell(slot.command)) {
+      // 味方対象スペルはダメージなし
+      if (slot.command.targetType === 'allySingle') continue
+      range = predictSpellDamage(explorer, slot.command, options)
+    }
+
+    if (range) {
+      totalMin += range.min
+      totalMax += range.max
+      if (range.isBoosted) anyBoosted = true
+    }
+  }
+
+  // enemyAll（全体攻撃）も含める: targetIdが特定敵でなくても全敵に当たるコマンド
+  for (const slot of commandSlots) {
+    if (!slot.command || slot.targetId === targetEnemyId) continue  // 既に処理済み
+    if (!slot.command) continue
+
+    const explorer = party.find(e => e.id === slot.explorerId)
+    if (!explorer) continue
+
+    if (isWeapon(slot.command) && slot.command.targetType === 'enemyAll') {
+      const range = predictWeaponDamage(explorer, slot.command, options)
+      totalMin += range.min
+      totalMax += range.max
+      if (range.isBoosted) anyBoosted = true
+    } else if (isSpell(slot.command) && slot.command.targetType === 'enemyAll') {
+      const range = predictSpellDamage(explorer, slot.command, options)
+      totalMin += range.min
+      totalMax += range.max
+      if (range.isBoosted) anyBoosted = true
+    }
+  }
+
+  return { min: totalMin, max: totalMax, isBoosted: anyBoosted }
 }

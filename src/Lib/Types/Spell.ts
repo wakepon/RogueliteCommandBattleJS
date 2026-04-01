@@ -7,7 +7,7 @@ import { IMpCost } from './Consumable'
 export type SpellEffect =
   | { type: 'heal'; value: number }           // HP回復
   | { type: 'steal' }                         // ゴールドを盗む
-  | { type: 'buff'; stat: 'str'; value: number; duration: 'battle' }  // バフ
+  | { type: 'buff'; stat: 'str' | 'precision'; value: number; duration: 'battle' | 'nextAction' }  // バフ
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {

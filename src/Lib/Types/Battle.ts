@@ -15,6 +15,16 @@ export type ActorId =
 /** 戦闘結果 */
 export type BattleResult = 'ongoing' | 'victory' | 'defeat'
 
+/** バトルフェーズ */
+export type BattlePhase = 'command' | 'partyAction' | 'enemyAction' | 'turnEnd'
+
+/** コマンドスロット（1キャラ分のコマンドセット） */
+export interface CommandSlot {
+  explorerId: string
+  command: BattleCommand | null
+  targetId: string | null
+}
+
 /** ダメージポップアップ（敵への攻撃用） */
 export interface DamagePopup {
   id: string
@@ -26,6 +36,7 @@ export interface DamagePopup {
 /** プレイヤーへのダメージポップアップ */
 export interface PlayerDamagePopup {
   id: string
+  targetExplorerId?: string  // ダメージを受けたキャラのID
   damage: number
   timestamp: number
 }
@@ -35,6 +46,13 @@ export interface LevelUpPopup {
   id: string
   levelUpInfo: LevelUpInfo
   timestamp: number
+}
+
+/** 敵行動予告 */
+export interface EnemyIntent {
+  enemyInstanceId: string
+  actionName: string
+  damage: number  // 0 = 非攻撃行動
 }
 
 /** レリック戦闘内状態 */
@@ -47,13 +65,27 @@ export interface RelicBattleState {
 export interface BattleState {
   turn: number
   turnLimit: number
+  phase: BattlePhase
   enemies: EnemyInstance[]
-  actionQueue: ActorId[]
-  currentActorIndex: number
+
+  // コマンド選択フェーズ
+  commandSlots: CommandSlot[]         // 各パーティーメンバーのコマンドセット
+  activeExplorerIndex: number         // 現在コマンド選択中のキャラ（commandSlots内のインデックス）
+
+  // パーティー行動フェーズ
+  currentCommandIndex: number         // 現在実行中のコマンドスロット番号
+
+  // 敵行動フェーズ
+  currentEnemyIndex: number           // 現在行動中の敵番号
+
+  // 敵行動予告
+  enemyIntents: EnemyIntent[]
+
+  // 共有状態
   stolenGold: number
   relicState: RelicBattleState
 
-  // UI状態
+  // UI状態（コマンド選択中の一時状態）
   selectedCommand: BattleCommand | null
   selectedTargetId: string | null
   damagePopups: DamagePopup[]
@@ -61,4 +93,8 @@ export interface BattleState {
   levelUpPopups: LevelUpPopup[]
   battleMessage: string | null
   battleMessageId: number
+
+  // 後方互換: actionQueue（Phase 2移行期間は維持。TurnIndicator等で使用）
+  actionQueue: ActorId[]
+  currentActorIndex: number
 }

@@ -1,24 +1,37 @@
-import { BattleState, BattleCommand, DamagePopup, PlayerDamagePopup, LevelUpPopup, RelicBattleState } from '../Types/Battle'
+import { BattleState, BattleCommand, CommandSlot, EnemyIntent, DamagePopup, PlayerDamagePopup, LevelUpPopup, RelicBattleState } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
-import { isSpell, isPotion, LevelUpInfo } from '../Core'
+import { isSpell, isPotion, isWeapon, LevelUpInfo } from '../Core'
 
 /** バトルアクション型 */
 export type BattleAction =
+  // コマンド選択フェーズ
   | { type: 'SELECT_COMMAND'; command: BattleCommand }
   | { type: 'CANCEL_COMMAND' }
   | { type: 'SELECT_TARGET'; targetId: string }
+  | { type: 'SET_COMMAND_SLOT' }  // 現在のコマンド+ターゲットをスロットに確定
+  | { type: 'CHANGE_ACTIVE_EXPLORER'; index: number }  // コマンド入力キャラ切替
+  | { type: 'START_EXECUTION' }  // 実行開始 → partyAction phase
+  // パーティー行動フェーズ
   | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}> }
-  | { type: 'NEXT_ACTOR' }
-  | { type: 'REMOVE_POPUP'; popupId: string }
-  | { type: 'ENEMY_ACTION'; enemyId: string; damage: number; explorer: ExplorerState;
+  | { type: 'ADVANCE_PARTY_ACTION' }  // 次のパーティーメンバーの行動へ
+  // 敵行動フェーズ
+  | { type: 'ENEMY_ACTION'; enemyId: string; targetExplorerId: string; damage: number; explorer: ExplorerState;
       actionName: string; poisonStacks: number; mpDrain: number;
       applyCharge: boolean; consumeCharge: boolean; hits: number }
+  | { type: 'ADVANCE_ENEMY_ACTION' }  // 次の敵の行動へ
+  // ターン終了
+  | { type: 'PROCESS_TURN_END'; totalPoisonDamage: number; updatedParty: ExplorerState[] }
+  | { type: 'START_NEW_TURN'; commandSlots: CommandSlot[]; enemyIntents: EnemyIntent[] }
+  // ポップアップ管理
+  | { type: 'REMOVE_POPUP'; popupId: string }
   | { type: 'REMOVE_PLAYER_POPUP'; popupId: string }
-  | { type: 'PROCESS_TURN_END'; poisonDamage: number; updatedExplorer: ExplorerState }
   | { type: 'ADD_LEVEL_UP_POPUP'; levelUpInfo: LevelUpInfo }
   | { type: 'REMOVE_LEVEL_UP_POPUP'; popupId: string }
+  // 状態更新
   | { type: 'UPDATE_RELIC_STATE'; relicState: Partial<RelicBattleState> }
   | { type: 'UPDATE_ENEMIES'; enemies: BattleState['enemies'] }
+  // 後方互換
+  | { type: 'NEXT_ACTOR' }
 
 /** ユニークIDを生成 */
 function generatePopupId(): string {
@@ -36,9 +49,10 @@ function createDamagePopup(targetId: string, damage: number): DamagePopup {
 }
 
 /** プレイヤーダメージポップアップを作成 */
-export function createPlayerDamagePopup(damage: number): PlayerDamagePopup {
+export function createPlayerDamagePopup(damage: number, targetExplorerId?: string): PlayerDamagePopup {
   return {
     id: generatePopupId(),
+    targetExplorerId,
     damage,
     timestamp: Date.now(),
   }
@@ -53,27 +67,11 @@ function createLevelUpPopup(levelUpInfo: LevelUpInfo): LevelUpPopup {
   }
 }
 
-/** 次のアクターインデックスを計算（ターン終了処理も含む） */
-function calculateNextActorIndex(state: BattleState): { nextIndex: number; nextTurn: number } {
-  const nextIndex = state.currentActorIndex + 1
-
-  // キューの最後まで行った場合、次のターンへ
-  if (nextIndex >= state.actionQueue.length) {
-    return {
-      nextIndex: 0,
-      nextTurn: state.turn + 1,
-    }
-  }
-
-  return {
-    nextIndex,
-    nextTurn: state.turn,
-  }
-}
-
 /** バトル状態のReducer */
 export function battleReducer(state: BattleState, action: BattleAction): BattleState {
   switch (action.type) {
+    // ===== コマンド選択フェーズ =====
+
     case 'SELECT_COMMAND': {
       return {
         ...state,
@@ -96,115 +94,192 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       }
     }
 
-    case 'EXECUTE_COMMAND': {
-      const { selectedCommand, selectedTargetId } = state
+    case 'SET_COMMAND_SLOT': {
+      const { selectedCommand, selectedTargetId, activeExplorerIndex, commandSlots } = state
+      if (!selectedCommand || !selectedTargetId) return state
+      if (activeExplorerIndex >= commandSlots.length) return state
 
-      // コマンドまたはターゲットが未選択の場合は何もしない
-      if (!selectedCommand || !selectedTargetId) {
+      const updatedSlots = commandSlots.map((slot, i) => {
+        if (i === activeExplorerIndex) {
+          return { ...slot, command: selectedCommand, targetId: selectedTargetId }
+        }
+        return slot
+      })
+
+      // 次の未設定スロットへ自動移動（巡回探索）
+      let nextIndex = activeExplorerIndex
+      for (let offset = 1; offset < updatedSlots.length; offset++) {
+        const i = (activeExplorerIndex + offset) % updatedSlots.length
+        if (!updatedSlots[i].command) {
+          nextIndex = i
+          break
+        }
+      }
+
+      return {
+        ...state,
+        commandSlots: updatedSlots,
+        activeExplorerIndex: nextIndex,
+        selectedCommand: null,
+        selectedTargetId: null,
+      }
+    }
+
+    case 'CHANGE_ACTIVE_EXPLORER': {
+      return {
+        ...state,
+        activeExplorerIndex: action.index,
+        selectedCommand: null,
+        selectedTargetId: null,
+      }
+    }
+
+    case 'START_EXECUTION': {
+      return {
+        ...state,
+        phase: 'partyAction',
+        currentCommandIndex: 0,
+        selectedCommand: null,
+        selectedTargetId: null,
+      }
+    }
+
+    // ===== パーティー行動フェーズ =====
+
+    case 'EXECUTE_COMMAND': {
+      const currentSlot = state.commandSlots[state.currentCommandIndex]
+      if (!currentSlot?.command || !currentSlot.targetId) return state
+
+      const { command, targetId } = currentSlot
+
+      // ポーション: 効果適用はGameReducer側
+      if (isPotion(command)) {
         return state
       }
 
-      // ポーションの場合: ダメージなし、ターン消費のみ（効果適用はGameReducer側）
-      if (isPotion(selectedCommand)) {
-        const { nextIndex, nextTurn } = calculateNextActorIndex(state)
-
-        return {
-          ...state,
-          selectedCommand: null,
-          selectedTargetId: null,
-          currentActorIndex: nextIndex,
-          turn: nextTurn,
-        }
+      // 味方対象（ヒール/精密/祈りなど）: 効果適用はGameReducer側
+      if ((isSpell(command) && command.targetType === 'allySingle') ||
+          (isWeapon(command) && command.targetType === 'allySingle')) {
+        return state
       }
 
-      // 味方対象スペル（ヒールなど）: ダメージなし、ターン消費のみ（効果適用はGameReducer側）
-      if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {
-        const { nextIndex, nextTurn } = calculateNextActorIndex(state)
-
-        return {
-          ...state,
-          selectedCommand: null,
-          selectedTargetId: null,
-          currentActorIndex: nextIndex,
-          turn: nextTurn,
-        }
-      }
-
-      // 全体攻撃: calculatedDamages がある場合
+      // 全体攻撃
       if (action.calculatedDamages && action.calculatedDamages.length > 0) {
-        const { enemies } = state
-        const updatedEnemies = enemies.map(enemy => {
+        const updatedEnemies = state.enemies.map(enemy => {
           const dmgEntry = action.calculatedDamages!.find(d => d.targetId === enemy.instanceId)
           if (dmgEntry) {
             return { ...enemy, currentHp: Math.max(0, enemy.currentHp - dmgEntry.damage) }
           }
           return enemy
         })
-
         const newPopups = action.calculatedDamages.map(d => createDamagePopup(d.targetId, d.damage))
-        const { nextIndex, nextTurn } = calculateNextActorIndex(state)
-
         return {
           ...state,
           enemies: updatedEnemies,
           damagePopups: [...state.damagePopups, ...newPopups],
-          selectedCommand: null,
-          selectedTargetId: null,
-          currentActorIndex: nextIndex,
-          turn: nextTurn,
         }
       }
 
-      // 単体攻撃: ダメージがGameReducer側で事前計算されている場合はそれを使う
+      // 単体攻撃
       const damage = action.calculatedDamage
-      if (damage === undefined) {
-        return state
-      }
+      if (damage === undefined) return state
 
-      // ターゲットの敵を見つける
-      const { enemies } = state
-      const targetEnemy = enemies.find(e => e.instanceId === selectedTargetId)
-      if (!targetEnemy) {
-        return state
-      }
+      const targetEnemy = state.enemies.find(e => e.instanceId === targetId)
+      if (!targetEnemy) return state
 
-      // 敵のHPを減少（immutableに更新）
-      const updatedEnemies = enemies.map(enemy => {
-        if (enemy.instanceId === selectedTargetId) {
-          return {
-            ...enemy,
-            currentHp: Math.max(0, enemy.currentHp - damage),
-          }
+      const updatedEnemies = state.enemies.map(enemy => {
+        if (enemy.instanceId === targetId) {
+          return { ...enemy, currentHp: Math.max(0, enemy.currentHp - damage) }
         }
         return enemy
       })
-
-      // ダメージポップアップを追加
-      const newPopup = createDamagePopup(selectedTargetId, damage)
-
-      // 次のアクターへ
-      const { nextIndex, nextTurn } = calculateNextActorIndex(state)
+      const newPopup = createDamagePopup(targetId, damage)
 
       return {
         ...state,
         enemies: updatedEnemies,
         damagePopups: [...state.damagePopups, newPopup],
-        selectedCommand: null,
-        selectedTargetId: null,
-        currentActorIndex: nextIndex,
-        turn: nextTurn,
       }
     }
 
-    case 'NEXT_ACTOR': {
-      const { nextIndex, nextTurn } = calculateNextActorIndex(state)
+    case 'ADVANCE_PARTY_ACTION': {
+      const nextIndex = state.currentCommandIndex + 1
+      if (nextIndex >= state.commandSlots.length) {
+        // パーティー行動完了 → 敵行動フェーズへ
+        return {
+          ...state,
+          phase: 'enemyAction',
+          currentCommandIndex: nextIndex,
+          currentEnemyIndex: 0,
+        }
+      }
+      return {
+        ...state,
+        currentCommandIndex: nextIndex,
+      }
+    }
+
+    // ===== 敵行動フェーズ =====
+
+    case 'ENEMY_ACTION': {
+      const actingEnemy = state.enemies.find(e => e.instanceId === action.enemyId)
+      const enemyName = actingEnemy?.name ?? '敵'
+      const isIdle = action.damage === 0 && !action.applyCharge && action.poisonStacks === 0 && action.mpDrain === 0
+      const battleMessage = isIdle
+        ? `${enemyName}は${action.actionName}`
+        : `${enemyName}の${action.actionName}`
+
+      const newPlayerPopups = action.damage > 0
+        ? [...state.playerDamagePopups, createPlayerDamagePopup(action.damage, action.targetExplorerId)]
+        : state.playerDamagePopups
 
       return {
         ...state,
-        currentActorIndex: nextIndex,
-        turn: nextTurn,
+        playerDamagePopups: newPlayerPopups,
+        battleMessage,
+        battleMessageId: state.battleMessageId + 1,
       }
     }
+
+    case 'ADVANCE_ENEMY_ACTION': {
+      const nextIndex = state.currentEnemyIndex + 1
+      const aliveEnemies = state.enemies.filter(e => e.currentHp > 0)
+      if (nextIndex >= aliveEnemies.length) {
+        // 敵行動完了 → ターン終了フェーズへ
+        return {
+          ...state,
+          phase: 'turnEnd',
+          currentEnemyIndex: nextIndex,
+        }
+      }
+      return {
+        ...state,
+        currentEnemyIndex: nextIndex,
+      }
+    }
+
+    // ===== ターン終了 =====
+
+    case 'PROCESS_TURN_END': {
+      return state  // 実際の処理はGameReducer側
+    }
+
+    case 'START_NEW_TURN': {
+      return {
+        ...state,
+        phase: 'command',
+        turn: state.turn + 1,
+        commandSlots: action.commandSlots,
+        enemyIntents: action.enemyIntents,
+        activeExplorerIndex: 0,
+        currentCommandIndex: 0,
+        currentEnemyIndex: 0,
+        selectedCommand: null,
+        selectedTargetId: null,
+      }
+    }
+
+    // ===== ポップアップ管理 =====
 
     case 'REMOVE_POPUP': {
       return {
@@ -213,46 +288,10 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       }
     }
 
-    case 'ENEMY_ACTION': {
-      // 敵の名前を取得してメッセージを生成
-      const actingEnemy = state.enemies.find(e => e.instanceId === action.enemyId)
-      const enemyName = actingEnemy?.name ?? '敵'
-      const isIdle = action.damage === 0 && !action.applyCharge && action.poisonStacks === 0 && action.mpDrain === 0
-      const battleMessage = isIdle
-        ? `${enemyName}は${action.actionName}`
-        : `${enemyName}の${action.actionName}`
-
-      // damage=0の場合はポップアップを追加しない
-      const newPlayerPopups = action.damage > 0
-        ? [...state.playerDamagePopups, createPlayerDamagePopup(action.damage)]
-        : state.playerDamagePopups
-
-      // 次のアクターへ遷移
-      const { nextIndex, nextTurn } = calculateNextActorIndex(state)
-
-      return {
-        ...state,
-        playerDamagePopups: newPlayerPopups,
-        currentActorIndex: nextIndex,
-        turn: nextTurn,
-        battleMessage,
-        battleMessageId: state.battleMessageId + 1,
-      }
-    }
-
     case 'REMOVE_PLAYER_POPUP': {
       return {
         ...state,
         playerDamagePopups: state.playerDamagePopups.filter(popup => popup.id !== action.popupId),
-      }
-    }
-
-    case 'PROCESS_TURN_END': {
-      // ターンを+1し、actionQueueを先頭に戻す
-      return {
-        ...state,
-        turn: state.turn + 1,
-        currentActorIndex: 0,
       }
     }
 
@@ -271,6 +310,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       }
     }
 
+    // ===== 状態更新 =====
+
     case 'UPDATE_RELIC_STATE': {
       return {
         ...state,
@@ -286,6 +327,11 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ...state,
         enemies: action.enemies,
       }
+    }
+
+    // 後方互換
+    case 'NEXT_ACTOR': {
+      return state
     }
 
     default:

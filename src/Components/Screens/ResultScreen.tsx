@@ -58,11 +58,15 @@ export function ResultScreen() {
           {resultState.levelUps.map((levelUp, index) => (
             <div key={index} className="text-white mb-3 last:mb-0">
               <div className="text-lg text-yellow-300 font-bold mb-1">
-                Lv.{levelUp.previousLevel} → Lv.{levelUp.newLevel}
+                {levelUp.characterName} Lv.{levelUp.previousLevel} → Lv.{levelUp.newLevel}
               </div>
               <div className="text-sm text-gray-300 space-y-0.5">
                 <p>HP +{levelUp.statsGained.maxHp}、MP +{levelUp.statsGained.maxMp}</p>
-                <p>STR/INT/AGI +{levelUp.statsGained.str}</p>
+                <p>
+                  {levelUp.statsGained.str > 0 && `STR +${levelUp.statsGained.str}`}
+                  {levelUp.statsGained.str > 0 && levelUp.statsGained.int > 0 && '、'}
+                  {levelUp.statsGained.int > 0 && `INT +${levelUp.statsGained.int}`}
+                </p>
               </div>
             </div>
           ))}

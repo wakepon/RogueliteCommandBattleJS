@@ -90,5 +90,32 @@
       "type": "lifesteal",
       "value": 5
     }
+  },
+  "magic_bullet": {
+    "id": "magic_bullet",
+    "name": "魔力弾",
+    "rarity": "Common",
+    "price": 0,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 1,
+    "variance": 2,
+    "maxUses": null,
+    "scaleStat": "int"
+  },
+  "prayer": {
+    "id": "prayer",
+    "name": "祈り",
+    "rarity": "Common",
+    "price": 0,
+    "commandCategory": "weapon",
+    "targetType": "allySingle",
+    "power": 0,
+    "variance": 0,
+    "maxUses": null,
+    "effect": {
+      "type": "targetRateUp",
+      "value": 25
+    }
   }
 }

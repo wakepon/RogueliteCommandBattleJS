@@ -25,21 +25,31 @@ export function LevelUpModal({ levelUpInfo, onComplete }: LevelUpModalProps) {
         <h2 className="text-3xl font-bold text-white mb-4 drop-shadow-lg">
           LEVEL UP!
         </h2>
+        <div className="text-xl text-yellow-100 mb-1 font-bold">
+          {levelUpInfo.characterName}
+        </div>
         <div className="text-2xl text-yellow-200 mb-4 font-bold">
           Lv.{levelUpInfo.previousLevel} → Lv.{levelUpInfo.newLevel}
         </div>
         <div className="text-white space-y-1 text-sm">
           <p>
             <span className="text-red-300">HP</span> +{levelUpInfo.statsGained.maxHp}
-            <span className="text-green-300 ml-2">(回復: {levelUpInfo.hpRecovered})</span>
+            <span className="text-green-300 ml-2">(全回復)</span>
           </p>
           <p>
             <span className="text-blue-300">MP</span> +{levelUpInfo.statsGained.maxMp}
-            <span className="text-green-300 ml-2">(回復: {levelUpInfo.mpRecovered})</span>
+            <span className="text-green-300 ml-2">(全回復)</span>
           </p>
-          <p className="text-orange-200">
-            STR/INT/AGI +{levelUpInfo.statsGained.str}
-          </p>
+          {levelUpInfo.statsGained.str > 0 && (
+            <p className="text-orange-200">
+              STR +{levelUpInfo.statsGained.str}
+            </p>
+          )}
+          {levelUpInfo.statsGained.int > 0 && (
+            <p className="text-purple-200">
+              INT +{levelUpInfo.statsGained.int}
+            </p>
+          )}
         </div>
       </div>
     </div>

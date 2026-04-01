@@ -1,5 +1,8 @@
 import { EnemyInstance } from '../../Lib/Types/Enemy'
+import { EnemyIntent } from '../../Lib/Types/Battle'
 import { ResourceBar, BuffIcon } from '../Common'
+import { KillLineBar } from './KillLineBar'
+import { DamageRange } from '../../Lib/Utils/DamagePredictor'
 
 interface EnemyDisplayProps {
   enemy: EnemyInstance
@@ -7,6 +10,8 @@ interface EnemyDisplayProps {
   isTargetSelected?: boolean
   isTargetHighlighted?: boolean
   onSelect?: () => void
+  damagePreview?: DamageRange | null
+  intent?: EnemyIntent | null  // 敵行動予告
 }
 
 // 敵タイプに応じた色を返す
@@ -43,6 +48,8 @@ export function EnemyDisplay({
   isTargetSelected = false,
   isTargetHighlighted = false,
   onSelect,
+  damagePreview,
+  intent,
 }: EnemyDisplayProps) {
   const borderColor = getEnemyTypeColor(enemy.type)
   const bgColor = getEnemyTypeBgColor(enemy.type)
@@ -82,18 +89,38 @@ export function EnemyDisplay({
       )}
 
       {/* 敵名 */}
-      <div className="text-white font-bold mb-2 text-center">
+      <div className="text-white font-bold mb-1 text-center">
         {enemy.name}
       </div>
 
+      {/* 行動予告 */}
+      {intent && !isDead && (
+        <div className="text-[10px] text-center mb-1">
+          <span className="text-gray-400">次: </span>
+          <span className={intent.damage > 0 ? 'text-red-300' : 'text-gray-300'}>
+            {intent.actionName}
+            {intent.damage > 0 && `(${intent.damage})`}
+          </span>
+        </div>
+      )}
+
       {/* HP バー */}
-      <div className="mb-2">
+      <div className="mb-1">
         <ResourceBar
           current={enemy.currentHp}
           max={enemy.hp}
           color="red"
           showText={true}
           size="sm"
+        />
+      </div>
+
+      {/* キルラインバー（ダメージプレビュー） */}
+      <div className="mb-2">
+        <KillLineBar
+          currentHp={enemy.currentHp}
+          maxHp={enemy.hp}
+          damagePreview={damagePreview ?? null}
         />
       </div>
 

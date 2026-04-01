@@ -1,7 +1,10 @@
-import { ExplorerState, createInitialExplorer } from './Explorer'
+import { ExplorerState, createInitialParty } from './Explorer'
 import { LevelUpInfo } from '../Core/LevelUpCalculator'
 import { RelicInstance } from './Relic'
 import { PotionInstance } from './Potion'
+
+// セーブデータバージョン（パーティー制導入で互換性破壊）
+export const SAVE_VERSION = 2
 
 // 統計情報
 export interface RunStats {
@@ -12,6 +15,7 @@ export interface RunStats {
 
 // ランの状態
 export interface RunState {
+  saveVersion: number
   seed: number
   startedAt: number
   currentStage: number
@@ -26,13 +30,14 @@ export interface RunState {
 // 初期Run生成
 export function createInitialRun(): RunState {
   return {
+    saveVersion: SAVE_VERSION,
     seed: Date.now(),
     startedAt: Date.now(),
     currentStage: 1,
     gold: 5,
     relics: [],
     potions: [],
-    party: [createInitialExplorer()],
+    party: createInitialParty(),
     stats: {
       totalKillCount: 0,
       totalGoldEarned: 0,

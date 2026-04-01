@@ -8,7 +8,7 @@ interface SaveData {
 }
 
 const STORAGE_KEY = 'roguelite-save'
-const CURRENT_VERSION = 1
+const CURRENT_VERSION = 2  // パーティー制導入で互換性破壊
 
 /** セーブデータの基本的な構造を検証 */
 function isValidSaveData(data: unknown): data is SaveData {

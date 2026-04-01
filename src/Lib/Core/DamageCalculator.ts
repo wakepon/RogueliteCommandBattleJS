@@ -60,16 +60,18 @@ export function calculateWeaponDamage(
   const { varianceOffset, relics = [], killStreakActive = false } = options
   const offset = varianceOffset ?? generateVarianceOffset(weapon.variance)
 
-  const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, 'str')
+  // scaleStat に基づいてSTR or INT依存を決定（デフォルト: str）
+  const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
+  const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, scaleStat)
 
-  // レリックによるSTRボーナス
-  const effectiveStr = attacker.str + getStatBonus(relics, 'str')
+  // レリックによるステータスボーナス
+  const effectiveStat = (scaleStat === 'int' ? attacker.int : attacker.str) + getStatBonus(relics, scaleStat)
 
   // レリックによる武器ダメージボーナス
   const weaponDmgBonus = getWeaponDamageBonus(relics)
 
   // 基本ダメージ計算
-  let rawDamage = effectiveStr * (weapon.power + weaponDmgBonus) * buffMultiplier
+  let rawDamage = effectiveStat * (weapon.power + weaponDmgBonus) * buffMultiplier
 
   // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
   rawDamage *= getLowHpDamageMultiplier(relics, attacker)

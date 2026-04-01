@@ -22,8 +22,7 @@ const RELIC_SLOT_COUNT = 3
 const BASE_REROLL_COST = 3
 const MAX_RELIC_COUNT = 5
 const MAX_POTION_COUNT = 2
-const MAX_WEAPON_COUNT = 4  // パンチ含む
-const MAX_SPELL_COUNT = 2
+// MAX_WEAPON_COUNT, MAX_SPELL_COUNT は ExplorerState.weaponSlotCount/magicSlotCount に移行
 
 /** 簡易的な疑似乱数生成器（シード付き） */
 function seededRandom(seed: number): number {
@@ -107,14 +106,16 @@ export function getSellPriceItem(item: IPurchasable): number {
   return Math.floor(item.price / 2)
 }
 
-/** 武器枠に空きがあるかチェック */
+/** 武器枠に空きがあるかチェック（無限行動は枠に含まないためlength - 無限行動数で判定） */
 export function canBuyWeapon(explorer: ExplorerState): boolean {
-  return explorer.weapons.length < MAX_WEAPON_COUNT
+  // 無限行動（パンチ、魔力弾、祈り等）はスロット数に含まない
+  const purchasedWeapons = explorer.weapons.filter(w => w.maxUses !== null)
+  return purchasedWeapons.length < explorer.weaponSlotCount
 }
 
 /** 魔法枠に空きがあるかチェック */
 export function canBuySpell(explorer: ExplorerState): boolean {
-  return explorer.spells.length < MAX_SPELL_COUNT
+  return explorer.spells.length < explorer.magicSlotCount
 }
 
 /** レリック枠に空きがあるかチェック */

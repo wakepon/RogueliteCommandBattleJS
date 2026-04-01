@@ -18,18 +18,19 @@ export function calculateEnemyDamage(enemy: EnemyInstance): number {
 /**
  * 勝敗を判定
  * - 全敵HP0 → 'victory'
- * - プレイヤーHP0 → 'defeat'
+ * - パーティー全員HP0 → 'defeat'（全滅）
  * - それ以外 → 'ongoing'
  * @param enemies - 敵インスタンスの配列
- * @param explorer - プレイヤーの状態
+ * @param party - パーティーメンバーの配列
  * @returns 戦闘結果
  */
 export function checkBattleResult(
   enemies: EnemyInstance[],
-  explorer: ExplorerState
+  party: ExplorerState[]
 ): BattleResult {
-  // プレイヤーのHP0チェック（先にチェック）
-  if (explorer.hp <= 0) {
+  // パーティー全滅チェック（全員HP0）
+  const allPartyDefeated = party.every(member => member.hp <= 0)
+  if (allPartyDefeated) {
     return 'defeat'
   }
 
@@ -72,4 +73,18 @@ export function processTurnEnd(
     updatedExplorer,
     poisonDamage,
   }
+}
+
+/** パーティー全員のターン終了処理 */
+export function processPartyTurnEnd(
+  party: ExplorerState[]
+): { updatedParty: ExplorerState[]; totalPoisonDamage: number } {
+  let totalPoisonDamage = 0
+  const updatedParty = party.map(member => {
+    if (member.hp <= 0) return member  // 戦闘不能キャラはスキップ
+    const { updatedExplorer, poisonDamage } = processTurnEnd(member)
+    totalPoisonDamage += poisonDamage
+    return updatedExplorer
+  })
+  return { updatedParty, totalPoisonDamage }
 }

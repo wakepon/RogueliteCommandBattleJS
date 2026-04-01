@@ -1,6 +1,6 @@
 import { GameState } from '../Types/Game'
 import { RunState } from '../Types/Run'
-import { ExplorerState } from '../Types/Explorer'
+import { ExplorerState, Buff } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { BattleCommand, BattleState } from '../Types/Battle'
 import { SpellData } from '../Types/Spell'
@@ -8,7 +8,7 @@ import { RelicInstance } from '../Types/Relic'
 import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
 import { isSpell, isWeapon, isWeaponInstance, isPotion } from '../Core/CommandValidator'
 import { calculateWeaponDamage, calculateSpellDamage } from '../Core/DamageCalculator'
-import { addExpAndProcessLevelUp, LevelUpInfo } from '../Core/LevelUpCalculator'
+import { distributeExpToParty, LevelUpInfo } from '../Core/LevelUpCalculator'
 import {
   getWeaponDurabilitySaveChance,
   getWeaponAttackMpRecover,
@@ -178,6 +178,12 @@ function executeAttackCommand(
   const targetEnemy = state.battleState.enemies.find(e => e.instanceId === selectedTargetId)
   if (!targetEnemy) return state
 
+  // 空振り: ターゲットが既に倒されている場合、リソース消費なしでスキップ
+  if (targetEnemy.currentHp <= 0) {
+    const newBattleState = battleReducer(state.battleState, battleAction)
+    return { ...state, battleState: newBattleState }
+  }
+
   // ダメージ計算
   let calculatedDamage = 0
 
@@ -246,10 +252,19 @@ function executeAttackCommand(
 
   let newLevelUps: LevelUpInfo[] = []
 
+  // まず攻撃者の結果をrunに反映
+  let updatedRun = {
+    ...updatePartyMember(state.run, finalExplorer),
+    gold: updatedGold,
+  }
+
   if (defeatedCount > 0) {
-    const levelUpResult = addExpAndProcessLevelUp(finalExplorer, defeatedCount)
-    finalExplorer = levelUpResult.updatedExplorer
-    newLevelUps = levelUpResult.levelUps
+    // パーティー全員にEXP配分（止めキャラにボーナス）
+    const { updatedParty, allLevelUps } = distributeExpToParty(
+      updatedRun.party, finalExplorer.id, defeatedCount
+    )
+    newLevelUps = allLevelUps
+    updatedRun = { ...updatedRun, party: updatedParty }
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
@@ -260,8 +275,7 @@ function executeAttackCommand(
     ...state,
     battleState: newBattleState,
     run: {
-      ...updatePartyMember(state.run, finalExplorer),
-      gold: updatedGold,
+      ...updatedRun,
       battleLevelUps: [...state.run.battleLevelUps, ...newLevelUps],
     },
   }
@@ -313,10 +327,19 @@ function executeSpellAllAttack(
 
   let newLevelUps: LevelUpInfo[] = []
 
+  // まず攻撃者の結果をrunに反映
+  let updatedRun = {
+    ...updatePartyMember(state.run, finalExplorer),
+    gold: updatedGold,
+  }
+
   if (defeatedCount > 0) {
-    const levelUpResult = addExpAndProcessLevelUp(finalExplorer, defeatedCount)
-    finalExplorer = levelUpResult.updatedExplorer
-    newLevelUps = levelUpResult.levelUps
+    // パーティー全員にEXP配分（止めキャラにボーナス）
+    const { updatedParty, allLevelUps } = distributeExpToParty(
+      updatedRun.party, finalExplorer.id, defeatedCount
+    )
+    newLevelUps = allLevelUps
+    updatedRun = { ...updatedRun, party: updatedParty }
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
@@ -327,8 +350,7 @@ function executeSpellAllAttack(
     ...state,
     battleState: newBattleState,
     run: {
-      ...updatePartyMember(state.run, finalExplorer),
-      gold: updatedGold,
+      ...updatedRun,
       battleLevelUps: [...state.run.battleLevelUps, ...newLevelUps],
     },
   }
@@ -402,10 +424,19 @@ function executeEnemyAllAttack(
 
   let newLevelUps: LevelUpInfo[] = []
 
+  // まず攻撃者の結果をrunに反映
+  let updatedRun = {
+    ...updatePartyMember(state.run, finalExplorer),
+    gold: updatedGold,
+  }
+
   if (defeatedCount > 0) {
-    const levelUpResult = addExpAndProcessLevelUp(finalExplorer, defeatedCount)
-    finalExplorer = levelUpResult.updatedExplorer
-    newLevelUps = levelUpResult.levelUps
+    // パーティー全員にEXP配分（止めキャラにボーナス）
+    const { updatedParty, allLevelUps } = distributeExpToParty(
+      updatedRun.party, finalExplorer.id, defeatedCount
+    )
+    newLevelUps = allLevelUps
+    updatedRun = { ...updatedRun, party: updatedParty }
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
@@ -416,8 +447,7 @@ function executeEnemyAllAttack(
     ...state,
     battleState: newBattleState,
     run: {
-      ...updatePartyMember(state.run, finalExplorer),
-      gold: updatedGold,
+      ...updatedRun,
       battleLevelUps: [...state.run.battleLevelUps, ...newLevelUps],
     },
   }
@@ -450,10 +480,63 @@ function executeAllySpellCommand(
     }
   }
 
+  // バフ効果（精密など）
+  if (selectedCommand.effect?.type === 'buff') {
+    const newBuff: Buff = {
+      type: selectedCommand.effect.stat,
+      value: selectedCommand.effect.value,
+      duration: selectedCommand.effect.duration,
+    }
+    updatedExplorer = {
+      ...updatedExplorer,
+      battleBuffs: [...updatedExplorer.battleBuffs, newBuff],
+    }
+  }
+
   return {
     ...state,
     battleState: newBattleState,
     run: updatePartyMember(state.run, updatedExplorer),
+  }
+}
+
+/** 味方対象武器（祈りなど）を実行 */
+function executeAllyWeaponCommand(
+  state: GameState,
+  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' }
+): GameState {
+  if (!state.battleState || !state.run) return state
+
+  const { selectedCommand, selectedTargetId } = state.battleState
+  if (!selectedCommand || !isWeapon(selectedCommand) || !selectedTargetId) return state
+
+  const newBattleState = battleReducer(state.battleState, battleAction)
+
+  // 祈り: 対象キャラにtargetRateUpバフを付与
+  if (isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'targetRateUp') {
+    const targetMember = state.run.party.find(e => e.id === selectedTargetId)
+    if (targetMember) {
+      const newBuff: Buff = {
+        type: 'targetRateUp',
+        value: selectedCommand.effect.value,
+        duration: 1,  // 次の敵フェーズ終了時にクリア
+      }
+      const updatedMember = {
+        ...targetMember,
+        battleBuffs: [...targetMember.battleBuffs, newBuff],
+      }
+      return {
+        ...state,
+        battleState: newBattleState,
+        run: updatePartyMember(state.run, updatedMember),
+      }
+    }
+  }
+
+  return {
+    ...state,
+    battleState: newBattleState,
+    run: state.run,
   }
 }
 
@@ -473,22 +556,32 @@ export function processExecuteCommand(
     return applyRegenAfterAction(executePotionCommand(state, battleAction, relics))
   }
 
-  // 味方対象スペル（ヒールなど）
+  // 味方対象スペル（ヒール、精密など）
   if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {
     return applyRegenAfterAction(executeAllySpellCommand(state, battleAction, relics))
+  }
+
+  // 味方対象武器（祈りなど）— 攻撃ではなくサポート行動
+  if (isWeapon(selectedCommand) && selectedCommand.targetType === 'allySingle') {
+    return applyRegenAfterAction(executeAllyWeaponCommand(state, battleAction))
   }
 
   return applyRegenAfterAction(executeAttackCommand(state, battleAction, relics))
 }
 
-/** 行動後に再生のコケの回復を適用 */
-function applyRegenAfterAction(result: GameState): GameState {
+/** 行動後に再生のコケの回復を適用（行動したキャラに適用） */
+function applyRegenAfterAction(result: GameState, explorerId?: string): GameState {
   if (!result.run || !result.battleState) return result
 
   const regenAmount = getRegenPerTurn(result.run.relics)
   if (regenAmount <= 0) return result
 
-  const explorer = result.run.party[0]
+  // 行動キャラを特定（指定がなければcommandSlotsから取得）
+  const targetId = explorerId
+    ?? result.battleState.commandSlots[result.battleState.currentCommandIndex]?.explorerId
+    ?? result.run.party[0].id
+  const explorer = result.run.party.find(e => e.id === targetId) ?? result.run.party[0]
+
   const healedHp = Math.min(explorer.hp + regenAmount, explorer.maxHp)
   const actualHeal = healedHp - explorer.hp
   if (actualHeal <= 0) return result
@@ -501,7 +594,7 @@ function applyRegenAfterAction(result: GameState): GameState {
       ...result.battleState,
       playerDamagePopups: [
         ...result.battleState.playerDamagePopups,
-        createPlayerDamagePopup(-actualHeal),
+        createPlayerDamagePopup(-actualHeal, targetId),
       ],
     },
   }
@@ -641,6 +734,9 @@ export function processTurnEndAction(
   return {
     ...state,
     battleState: newBattleState,
-    run: updatePartyMember(state.run, battleAction.updatedExplorer),
+    run: {
+      ...state.run,
+      party: battleAction.updatedParty,
+    },
   }
 }
