@@ -83,6 +83,15 @@ export function consumeChargeBuff(buffs: Buff[]): Buff[] {
 }
 
 /**
+ * 攻撃後にnextActionバフ（精密など）を消費する
+ * @param buffs - 現在のバフ配列
+ * @returns nextActionバフを除いたバフ配列
+ */
+export function consumeNextActionBuffs(buffs: Buff[]): Buff[] {
+  return buffs.filter(b => b.duration !== 'nextAction')
+}
+
+/**
  * ターン終了時のバフ持続ターン減少処理
  * - duration が number の場合は -1
  * - 0以下になったら削除

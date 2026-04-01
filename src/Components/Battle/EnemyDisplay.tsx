@@ -9,9 +9,11 @@ interface EnemyDisplayProps {
   isCurrentActor: boolean
   isTargetSelected?: boolean
   isTargetHighlighted?: boolean
+  isDragTarget?: boolean   // ドラッグ中に攻撃対象になりうる（全体強調）
+  isHovered?: boolean      // ドラッグ中にホバーされている（個別強調）
   onSelect?: () => void
   damagePreview?: DamageRange | null
-  intent?: EnemyIntent | null  // 敵行動予告
+  intent?: EnemyIntent | null
 }
 
 // 敵タイプに応じた色を返す
@@ -47,6 +49,8 @@ export function EnemyDisplay({
   isCurrentActor,
   isTargetSelected = false,
   isTargetHighlighted = false,
+  isDragTarget = false,
+  isHovered = false,
   onSelect,
   damagePreview,
   intent,
@@ -58,7 +62,9 @@ export function EnemyDisplay({
   // ターゲット選択時のスタイル
   const targetStyle = isTargetSelected || isTargetHighlighted
     ? 'border-yellow-400 bg-yellow-400/20'
-    : `${borderColor} ${bgColor}`
+    : isDragTarget
+      ? 'border-yellow-400/60 bg-yellow-400/5'
+      : `${borderColor} ${bgColor}`
 
   return (
     <div
@@ -72,8 +78,8 @@ export function EnemyDisplay({
         transition-all duration-200
       `}
     >
-      {/* 選択カーソルインジケーター */}
-      {isTargetSelected && (
+      {/* 選択カーソルインジケーター（選択済み or ホバー中） */}
+      {(isTargetSelected || isHovered) && (
         <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-yellow-400 text-xl font-bold">
           ▲
         </div>

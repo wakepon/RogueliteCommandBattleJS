@@ -53,11 +53,11 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
   return (
     <div className="relative">
       <div className="h-3 bg-gray-700 rounded-sm overflow-hidden flex">
-        {/* 確定ダメージ（最低ダメージ範囲） */}
-        {minDamageRatio > 0 && (
+        {/* 残りHP（左側） */}
+        {remainingRatio > 0 && (
           <div
-            className={`h-full ${isGuaranteedKill ? 'bg-yellow-400' : 'bg-orange-500'} transition-all duration-200`}
-            style={{ width: `${minDamageRatio * 100}%` }}
+            className="h-full bg-red-500 transition-all duration-200"
+            style={{ width: `${remainingRatio * 100}%` }}
           />
         )}
         {/* ブレ幅（運次第の範囲） */}
@@ -67,11 +67,11 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
             style={{ width: `${varianceRatio * 100}%` }}
           />
         )}
-        {/* 残りHP */}
-        {remainingRatio > 0 && (
+        {/* 確定ダメージ（右側、最低ダメージで確実に削れる範囲） */}
+        {minDamageRatio > 0 && (
           <div
-            className="h-full bg-red-500 transition-all duration-200"
-            style={{ width: `${remainingRatio * 100}%` }}
+            className={`h-full ${isGuaranteedKill ? 'bg-yellow-400' : 'bg-orange-500'} transition-all duration-200`}
+            style={{ width: `${minDamageRatio * 100}%` }}
           />
         )}
       </div>

@@ -58,7 +58,11 @@ export function calculateWeaponDamage(
   options: DamageOptions = {}
 ): DamageResult {
   const { varianceOffset, relics = [], killStreakActive = false } = options
-  const offset = varianceOffset ?? generateVarianceOffset(weapon.variance)
+
+  // 精密バフ: ブレ幅→0（最大ダメージ固定）
+  const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
+  const effectiveVariance = hasPrecision ? 0 : weapon.variance
+  const offset = varianceOffset ?? generateVarianceOffset(effectiveVariance)
 
   // scaleStat に基づいてSTR or INT依存を決定（デフォルト: str）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
@@ -108,7 +112,11 @@ export function calculateSpellDamage(
   options: DamageOptions = {}
 ): DamageResult {
   const { varianceOffset, relics = [] } = options
-  const offset = varianceOffset ?? generateVarianceOffset(spell.variance)
+
+  // 精密バフ: ブレ幅→0（最大ダメージ固定）
+  const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
+  const effectiveVariance = hasPrecision ? 0 : spell.variance
+  const offset = varianceOffset ?? generateVarianceOffset(effectiveVariance)
 
   const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, 'int')
 

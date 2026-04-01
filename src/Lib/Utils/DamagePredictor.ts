@@ -2,7 +2,7 @@ import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../Types/Weapon'
 import { SpellInstance, SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
-import { CommandSlot } from '../Types/Battle'
+import { BattleCommand, CommandSlot } from '../Types/Battle'
 import { isWeapon, isSpell } from '../Core/CommandValidator'
 import {
   getStatBonus,
@@ -31,6 +31,7 @@ export interface DamagePredictOptions {
   relics?: RelicInstance[]
   killStreakActive?: boolean
   includeConditionalRelics?: boolean
+  hasPrecision?: boolean  // 精密バフでブレ幅→0
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -46,7 +47,7 @@ export function predictWeaponDamage(
   weapon: ExplorerWeapon | WeaponData,
   options: DamagePredictOptions = {}
 ): DamageRange {
-  const { relics = [], killStreakActive = false, includeConditionalRelics = false } = options
+  const { relics = [], killStreakActive = false, includeConditionalRelics = false, hasPrecision = false } = options
 
   // scaleStat対応（魔力弾はINT依存）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
@@ -72,8 +73,11 @@ export function predictWeaponDamage(
   baseDamage *= relicMultiplier
 
   const base = Math.floor(baseDamage)
-  const min = Math.max(0, base - weapon.variance)
-  const max = Math.max(0, base + weapon.variance)
+  // 精密バフまたはExplorerの既存precisionバフでブレ幅→0
+  const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
+  const effectiveVariance = (hasPrecision || explorerHasPrecision) ? 0 : weapon.variance
+  const min = Math.max(0, base - effectiveVariance)
+  const max = Math.max(0, base + effectiveVariance)
 
   const isBoosted = statBonus > 0
     || weaponDmgBonus > 0
@@ -89,7 +93,7 @@ export function predictSpellDamage(
   spell: SpellInstance | SpellData,
   options: DamagePredictOptions = {}
 ): DamageRange {
-  const { relics = [], includeConditionalRelics = false } = options
+  const { relics = [], includeConditionalRelics = false, hasPrecision = false } = options
 
   const intBonus = getStatBonus(relics, 'int')
   const effectiveInt = explorer.int + intBonus
@@ -107,8 +111,10 @@ export function predictSpellDamage(
   baseDamage *= relicMultiplier
 
   const base = Math.floor(baseDamage)
-  const min = Math.max(0, base - spell.variance)
-  const max = Math.max(0, base + spell.variance)
+  const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
+  const effectiveVariance = (hasPrecision || explorerHasPrecision) ? 0 : spell.variance
+  const min = Math.max(0, base - effectiveVariance)
+  const max = Math.max(0, base + effectiveVariance)
 
   const isBoosted = intBonus > 0
     || buffMultiplier > 1.0
@@ -123,57 +129,92 @@ export function formatDamageRange(range: DamageRange): string {
   return `${range.min}-${range.max}`
 }
 
-/** 特定の敵への累計ダメージプレビュー（全コマンドスロットから） */
+/**
+ * 行動順を考慮して、特定キャラが精密バフを受けるかどうかを判定
+ * （そのキャラより先に行動するスロットに、そのキャラ宛ての精密がセットされているか）
+ */
+function willReceivePrecision(
+  commandSlots: CommandSlot[],
+  targetExplorerId: string,
+  slotIndex: number
+): boolean {
+  for (let i = 0; i < slotIndex; i++) {
+    const prevSlot = commandSlots[i]
+    if (!prevSlot.command) continue
+    if (!isSpell(prevSlot.command)) continue
+    if (prevSlot.command.effect?.type !== 'buff') continue
+    if (prevSlot.command.effect.stat !== 'precision') continue
+    if (prevSlot.targetId === targetExplorerId) return true
+  }
+  return false
+}
+
+/** 仮想コマンド情報（ドラッグ中のプレビュー用） */
+export interface TentativeCommand {
+  command: BattleCommand
+  explorerId: string
+  targetEnemyId: string  // ホバー中の敵ID
+}
+
+/** 特定の敵への累計ダメージプレビュー（全コマンドスロット + 仮想コマンドから） */
 export function calculateCumulativeDamagePreview(
   commandSlots: CommandSlot[],
   targetEnemyId: string,
   party: ExplorerState[],
-  options: DamagePredictOptions = {}
+  options: DamagePredictOptions = {},
+  tentative?: TentativeCommand | null
 ): DamageRange {
   let totalMin = 0
   let totalMax = 0
   let anyBoosted = false
 
-  for (const slot of commandSlots) {
-    if (!slot.command || slot.targetId !== targetEnemyId) continue
+  // 仮想コマンドを含めた全スロットを構築
+  const allSlots: CommandSlot[] = [...commandSlots]
 
-    const explorer = party.find(e => e.id === slot.explorerId)
-    if (!explorer) continue
-
-    let range: DamageRange | null = null
-
-    if (isWeapon(slot.command)) {
-      // 味方対象武器（祈り等）はダメージなし
-      if (slot.command.targetType === 'allySingle') continue
-      range = predictWeaponDamage(explorer, slot.command, options)
-    } else if (isSpell(slot.command)) {
-      // 味方対象スペルはダメージなし
-      if (slot.command.targetType === 'allySingle') continue
-      range = predictSpellDamage(explorer, slot.command, options)
-    }
-
-    if (range) {
-      totalMin += range.min
-      totalMax += range.max
-      if (range.isBoosted) anyBoosted = true
+  // 仮想コマンドがある場合、該当キャラのスロットを上書きまたは追加
+  if (tentative) {
+    const existingIdx = allSlots.findIndex(s => s.explorerId === tentative.explorerId)
+    if (existingIdx >= 0) {
+      allSlots[existingIdx] = {
+        explorerId: tentative.explorerId,
+        command: tentative.command,
+        targetId: tentative.targetEnemyId,
+      }
     }
   }
 
-  // enemyAll（全体攻撃）も含める: targetIdが特定敵でなくても全敵に当たるコマンド
-  for (const slot of commandSlots) {
-    if (!slot.command || slot.targetId === targetEnemyId) continue  // 既に処理済み
+  for (let i = 0; i < allSlots.length; i++) {
+    const slot = allSlots[i]
     if (!slot.command) continue
 
     const explorer = party.find(e => e.id === slot.explorerId)
     if (!explorer) continue
 
-    if (isWeapon(slot.command) && slot.command.targetType === 'enemyAll') {
-      const range = predictWeaponDamage(explorer, slot.command, options)
-      totalMin += range.min
-      totalMax += range.max
-      if (range.isBoosted) anyBoosted = true
-    } else if (isSpell(slot.command) && slot.command.targetType === 'enemyAll') {
-      const range = predictSpellDamage(explorer, slot.command, options)
+    // このキャラが先行スロットから精密を受けるか判定
+    const precisionFromOrder = willReceivePrecision(allSlots, slot.explorerId, i)
+    const slotOptions = { ...options, hasPrecision: precisionFromOrder }
+
+    // この敵を直接ターゲットしているか
+    const targetsThisEnemy = slot.targetId === targetEnemyId
+
+    // 全体攻撃かどうか
+    const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
+    const isEnemyAllSpell = isSpell(slot.command) && slot.command.targetType === 'enemyAll'
+    const isEnemyAll = isEnemyAllWeapon || isEnemyAllSpell
+
+    if (!targetsThisEnemy && !isEnemyAll) continue
+
+    let range: DamageRange | null = null
+
+    if (isWeapon(slot.command)) {
+      if (slot.command.targetType === 'allySingle') continue
+      range = predictWeaponDamage(explorer, slot.command, slotOptions)
+    } else if (isSpell(slot.command)) {
+      if (slot.command.targetType === 'allySingle') continue
+      range = predictSpellDamage(explorer, slot.command, slotOptions)
+    }
+
+    if (range) {
       totalMin += range.min
       totalMax += range.max
       if (range.isBoosted) anyBoosted = true

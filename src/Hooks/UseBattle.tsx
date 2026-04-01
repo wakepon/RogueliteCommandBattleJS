@@ -42,6 +42,8 @@ export interface UseBattleResult {
   cancelCommand: () => void
   selectTarget: (targetId: string) => void
   changeActiveExplorer: (index: number) => void
+  reorderCommandSlots: (fromIndex: number, toIndex: number) => void
+  setCommandSlotDirect: (explorerId: string, command: BattleCommand, targetId: string) => void
   startExecution: () => void
 
   // 実行アクション
@@ -89,6 +91,14 @@ export function useBattle(): UseBattleResult | null {
 
   const changeActiveExplorer = useCallback((index: number) => {
     dispatchBattle({ type: 'CHANGE_ACTIVE_EXPLORER', index })
+  }, [dispatchBattle])
+
+  const reorderCommandSlots = useCallback((fromIndex: number, toIndex: number) => {
+    dispatchBattle({ type: 'REORDER_COMMAND_SLOTS', fromIndex, toIndex })
+  }, [dispatchBattle])
+
+  const setCommandSlotDirect = useCallback((explorerId: string, command: BattleCommand, targetId: string) => {
+    dispatchBattle({ type: 'SET_COMMAND_SLOT_DIRECT', explorerId, command, targetId })
   }, [dispatchBattle])
 
   const startExecution = useCallback(() => {
@@ -233,6 +243,8 @@ export function useBattle(): UseBattleResult | null {
     cancelCommand,
     selectTarget,
     changeActiveExplorer,
+    reorderCommandSlots,
+    setCommandSlotDirect,
     startExecution,
 
     executePartyAction,

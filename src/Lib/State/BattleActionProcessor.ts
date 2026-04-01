@@ -8,6 +8,7 @@ import { RelicInstance } from '../Types/Relic'
 import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
 import { isSpell, isWeapon, isWeaponInstance, isPotion } from '../Core/CommandValidator'
 import { calculateWeaponDamage, calculateSpellDamage } from '../Core/DamageCalculator'
+import { consumeNextActionBuffs } from '../Core/BuffProcessor'
 import { distributeExpToParty, LevelUpInfo } from '../Core/LevelUpCalculator'
 import {
   getWeaponDurabilitySaveChance,
@@ -250,6 +251,12 @@ function executeAttackCommand(
     }
   }
 
+  // 攻撃後にnextActionバフ（精密など）を消費
+  finalExplorer = {
+    ...finalExplorer,
+    battleBuffs: consumeNextActionBuffs(finalExplorer.battleBuffs),
+  }
+
   let newLevelUps: LevelUpInfo[] = []
 
   // まず攻撃者の結果をrunに反映
@@ -323,6 +330,12 @@ function executeSpellAllAttack(
       ...finalExplorer,
       hp: Math.min(finalExplorer.hp + spell.effect.value, finalExplorer.maxHp),
     }
+  }
+
+  // 攻撃後にnextActionバフ（精密など）を消費
+  finalExplorer = {
+    ...finalExplorer,
+    battleBuffs: consumeNextActionBuffs(finalExplorer.battleBuffs),
   }
 
   let newLevelUps: LevelUpInfo[] = []
@@ -420,6 +433,12 @@ function executeEnemyAllAttack(
       type: 'UPDATE_RELIC_STATE',
       relicState: { killStreakActive: nextKillStreakActive },
     })
+  }
+
+  // 攻撃後にnextActionバフ（精密など）を消費
+  finalExplorer = {
+    ...finalExplorer,
+    battleBuffs: consumeNextActionBuffs(finalExplorer.battleBuffs),
   }
 
   let newLevelUps: LevelUpInfo[] = []
