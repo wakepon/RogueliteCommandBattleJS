@@ -91,7 +91,6 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
   const isPossibleKill = totalMax >= currentHp
 
   const hasSegments = damagePreview.segments.length > 0
-  const multiplierGroups = hasSegments ? collectMultiplierGroups(damagePreview.segments) : []
 
   return (
     <div
@@ -193,12 +192,27 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
               )}
             </div>
 
-            {/* 倍率テキスト */}
-            {multiplierGroups.length > 0 && (
-              <div className="flex gap-2 text-[10px] text-yellow-300 mt-1">
-                {multiplierGroups.map((mg, i) => (
-                  <span key={i}>{mg.relicName} ×{mg.multiplier}</span>
-                ))}
+            {/* 倍率テキスト（各セグメントの真下に配置） */}
+            {damagePreview.segments.some(s => s.activeMultipliers.length > 0) && (
+              <div className="flex text-[10px] text-yellow-300 mt-0.5">
+                {/* 残HP + ブレ幅分の空白 */}
+                {(remainingRatio + varianceRatio) > 0 && (
+                  <div style={{ width: `${(remainingRatio + varianceRatio) * 100}%` }} />
+                )}
+                {/* 各セグメントの倍率ラベル */}
+                {damagePreview.segments.map((seg, i) => {
+                  const segRatio = (seg.damageRange.min / Math.max(totalMin, 1)) * minDamageRatio
+                  const label = seg.activeMultipliers.map(m => `${m.relicName} ×${m.multiplier}`).join(' ')
+                  return (
+                    <span
+                      key={i}
+                      className="truncate text-center"
+                      style={{ width: `${segRatio * 100}%` }}
+                    >
+                      {label}
+                    </span>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -209,18 +223,3 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
   )
 }
 
-/** 全セグメントから重複を除いた倍率レリック一覧を収集 */
-function collectMultiplierGroups(segments: CommandDamageSegment[]) {
-  const seen = new Set<string>()
-  const result: { relicName: string; multiplier: number }[] = []
-  for (const seg of segments) {
-    for (const m of seg.activeMultipliers) {
-      const key = `${m.relicName}-${m.multiplier}`
-      if (!seen.has(key)) {
-        seen.add(key)
-        result.push(m)
-      }
-    }
-  }
-  return result
-}
