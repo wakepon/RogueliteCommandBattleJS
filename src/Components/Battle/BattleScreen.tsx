@@ -295,7 +295,10 @@ export function BattleScreen() {
 
   useEffect(() => {
     const result = checkBattleResult(enemies, party)
-    if (result !== 'ongoing') endBattle(result)
+    if (result === 'ongoing') return
+    // HPバーアニメーション(300ms) + 余韻(500ms) を待ってから遷移
+    const timer = setTimeout(() => endBattle(result), 800)
+    return () => clearTimeout(timer)
   }, [enemies, party, endBattle])
 
   const isCommandPhase = phase === 'command'
@@ -474,7 +477,7 @@ export function BattleScreen() {
           {damagePopups.map((popup) => {
             const targetIndex = enemies.findIndex(e => e.instanceId === popup.targetId)
             if (targetIndex === -1) return null
-            return <DamagePopup key={popup.id} damage={popup.damage} targetIndex={targetIndex} totalTargets={enemies.length} onComplete={() => removePopup(popup.id)} />
+            return <DamagePopup key={popup.id} damage={popup.damage} targetIndex={targetIndex} totalTargets={enemies.length} onComplete={() => removePopup(popup.id)} contributors={popup.contributors} />
           })}
         </div>
 

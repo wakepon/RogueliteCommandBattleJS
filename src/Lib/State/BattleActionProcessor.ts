@@ -187,6 +187,7 @@ function executeAttackCommand(
 
   // ダメージ計算
   let calculatedDamage = 0
+  let contributors: import('../Core/DamageCalculator').DamageContributor[] = []
 
   if (isWeaponAttack) {
     const result = calculateWeaponDamage(battleAction.explorer, selectedCommand, targetEnemy, {
@@ -194,11 +195,13 @@ function executeAttackCommand(
       killStreakActive: state.battleState.relicState.killStreakActive,
     })
     calculatedDamage = result.damage
+    contributors = result.contributors
   } else if (isSpell(selectedCommand)) {
     const result = calculateSpellDamage(battleAction.explorer, selectedCommand, targetEnemy, {
       relics,
     })
     calculatedDamage = result.damage
+    contributors = result.contributors
   } else {
     return state
   }
@@ -207,6 +210,7 @@ function executeAttackCommand(
   let newBattleState = battleReducer(state.battleState, {
     ...battleAction,
     calculatedDamage,
+    contributors,
   })
 
   // コスト消費
@@ -302,10 +306,12 @@ function executeSpellAllAttack(
   if (aliveEnemies.length === 0) {
     return state
   }
-  const calculatedDamages = aliveEnemies.map(enemy => {
+  let allContributors: import('../Core/DamageCalculator').DamageContributor[] = []
+  const calculatedDamages = aliveEnemies.map((enemy, i) => {
     const result = calculateSpellDamage(battleAction.explorer, spell, enemy, {
       relics,
     })
+    if (i === 0) allContributors = result.contributors
     return { targetId: enemy.instanceId, damage: result.damage }
   })
 
@@ -313,6 +319,7 @@ function executeSpellAllAttack(
   let newBattleState = battleReducer(state.battleState, {
     ...battleAction,
     calculatedDamages,
+    contributors: allContributors,
   })
 
   // MP消費
@@ -383,11 +390,13 @@ function executeEnemyAllAttack(
   if (aliveEnemies.length === 0) {
     return state
   }
-  const calculatedDamages = aliveEnemies.map(enemy => {
+  let allContributors: import('../Core/DamageCalculator').DamageContributor[] = []
+  const calculatedDamages = aliveEnemies.map((enemy, i) => {
     const result = calculateWeaponDamage(battleAction.explorer, weapon, enemy, {
       relics,
       killStreakActive: state.battleState!.relicState.killStreakActive,
     })
+    if (i === 0) allContributors = result.contributors
     return { targetId: enemy.instanceId, damage: result.damage }
   })
 
@@ -395,6 +404,7 @@ function executeEnemyAllAttack(
   let newBattleState = battleReducer(state.battleState, {
     ...battleAction,
     calculatedDamages,
+    contributors: allContributors,
   })
 
   // コスト消費

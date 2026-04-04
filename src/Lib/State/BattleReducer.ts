@@ -1,4 +1,4 @@
-import { BattleState, BattleCommand, CommandSlot, EnemyIntent, DamagePopup, PlayerDamagePopup, LevelUpPopup, RelicBattleState } from '../Types/Battle'
+import { BattleState, BattleCommand, CommandSlot, EnemyIntent, DamagePopup, PlayerDamagePopup, LevelUpPopup, RelicBattleState, DamageContributor } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isSpell, isPotion, isWeapon, LevelUpInfo } from '../Core'
 
@@ -14,7 +14,7 @@ export type BattleAction =
   | { type: 'REORDER_COMMAND_SLOTS'; fromIndex: number; toIndex: number }  // 行動順入れ替え
   | { type: 'START_EXECUTION' }  // 実行開始 → partyAction phase
   // パーティー行動フェーズ
-  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}> }
+  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}>; contributors?: DamageContributor[] }
   | { type: 'ADVANCE_PARTY_ACTION' }  // 次のパーティーメンバーの行動へ
   // 敵行動フェーズ
   | { type: 'ENEMY_ACTION'; enemyId: string; targetExplorerId: string; damage: number; explorer: ExplorerState;
@@ -41,12 +41,13 @@ function generatePopupId(): string {
 }
 
 /** ダメージポップアップを作成（敵へのダメージ用） */
-function createDamagePopup(targetId: string, damage: number): DamagePopup {
+function createDamagePopup(targetId: string, damage: number, contributors?: DamageContributor[]): DamagePopup {
   return {
     id: generatePopupId(),
     targetId,
     damage,
     timestamp: Date.now(),
+    contributors,
   }
 }
 
@@ -216,7 +217,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
           }
           return enemy
         })
-        const newPopups = action.calculatedDamages.map(d => createDamagePopup(d.targetId, d.damage))
+        const newPopups = action.calculatedDamages.map(d => createDamagePopup(d.targetId, d.damage, action.contributors))
         return {
           ...state,
           enemies: updatedEnemies,
@@ -237,7 +238,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         }
         return enemy
       })
-      const newPopup = createDamagePopup(targetId, damage)
+      const newPopup = createDamagePopup(targetId, damage, action.contributors)
 
       return {
         ...state,

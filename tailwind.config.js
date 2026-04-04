@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       animation: {
-        'damage-popup': 'damagePopup 1s ease-out forwards',
+        'damage-popup': 'damagePopup 2.25s ease-out forwards',
         'exp-blink': 'expBlink 0.8s ease-in-out infinite',
       },
       keyframes: {

@@ -12,12 +12,19 @@ import {
   getLowMpDamageMultiplier,
 } from './RelicProcessor'
 
+/** ダメージ寄与者（ポップアップ表示用） */
+export interface DamageContributor {
+  name: string
+  label: string  // "+15", "×1.5", "（確定）" など
+}
+
 /**
  * ダメージ計算結果
  */
 export interface DamageResult {
   damage: number
   isCritical: boolean  // MVP では false 固定
+  contributors: DamageContributor[]
 }
 
 /** ダメージ計算のオプション */
@@ -58,35 +65,71 @@ export function calculateWeaponDamage(
   options: DamageOptions = {}
 ): DamageResult {
   const { varianceOffset, relics = [], killStreakActive = false } = options
+  const contributors: DamageContributor[] = []
 
   // 精密バフ: ブレ幅→0、ダメージは最大ブレ値で固定
   const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
   const offset = varianceOffset ?? (hasPrecision ? weapon.variance : generateVarianceOffset(weapon.variance))
+  if (hasPrecision) {
+    contributors.push({ name: '精密', label: '（確定）' })
+  }
 
   // scaleStat に基づいてSTR or INT依存を決定（デフォルト: str）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
   const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, scaleStat)
 
   // レリックによるステータスボーナス
-  const effectiveStat = (scaleStat === 'int' ? attacker.int : attacker.str) + getStatBonus(relics, scaleStat)
+  const statBonus = getStatBonus(relics, scaleStat)
+  const effectiveStat = (scaleStat === 'int' ? attacker.int : attacker.str) + statBonus
 
   // レリックによる武器ダメージボーナス
   const weaponDmgBonus = getWeaponDamageBonus(relics)
+
+  // 寄与者: ステータスボーナスと武器ダメージボーナス
+  for (const relic of relics) {
+    if (relic.passiveEffect.type === 'statBonus' && relic.passiveEffect.stat === scaleStat) {
+      contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
+    }
+    if (relic.passiveEffect.type === 'weaponDamageBonus') {
+      contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
+    }
+  }
+
+  // バフ倍率の寄与者
+  if (buffMultiplier > 1.0) {
+    const statLabel = scaleStat === 'str' ? 'STR' : 'INT'
+    contributors.push({ name: `${statLabel}バフ`, label: `×${buffMultiplier.toFixed(1)}` })
+  }
 
   // 基本ダメージ計算
   let rawDamage = effectiveStat * (weapon.power + weaponDmgBonus) * buffMultiplier
 
   // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
-  rawDamage *= getLowHpDamageMultiplier(relics, attacker)
+  const lowHpMult = getLowHpDamageMultiplier(relics, attacker)
+  rawDamage *= lowHpMult
+  if (lowHpMult > 1.0) {
+    const relic = relics.find(r => r.passiveEffect.type === 'lowHpDamageMultiplier')
+    if (relic) contributors.push({ name: relic.name, label: `×${lowHpMult}` })
+  }
 
   // レリック倍率: 血染めの手袋（killStreakBonus）
   if (killStreakActive) {
-    rawDamage *= getKillStreakMultiplier(relics)
+    const mult = getKillStreakMultiplier(relics)
+    rawDamage *= mult
+    if (mult > 1.0) {
+      const relic = relics.find(r => r.passiveEffect.type === 'killStreakBonus')
+      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
+    }
   }
 
   // レリック倍率: 研ぎ師の名刺（lastStrikeDamageMultiplier） - currentUses===1で壊れる直前
   if (weapon.currentUses === 1) {
-    rawDamage *= getLastStrikeMultiplier(relics)
+    const mult = getLastStrikeMultiplier(relics)
+    rawDamage *= mult
+    if (mult > 1.0) {
+      const relic = relics.find(r => r.passiveEffect.type === 'lastStrikeDamageMultiplier')
+      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
+    }
   }
 
   // 基本ダメージを切り捨て後にブレを加算
@@ -95,6 +138,7 @@ export function calculateWeaponDamage(
   return {
     damage: Math.max(0, damage),
     isCritical: false,
+    contributors,
   }
 }
 
@@ -111,24 +155,50 @@ export function calculateSpellDamage(
   options: DamageOptions = {}
 ): DamageResult {
   const { varianceOffset, relics = [] } = options
+  const contributors: DamageContributor[] = []
 
   // 精密バフ: ブレ幅→0、ダメージは最大ブレ値で固定
   const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
   const offset = varianceOffset ?? (hasPrecision ? spell.variance : generateVarianceOffset(spell.variance))
+  if (hasPrecision) {
+    contributors.push({ name: '精密', label: '（確定）' })
+  }
 
   const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, 'int')
 
   // レリックによるINTボーナス
   const effectiveInt = attacker.int + getStatBonus(relics, 'int')
 
+  // 寄与者: ステータスボーナス
+  for (const relic of relics) {
+    if (relic.passiveEffect.type === 'statBonus' && relic.passiveEffect.stat === 'int') {
+      contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
+    }
+  }
+
+  // バフ倍率の寄与者
+  if (buffMultiplier > 1.0) {
+    contributors.push({ name: 'INTバフ', label: `×${buffMultiplier.toFixed(1)}` })
+  }
+
   // 基本ダメージ計算
   let rawDamage = effectiveInt * spell.power * buffMultiplier
 
   // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
-  rawDamage *= getLowHpDamageMultiplier(relics, attacker)
+  const lowHpMult = getLowHpDamageMultiplier(relics, attacker)
+  rawDamage *= lowHpMult
+  if (lowHpMult > 1.0) {
+    const relic = relics.find(r => r.passiveEffect.type === 'lowHpDamageMultiplier')
+    if (relic) contributors.push({ name: relic.name, label: `×${lowHpMult}` })
+  }
 
   // レリック倍率: 集中の水晶（lowMpDamageBonus）
-  rawDamage *= getLowMpDamageMultiplier(relics, attacker)
+  const lowMpMult = getLowMpDamageMultiplier(relics, attacker)
+  rawDamage *= lowMpMult
+  if (lowMpMult > 1.0) {
+    const relic = relics.find(r => r.passiveEffect.type === 'lowMpDamageBonus')
+    if (relic) contributors.push({ name: relic.name, label: `×${lowMpMult}` })
+  }
 
   // 基本ダメージを切り捨て後にブレを加算
   const damage = Math.floor(rawDamage) + offset
@@ -136,5 +206,6 @@ export function calculateSpellDamage(
   return {
     damage: Math.max(0, damage),
     isCritical: false,
+    contributors,
   }
 }

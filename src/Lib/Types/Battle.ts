@@ -25,12 +25,19 @@ export interface CommandSlot {
   targetId: string | null
 }
 
+/** ダメージ寄与者（ポップアップ表示用） */
+export interface DamageContributor {
+  name: string
+  label: string
+}
+
 /** ダメージポップアップ（敵への攻撃用） */
 export interface DamagePopup {
   id: string
   targetId: string  // enemy instanceId
   damage: number
   timestamp: number
+  contributors?: DamageContributor[]
 }
 
 /** プレイヤーへのダメージポップアップ */

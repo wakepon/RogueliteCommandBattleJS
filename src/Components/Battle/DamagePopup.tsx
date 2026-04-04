@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
+import { DamageContributor } from '../../Lib/Types/Battle'
 
 // ダメージポップアップの表示時間（ミリ秒）
-const POPUP_DURATION_MS = 1000
+const POPUP_DURATION_MS = 2250
 
 interface DamagePopupProps {
   damage: number
@@ -9,6 +10,7 @@ interface DamagePopupProps {
   totalTargets: number  // 敵の総数
   onComplete: () => void  // アニメーション完了時のコールバック
   isPlayerDamage?: boolean  // プレイヤーへのダメージかどうか
+  contributors?: DamageContributor[]
 }
 
 // 敵インデックスから表示位置を計算
@@ -26,7 +28,7 @@ function calculatePosition(targetIndex: number, totalTargets: number): { x: numb
   return { x, y }
 }
 
-export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isPlayerDamage = false }: DamagePopupProps) {
+export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isPlayerDamage = false, contributors }: DamagePopupProps) {
   const { x, y } = calculatePosition(targetIndex, totalTargets)
   const onCompleteRef = useRef(onComplete)
   onCompleteRef.current = onComplete
@@ -47,6 +49,8 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isP
     ? 'text-green-400'
     : isPlayerDamage ? 'text-yellow-500' : 'text-red-500'
 
+  const hasContributors = contributors && contributors.length > 0
+
   return (
     <div
       className="absolute pointer-events-none animate-damage-popup z-10"
@@ -56,9 +60,20 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isP
         transform: 'translate(-50%, -50%)',
       }}
     >
-      <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
-        {displayText}
-      </span>
+      <div className="flex flex-col items-center">
+        <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
+          {displayText}
+        </span>
+        {hasContributors && (
+          <div className="flex flex-col items-center mt-0.5">
+            {contributors.map((c, i) => (
+              <span key={i} className="text-[9px] text-gray-300 drop-shadow-md whitespace-nowrap leading-tight">
+                {c.name} {c.label}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
