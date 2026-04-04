@@ -97,11 +97,11 @@ export function predictWeaponDamage(
   baseDamage *= relicMultiplier
 
   const base = Math.floor(baseDamage)
-  // 精密バフまたはExplorerの既存precisionバフでブレ幅→0
+  // 精密バフ: ブレ幅→0、最大ブレ値で固定
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
-  const effectiveVariance = (hasPrecision || explorerHasPrecision) ? 0 : weapon.variance
-  const min = Math.max(0, base - effectiveVariance)
-  const max = Math.max(0, base + effectiveVariance)
+  const isPrecise = hasPrecision || explorerHasPrecision
+  const min = isPrecise ? Math.max(0, base + weapon.variance) : Math.max(0, base - weapon.variance)
+  const max = Math.max(0, base + weapon.variance)
 
   const isBoosted = statBonus > 0
     || weaponDmgBonus > 0
@@ -136,9 +136,9 @@ export function predictSpellDamage(
 
   const base = Math.floor(baseDamage)
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
-  const effectiveVariance = (hasPrecision || explorerHasPrecision) ? 0 : spell.variance
-  const min = Math.max(0, base - effectiveVariance)
-  const max = Math.max(0, base + effectiveVariance)
+  const isPrecise = hasPrecision || explorerHasPrecision
+  const min = isPrecise ? Math.max(0, base + spell.variance) : Math.max(0, base - spell.variance)
+  const max = Math.max(0, base + spell.variance)
 
   const isBoosted = intBonus > 0
     || buffMultiplier > 1.0
