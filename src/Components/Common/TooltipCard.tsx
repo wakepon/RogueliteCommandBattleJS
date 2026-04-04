@@ -1,0 +1,141 @@
+import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
+import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
+import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
+import { PotionData } from '../../Lib/Types/Potion'
+import { BattleCommand } from '../../Lib/Types/Battle'
+import { getPassiveEffectDescription } from '../../Lib/Utils/ItemDescription'
+
+type AnyItem = WeaponData | ExplorerWeapon | SpellData | SpellInstance | RelicData | RelicInstance | PotionData | BattleCommand
+
+interface TooltipLine {
+  label: string
+  value: string
+  color?: string
+}
+
+/** カード形式のTooltipコンテンツを生成 */
+export function TooltipCard({ item, damageText, durabilityText }: {
+  item: AnyItem
+  damageText?: string   // "5-9" 形式
+  durabilityText?: string  // "3/5" 形式
+}) {
+  const name = item.name
+  const category = getCategory(item)
+  const lines = buildLines(item, damageText, durabilityText)
+
+  return (
+    <div className="min-w-[120px] max-w-[200px]">
+      {/* カテゴリ */}
+      <div className="text-[9px] text-gray-400">{category}</div>
+      {/* 名前 */}
+      <div className="text-white font-bold text-xs mb-1">{name}</div>
+      {/* 情報行 */}
+      {lines.map((line, i) => (
+        <div key={i} className="flex justify-between gap-3 text-[10px]">
+          <span className="text-gray-400">{line.label}</span>
+          <span className={line.color || 'text-gray-200'}>{line.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function getCategory(item: AnyItem): string {
+  if ('commandCategory' in item) {
+    switch (item.commandCategory) {
+      case 'weapon': return '武器'
+      case 'spell': return '魔法'
+      case 'potion': return 'ポーション'
+    }
+  }
+  if ('passiveEffect' in item) return 'レリック'
+  return ''
+}
+
+function buildLines(item: AnyItem, damageText?: string, durabilityText?: string): TooltipLine[] {
+  const lines: TooltipLine[] = []
+
+  // 武器
+  if ('commandCategory' in item && item.commandCategory === 'weapon') {
+    const weapon = item as WeaponData | ExplorerWeapon
+    if (damageText) {
+      lines.push({ label: 'ダメージ', value: damageText, color: 'text-orange-300' })
+    }
+    if (durabilityText) {
+      lines.push({ label: '耐久値', value: durabilityText })
+    } else if ('currentUses' in weapon && weapon.currentUses !== null) {
+      lines.push({ label: '耐久値', value: `${weapon.currentUses}/${weapon.maxUses}` })
+    } else if (weapon.maxUses !== null) {
+      lines.push({ label: '使用回数', value: `${weapon.maxUses}` })
+    } else {
+      lines.push({ label: '耐久値', value: '∞' })
+    }
+    if ('effect' in weapon && weapon.effect) {
+      if (weapon.effect.type === 'lifesteal') {
+        lines.push({ label: '吸血', value: `${weapon.effect.value}`, color: 'text-green-300' })
+      }
+      if (weapon.effect.type === 'targetRateUp') {
+        lines.push({ label: '被弾率UP', value: `+${weapon.effect.value}%`, color: 'text-red-300' })
+      }
+    }
+    if ('scaleStat' in weapon && weapon.scaleStat === 'int') {
+      lines.push({ label: '依存ステ', value: 'INT', color: 'text-blue-300' })
+    }
+    if ('targetType' in weapon && weapon.targetType === 'enemyAll') {
+      lines.push({ label: '対象', value: '全体攻撃', color: 'text-red-300' })
+    }
+    if ('targetType' in weapon && weapon.targetType === 'allySingle') {
+      lines.push({ label: '対象', value: '味方単体', color: 'text-green-300' })
+    }
+    return lines
+  }
+
+  // 魔法
+  if ('commandCategory' in item && item.commandCategory === 'spell') {
+    const spell = item as SpellData | SpellInstance
+    if (damageText) {
+      lines.push({ label: 'ダメージ', value: damageText, color: 'text-purple-300' })
+    }
+    lines.push({ label: 'MP消費', value: `${spell.mpCost}`, color: 'text-blue-300' })
+    if (spell.effect) {
+      if (spell.effect.type === 'heal') {
+        lines.push({ label: '回復', value: `HP +${spell.effect.value}`, color: 'text-green-300' })
+      }
+      if (spell.effect.type === 'steal') {
+        lines.push({ label: '効果', value: 'ゴールドを盗む', color: 'text-yellow-300' })
+      }
+      if (spell.effect.type === 'buff') {
+        const statLabel = spell.effect.stat === 'precision' ? '精密' : 'STR'
+        lines.push({ label: 'バフ', value: `${statLabel} +${spell.effect.value}`, color: 'text-green-300' })
+      }
+    }
+    if (spell.targetType === 'enemyAll') {
+      lines.push({ label: '対象', value: '全体攻撃', color: 'text-red-300' })
+    }
+    if (spell.targetType === 'allySingle') {
+      lines.push({ label: '対象', value: '味方単体', color: 'text-green-300' })
+    }
+    return lines
+  }
+
+  // ポーション
+  if ('commandCategory' in item && item.commandCategory === 'potion') {
+    const potion = item as PotionData
+    if (potion.effect.type === 'healHp') {
+      lines.push({ label: '効果', value: `HP ${potion.effect.value}回復`, color: 'text-green-300' })
+    }
+    if (potion.effect.type === 'healMp') {
+      lines.push({ label: '効果', value: `MP ${potion.effect.value}回復`, color: 'text-blue-300' })
+    }
+    return lines
+  }
+
+  // レリック
+  if ('passiveEffect' in item) {
+    const relic = item as RelicData | RelicInstance
+    lines.push({ label: '効果', value: getPassiveEffectDescription(relic.passiveEffect), color: 'text-yellow-300' })
+    return lines
+  }
+
+  return lines
+}

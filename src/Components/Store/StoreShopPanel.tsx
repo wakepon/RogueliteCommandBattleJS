@@ -1,5 +1,5 @@
 import { ItemCard } from '../Common/ItemCard'
-import { getItemTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
+import { Tooltip, TooltipCard } from '../Common'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RunState } from '../../Lib/Types/Run'
 import { StoreState } from '../../Lib/Types/Game'
@@ -19,6 +19,7 @@ import {
   canBuyRelic,
   canBuyPotion,
 } from '../../Lib/Core/StoreLogic'
+import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
 interface StoreShopPanelProps {
   explorer: ExplorerState
@@ -91,7 +92,7 @@ export function StoreShopPanel({
     return false
   }
 
-  const damageContext: DamageContext = { explorer, relics: run.relics }
+  const predOpts = { relics: run.relics }
 
   return (
     <div className="grid grid-cols-2 gap-3 h-full overflow-hidden">
@@ -164,27 +165,29 @@ export function StoreShopPanel({
               // 無限使用の無料武器は売却不可（パンチ、魔力弾、祈り等）
               const canSell = weapon.id !== 'punch' && weapon.maxUses !== null
               const price = getSellPrice(weapon)
+              const range = predictWeaponDamage(explorer, weapon, predOpts)
+              const dmgText = formatDamageRange(range)
               return (
-                <div
-                  key={`owned-weapon-${index}`}
-                  className={`border rounded p-1.5 text-xs ${
-                    canSell
-                      ? 'border-gray-500 bg-gray-800 cursor-pointer hover:bg-gray-700'
-                      : 'border-gray-700 bg-gray-900'
-                  }`}
-                  title={getItemTooltip(weapon, damageContext)}
-                  onClick={canSell ? () => sellWeapon(index) : undefined}
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="text-white">{weapon.name}</span>
-                    {weapon.currentUses !== null && (
-                      <span className="text-gray-400">{weapon.currentUses}/{weapon.maxUses}</span>
+                <Tooltip key={`owned-weapon-${index}`} content={<TooltipCard item={weapon} damageText={dmgText} />} position="bottom">
+                  <div
+                    className={`border rounded p-1.5 text-xs ${
+                      canSell
+                        ? 'border-gray-500 bg-gray-800 cursor-pointer hover:bg-gray-700'
+                        : 'border-gray-700 bg-gray-900'
+                    }`}
+                    onClick={canSell ? () => sellWeapon(index) : undefined}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-white">{weapon.name}</span>
+                      {weapon.currentUses !== null && (
+                        <span className="text-gray-400">{weapon.currentUses}/{weapon.maxUses}</span>
+                      )}
+                    </div>
+                    {canSell && (
+                      <div className="text-green-400 text-xs">売却: {price}G</div>
                     )}
                   </div>
-                  {canSell && (
-                    <div className="text-green-400 text-xs">売却: {price}G</div>
-                  )}
-                </div>
+                </Tooltip>
               )
             })}
           </div>
@@ -199,19 +202,22 @@ export function StoreShopPanel({
             ) : (
               explorer.spells.map((spell, index) => {
                 const price = getSellPriceItem(spell)
+                const hasPower = spell.power > 0
+                const range = hasPower ? predictSpellDamage(explorer, spell, predOpts) : null
+                const dmgText = range ? formatDamageRange(range) : undefined
                 return (
-                  <div
-                    key={`owned-spell-${index}`}
-                    className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
-                    title={getItemTooltip(spell, damageContext)}
-                    onClick={() => sellSpell(index)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-white">{spell.name}</span>
-                      <span className="text-gray-400">MP: {spell.mpCost}</span>
+                  <Tooltip key={`owned-spell-${index}`} content={<TooltipCard item={spell} damageText={dmgText} />} position="bottom">
+                    <div
+                      className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
+                      onClick={() => sellSpell(index)}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-white">{spell.name}</span>
+                        <span className="text-gray-400">MP: {spell.mpCost}</span>
+                      </div>
+                      <div className="text-green-400 text-xs">売却: {price}G</div>
                     </div>
-                    <div className="text-green-400 text-xs">売却: {price}G</div>
-                  </div>
+                  </Tooltip>
                 )
               })
             )}
@@ -228,15 +234,15 @@ export function StoreShopPanel({
               run.relics.map((relic, index) => {
                 const price = getSellPriceItem(relic)
                 return (
-                  <div
-                    key={`owned-relic-${index}`}
-                    className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
-                    title={getItemTooltip(relic)}
-                    onClick={() => sellRelic(index)}
-                  >
-                    <div className="text-white">{relic.name}</div>
-                    <div className="text-green-400 text-xs">売却: {price}G</div>
-                  </div>
+                  <Tooltip key={`owned-relic-${index}`} content={<TooltipCard item={relic} />} position="bottom">
+                    <div
+                      className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
+                      onClick={() => sellRelic(index)}
+                    >
+                      <div className="text-white">{relic.name}</div>
+                      <div className="text-green-400 text-xs">売却: {price}G</div>
+                    </div>
+                  </Tooltip>
                 )
               })
             )}
@@ -253,15 +259,15 @@ export function StoreShopPanel({
               run.potions.map((potion, index) => {
                 const price = getSellPriceItem(potion)
                 return (
-                  <div
-                    key={`owned-potion-${index}`}
-                    className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
-                    title={getItemTooltip(potion)}
-                    onClick={() => sellPotion(index)}
-                  >
-                    <div className="text-white">{potion.name}</div>
-                    <div className="text-green-400 text-xs">売却: {price}G</div>
-                  </div>
+                  <Tooltip key={`owned-potion-${index}`} content={<TooltipCard item={potion} />} position="bottom">
+                    <div
+                      className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
+                      onClick={() => sellPotion(index)}
+                    >
+                      <div className="text-white">{potion.name}</div>
+                      <div className="text-green-400 text-xs">売却: {price}G</div>
+                    </div>
+                  </Tooltip>
                 )
               })
             )}

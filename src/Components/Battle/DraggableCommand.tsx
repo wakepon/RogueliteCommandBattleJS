@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
+import { Tooltip, TooltipCard } from '../Common'
 
 interface DraggableCommandProps {
   command: BattleCommand
@@ -60,7 +61,17 @@ export function DraggableCommand({ command, explorerId, disabled, isAvailable, a
     damageText = min === max ? `${min}` : `${min}-${max}`
   }
 
+  // 耐久値テキスト（武器のみ。無限使用武器は∞表示）
+  const durabilityText = isWeapon(command)
+    ? (command.currentUses !== null ? `${command.currentUses}/${command.maxUses}` : '∞')
+    : undefined
+
+  const tooltipContent = (
+    <TooltipCard item={command} damageText={damageText || undefined} durabilityText={durabilityText} />
+  )
+
   return (
+    <Tooltip content={tooltipContent} position="bottom" disabled={isDragging}>
     <div
       ref={setNodeRef}
       {...listeners}
@@ -89,5 +100,6 @@ export function DraggableCommand({ command, explorerId, disabled, isAvailable, a
         <span className="text-[10px] text-gray-400 flex-shrink-0">{usesText}</span>
       )}
     </div>
+    </Tooltip>
   )
 }

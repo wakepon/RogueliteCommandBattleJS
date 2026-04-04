@@ -1,6 +1,6 @@
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
-import { getItemTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
+import { Tooltip, TooltipCard } from '../Common'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
 interface StoreCommandPanelProps {
@@ -21,32 +21,32 @@ function getCommandIcon(category: string): { bgColor: string; label: string } {
 }
 
 export function StoreCommandPanel({ explorer, relics = [] }: StoreCommandPanelProps) {
-  const damageContext: DamageContext = { explorer, relics }
+  const predOpts = { relics }
 
   const commands = [
     ...explorer.weapons.map(w => {
-      const range = predictWeaponDamage(explorer, w, { relics })
+      const range = predictWeaponDamage(explorer, w, predOpts)
       return {
         id: w.id,
         name: w.name,
         category: 'weapon' as const,
         detail: w.currentUses !== null ? `[${w.currentUses}/${w.maxUses}]` : '',
         targetType: w.targetType,
-        tooltip: getItemTooltip(w, damageContext),
+        item: w,
         damageDisplay: formatDamageRange(range),
         isBoosted: range.isBoosted,
       }
     }),
     ...explorer.spells.map(s => {
       const hasPower = s.power > 0
-      const range = hasPower ? predictSpellDamage(explorer, s, { relics }) : null
+      const range = hasPower ? predictSpellDamage(explorer, s, predOpts) : null
       return {
         id: s.id,
         name: s.name,
         category: 'spell' as const,
         detail: `${s.mpCost}MP`,
         targetType: s.targetType,
-        tooltip: getItemTooltip(s, damageContext),
+        item: s,
         damageDisplay: range ? formatDamageRange(range) : null,
         isBoosted: range?.isBoosted ?? false,
       }
@@ -60,10 +60,13 @@ export function StoreCommandPanel({ explorer, relics = [] }: StoreCommandPanelPr
         {commands.map((command, index) => {
           const icon = getCommandIcon(command.category)
           return (
-            <div
+            <Tooltip
               key={`${command.id}-${index}`}
+              content={<TooltipCard item={command.item} damageText={command.damageDisplay || undefined} />}
+              position="bottom"
+            >
+            <div
               className="flex items-center gap-2 px-2 py-1 rounded text-sm text-gray-300 cursor-not-allowed"
-              title={command.tooltip}
             >
               {/* カーソルインジケーター（非表示） */}
               <span className="w-4 text-transparent">▶</span>
@@ -93,6 +96,7 @@ export function StoreCommandPanel({ explorer, relics = [] }: StoreCommandPanelPr
                 <span className="text-xs opacity-70">{command.detail}</span>
               )}
             </div>
+            </Tooltip>
           )
         })}
       </div>

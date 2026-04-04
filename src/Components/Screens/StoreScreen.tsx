@@ -1,19 +1,38 @@
-import { useState, useCallback } from 'react'
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
+import { useState, useCallback, useRef, useMemo } from 'react'
+import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
-import { ResourceBar } from '../Common'
+import { ResourceBar, Tooltip, TooltipCard } from '../Common'
 import { MapOverlay } from '../Store/MapOverlay'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
-import { RelicData } from '../../Lib/Types/Relic'
+import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { getSellPrice, getSellPriceItem, isWeaponData, isSpellData } from '../../Lib/Core/StoreLogic'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
+import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
-// === D&Dユーティリティ ===
+// === 型定義 ===
+
+type SoldItem = {
+  name: string
+  type: 'weapon' | 'spell' | 'relic' | 'potion'
+  sellPrice: number
+  memberIndex: number
+  weapon?: ExplorerWeapon
+  spell?: SpellInstance
+  relicData?: RelicData
+  potionData?: PotionData
+}
+
+type PurchaseRecord = {
+  itemId: string
+  type: 'weapon' | 'spell' | 'relic' | 'potion'
+  shopSlotIndex: number
+  item: WeaponData | SpellData | RelicData | PotionData
+}
 
 type ShopDragData =
   | { source: 'shop-weapon'; slotIndex: number; item: WeaponData | SpellData }
@@ -23,8 +42,51 @@ type ShopDragData =
   | { source: 'inv-spell'; memberIndex: number; spellIndex: number; spell: SpellInstance }
   | { source: 'inv-relic'; relicIndex: number }
   | { source: 'inv-potion'; potionIndex: number }
+  | { source: 'sold-item'; soldIndex: number; soldItem: SoldItem }
 
-/** ドラッグ可能な商品カード */
+// === ダメージ予測ヘルパー ===
+
+/** 武器/魔法の最大ダメージを出せるメンバーを見つけてダメージ予測を返す */
+function getBestDamagePreview(
+  item: WeaponData | SpellData,
+  party: ExplorerState[],
+  relics: RelicData[],
+): { memberName: string; display: string } | null {
+  if (item.power <= 0) return null
+  let bestMax = -1
+  let bestDisplay = ''
+  let bestName = ''
+
+  const opts = { relics }
+  for (const member of party) {
+    const range = isWeaponData(item)
+      ? predictWeaponDamage(member, item, opts)
+      : predictSpellDamage(member, item as SpellData, opts)
+    if (range.max > bestMax) {
+      bestMax = range.max
+      bestDisplay = formatDamageRange(range)
+      bestName = member.name
+    }
+  }
+  return bestMax > 0 ? { memberName: bestName, display: bestDisplay } : null
+}
+
+/** 特定メンバーでのダメージ予測 */
+function getMemberDamagePreview(
+  item: WeaponData | SpellData,
+  member: ExplorerState,
+  relics: RelicData[],
+): string | null {
+  if (item.power <= 0) return null
+  const opts = { relics }
+  const range = isWeaponData(item)
+    ? predictWeaponDamage(member, item, opts)
+    : predictSpellDamage(member, item as SpellData, opts)
+  return range.max > 0 ? formatDamageRange(range) : null
+}
+
+// === D&Dユーティリティ ===
+
 function DraggableShopItem({ id, data, children, disabled }: { id: string; data: ShopDragData; children: React.ReactNode; disabled?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id, data, disabled })
   return (
@@ -35,7 +97,6 @@ function DraggableShopItem({ id, data, children, disabled }: { id: string; data:
   )
 }
 
-/** ドロップ可能な枠 */
 function DroppableSlot({ id, children, disabled, className }: { id: string; children: React.ReactNode; disabled?: boolean; className?: string }) {
   const { isOver, setNodeRef } = useDroppable({ id, disabled })
   return (
@@ -45,18 +106,6 @@ function DroppableSlot({ id, children, disabled, className }: { id: string; chil
   )
 }
 
-/** 商品カード */
-function ShopItemCard({ name, price, type }: { name: string; price: number; type: 'weapon' | 'spell' | 'relic' | 'potion' }) {
-  const typeColors = { weapon: 'border-orange-500 bg-orange-900/20', spell: 'border-purple-500 bg-purple-900/20', relic: 'border-yellow-500 bg-yellow-900/20', potion: 'border-teal-500 bg-teal-900/20' }
-  return (
-    <div className={`border rounded p-1.5 text-xs ${typeColors[type]}`}>
-      <div className="text-white font-bold truncate">{name}</div>
-      <div className="text-yellow-400">{price}G</div>
-    </div>
-  )
-}
-
-/** 空き枠表示 */
 function EmptySlot({ label }: { label: string }) {
   return (
     <div className="border-2 border-dashed border-gray-600 rounded p-1.5 h-full flex items-center justify-center">
@@ -65,17 +114,51 @@ function EmptySlot({ label }: { label: string }) {
   )
 }
 
-/** ショップ用キャラ欄 */
+// === 商品カード（ダメージ予測付き） ===
+
+function ShopItemCard({ name, price, type, damageInfo, usesInfo, item }: {
+  name: string; price: number; type: 'weapon' | 'spell' | 'relic' | 'potion'
+  damageInfo?: { memberName: string; display: string } | null
+  usesInfo?: string | null
+  item: WeaponData | SpellData | RelicData | PotionData
+}) {
+  const typeColors = { weapon: 'border-orange-500 bg-orange-900/20', spell: 'border-purple-500 bg-purple-900/20', relic: 'border-yellow-500 bg-yellow-900/20', potion: 'border-teal-500 bg-teal-900/20' }
+  const isAoe = 'targetType' in item && item.targetType === 'enemyAll'
+  return (
+    <Tooltip content={<TooltipCard item={item} damageText={damageInfo?.display} />} position="bottom">
+      <div className={`border rounded p-1.5 text-xs ${typeColors[type]}`}>
+        <div className="flex items-center gap-1">
+          <span className="text-white font-bold truncate flex-1">{name}</span>
+          {isAoe && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
+        </div>
+        {damageInfo && (
+          <div className="text-gray-400 text-[9px]">
+            <span className="text-gray-500">({damageInfo.memberName})</span> {damageInfo.display}
+          </div>
+        )}
+        {usesInfo && <div className="text-gray-500 text-[9px]">{usesInfo}</div>}
+        <div className="text-yellow-400">{price}G</div>
+      </div>
+    </Tooltip>
+  )
+}
+
+// === キャラ欄 ===
+
 function StoreCharacterPanel({
   member,
   memberIndex,
   dragData,
-  newPurchaseIds,
+  movedKeys,
+  newPurchaseKeys,
+  relics,
 }: {
   member: ExplorerState
   memberIndex: number
   dragData: ShopDragData | null
-  newPurchaseIds: Set<string>
+  movedKeys: Set<string>
+  newPurchaseKeys: Set<string>
+  relics: RelicData[]
 }) {
   const purchasedWeapons = member.weapons.filter(w => w.maxUses !== null)
   const infiniteWeapons = member.weapons.filter(w => w.maxUses === null)
@@ -85,21 +168,28 @@ function StoreCharacterPanel({
   const requiredKills = getRequiredKillsForNextLevel(member.level)
   const expProgress = requiredKills > 0 ? member.exp : 0
 
-  // ドラッグ中のアイテムに基づいてグレーアウト判定
-  const isDraggingWeapon = dragData && ((dragData.source === 'shop-weapon' && isWeaponData(dragData.item as WeaponData | SpellData)) || dragData.source === 'inv-weapon')
-  const isDraggingSpell = dragData && ((dragData.source === 'shop-weapon' && isSpellData(dragData.item as WeaponData | SpellData)) || dragData.source === 'inv-spell')
+  const isDraggingWeapon = dragData && (
+    (dragData.source === 'shop-weapon' && isWeaponData(dragData.item as WeaponData | SpellData))
+    || dragData.source === 'inv-weapon'
+    || (dragData.source === 'sold-item' && dragData.soldItem.type === 'weapon')
+  )
+  const isDraggingSpell = dragData && (
+    (dragData.source === 'shop-weapon' && isSpellData(dragData.item as WeaponData | SpellData))
+    || dragData.source === 'inv-spell'
+    || (dragData.source === 'sold-item' && dragData.soldItem.type === 'spell')
+  )
   const weaponDropDisabled = !!(isDraggingSpell)
   const spellDropDisabled = !!(isDraggingWeapon)
 
+  const opts = { relics }
+
   return (
     <div className="h-full flex flex-col bg-gray-800/50 rounded p-1.5">
-      {/* ヘッダー */}
       <div className="flex justify-between items-center mb-1">
         <span className="text-white font-bold text-xs">{member.name}</span>
         <span className="text-yellow-400 text-[10px]">Lv.{member.level}</span>
       </div>
 
-      {/* HP/MP/EXP バー */}
       <div className="mb-0.5">
         <div className="flex justify-between text-[9px] text-gray-400"><span className="text-red-400">HP</span><span>{member.hp}/{member.maxHp}</span></div>
         <ResourceBar current={member.hp} max={member.maxHp} color="red" showText={false} size="sm" />
@@ -113,58 +203,81 @@ function StoreCharacterPanel({
         <ResourceBar current={expProgress} max={requiredKills} color="yellow" showText={false} size="sm" />
       </div>
 
-      {/* 武器一覧 */}
       <div className="flex-1 overflow-y-auto space-y-0.5">
-        {/* 購入済み武器（売却可能） */}
         {purchasedWeapons.map((w, i) => {
           const realIndex = member.weapons.indexOf(w)
           const sellPrice = getSellPrice(w)
-          const isNew = newPurchaseIds.has(`weapon-${memberIndex}-${w.id}`)
+          const isMoved = movedKeys.has(`weapon-${memberIndex}-${w.id}`)
+          const isNew = newPurchaseKeys.has(`weapon-${memberIndex}-${w.id}`)
+          const range = predictWeaponDamage(member, w, opts)
+          const dmg = formatDamageRange(range)
           return (
-            <DraggableShopItem key={`w-${i}`} id={`inv-weapon-${memberIndex}-${realIndex}`}
-              data={{ source: 'inv-weapon', memberIndex, weaponIndex: realIndex, weapon: w }}>
-              <div className={`flex items-center gap-1 px-1 py-0.5 rounded text-[10px] ${isNew ? 'ring-1 ring-yellow-400 bg-yellow-900/20' : 'hover:bg-gray-700'}`}>
-                <span className="w-3 h-3 rounded text-[8px] flex items-center justify-center bg-orange-600 flex-shrink-0">剣</span>
-                <span className="text-white flex-1 truncate">{w.name}</span>
-                {w.currentUses !== null && <span className="text-gray-400">{w.currentUses}/{w.maxUses}</span>}
-                <span className="text-green-400">{sellPrice}G</span>
-              </div>
-            </DraggableShopItem>
+            <Tooltip key={`w-${i}`} content={<TooltipCard item={w} damageText={dmg} />} position="bottom">
+              <DraggableShopItem id={`inv-weapon-${memberIndex}-${realIndex}`}
+                data={{ source: 'inv-weapon', memberIndex, weaponIndex: realIndex, weapon: w }}>
+                <div className={`relative border rounded p-1.5 text-[10px] border-orange-500/50 bg-orange-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
+                  <div className="flex items-center gap-1">
+                    <span className="text-white flex-1 truncate font-bold">{w.name}</span>
+                    {w.targetType === 'enemyAll' && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
+                    {w.currentUses !== null && <span className="text-gray-400">{w.currentUses}/{w.maxUses}</span>}
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">{dmg}</span>
+                    <span className="text-green-400">売却 {sellPrice}G</span>
+                  </div>
+                </div>
+              </DraggableShopItem>
+            </Tooltip>
           )
         })}
-        {/* 武器空き枠 */}
         {Array.from({ length: weaponEmptyCount }).map((_, i) => (
           <DroppableSlot key={`we-${i}`} id={`slot-weapon-${memberIndex}-${i}`} disabled={weaponDropDisabled}>
             <EmptySlot label="武器 空き" />
           </DroppableSlot>
         ))}
-        {/* 無限使用武器（売却不可） */}
-        {infiniteWeapons.map((w, i) => (
-          <div key={`iw-${i}`} className="flex items-center gap-1 px-1 py-0.5 text-[10px] text-gray-500">
-            <span className="w-3 h-3 rounded text-[8px] flex items-center justify-center bg-gray-600 flex-shrink-0">
-              {w.targetType === 'allySingle' ? '祈' : '剣'}
-            </span>
-            <span className="flex-1 truncate">{w.name}</span>
-          </div>
-        ))}
-
-        {/* 魔法一覧 */}
-        {member.spells.map((s, i) => {
-          const sellPrice = getSellPriceItem(s)
-          const isNew = newPurchaseIds.has(`spell-${memberIndex}-${s.id}`)
+        {infiniteWeapons.map((w, i) => {
+          const range = predictWeaponDamage(member, w, opts)
+          const dmg = formatDamageRange(range)
           return (
-            <DraggableShopItem key={`s-${i}`} id={`inv-spell-${memberIndex}-${i}`}
-              data={{ source: 'inv-spell', memberIndex, spellIndex: i, spell: s }}>
-              <div className={`flex items-center gap-1 px-1 py-0.5 rounded text-[10px] ${isNew ? 'ring-1 ring-yellow-400 bg-yellow-900/20' : 'hover:bg-gray-700'}`}>
-                <span className="w-3 h-3 rounded text-[8px] flex items-center justify-center bg-purple-600 flex-shrink-0">魔</span>
-                <span className="text-white flex-1 truncate">{s.name}</span>
-                <span className="text-gray-400">{s.mpCost}MP</span>
-                <span className="text-green-400">{sellPrice}G</span>
+            <Tooltip key={`iw-${i}`} content={<TooltipCard item={w} damageText={dmg} durabilityText="∞" />} position="bottom">
+              <div className="border rounded p-1.5 text-[10px] border-gray-600/50 bg-gray-800/30 opacity-60">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 truncate flex-1">{w.name}</span>
+                  {w.targetType === 'enemyAll' && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
+                </div>
+                <div className="text-gray-500">{dmg}</div>
               </div>
-            </DraggableShopItem>
+            </Tooltip>
           )
         })}
-        {/* 魔法空き枠 */}
+
+        {member.spells.map((s, i) => {
+          const sellPrice = getSellPriceItem(s)
+          const isMoved = movedKeys.has(`spell-${memberIndex}-${s.id}`)
+          const isNew = newPurchaseKeys.has(`spell-${memberIndex}-${s.id}`)
+          const range = predictSpellDamage(member, s, opts)
+          const dmg = s.power > 0 ? formatDamageRange(range) : null
+          return (
+            <Tooltip key={`s-${i}`} content={<TooltipCard item={s} damageText={dmg || undefined} />} position="bottom">
+              <DraggableShopItem id={`inv-spell-${memberIndex}-${i}`}
+                data={{ source: 'inv-spell', memberIndex, spellIndex: i, spell: s }}>
+                <div className={`relative border rounded p-1.5 text-[10px] border-purple-500/50 bg-purple-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
+                  <div className="flex items-center gap-1">
+                    <span className="text-white flex-1 truncate font-bold">{s.name}</span>
+                    {s.targetType === 'enemyAll' && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
+                    <span className="text-gray-400">{s.mpCost}MP</span>
+                  </div>
+                  <div className="flex justify-between">
+                    {dmg && <span className="text-gray-400">{dmg}</span>}
+                    <span className="text-green-400 ml-auto">売却 {sellPrice}G</span>
+                  </div>
+                </div>
+              </DraggableShopItem>
+            </Tooltip>
+          )
+        })}
         {Array.from({ length: spellEmptyCount }).map((_, i) => (
           <DroppableSlot key={`se-${i}`} id={`slot-spell-${memberIndex}-${i}`} disabled={spellDropDisabled}>
             <EmptySlot label="魔法 空き" />
@@ -175,36 +288,41 @@ function StoreCharacterPanel({
   )
 }
 
-/** 共有枠（ポーション + レリック） */
+// === 共有枠 ===
+
 function StoreSharedPanel({
   potions,
   relics,
-  newPurchaseIds,
+  movedKeys,
+  newPurchaseKeys,
 }: {
-  potions: { id: string; name: string; price: number }[]
-  relics: { id: string; name: string; price: number }[]
-  newPurchaseIds: Set<string>
+  potions: PotionData[]
+  relics: RelicInstance[]
+  movedKeys: Set<string>
+  newPurchaseKeys: Set<string>
 }) {
   const potionEmptyCount = Math.max(0, 2 - potions.length)
   const relicEmptyCount = Math.max(0, 5 - relics.length)
 
   return (
     <div className="h-full flex flex-col bg-gray-800/50 rounded p-1.5">
-      {/* ポーション */}
       <div className="mb-1">
         <div className="text-[9px] text-gray-500 mb-0.5">ポーション</div>
         {potions.map((p, i) => {
           const sellPrice = getSellPriceItem(p as { price: number })
-          const isNew = newPurchaseIds.has(`potion-${p.id}`)
+          const isMoved = movedKeys.has(`potion-${p.id}`)
+          const isNew = newPurchaseKeys.has(`potion-${p.id}`)
           return (
-            <DraggableShopItem key={`p-${i}`} id={`inv-potion-${i}`}
-              data={{ source: 'inv-potion', potionIndex: i }}>
-              <div className={`flex items-center gap-1 px-1 py-0.5 rounded text-[10px] ${isNew ? 'ring-1 ring-yellow-400 bg-yellow-900/20' : 'hover:bg-gray-700'}`}>
-                <span className="w-3 h-3 rounded text-[8px] flex items-center justify-center bg-teal-600 flex-shrink-0">薬</span>
-                <span className="text-white flex-1 truncate">{p.name}</span>
-                <span className="text-green-400">{sellPrice}G</span>
-              </div>
-            </DraggableShopItem>
+            <Tooltip key={`p-${i}`} content={<TooltipCard item={p} />} position="bottom">
+              <DraggableShopItem id={`inv-potion-${i}`}
+                data={{ source: 'inv-potion', potionIndex: i }}>
+                <div className={`relative border rounded p-1.5 text-[10px] border-teal-500/50 bg-teal-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
+                  <div className="text-white truncate font-bold">{p.name}</div>
+                  <div className="text-green-400 text-[9px]">売却 {sellPrice}G</div>
+                </div>
+              </DraggableShopItem>
+            </Tooltip>
           )
         })}
         {Array.from({ length: potionEmptyCount }).map((_, i) => (
@@ -214,21 +332,23 @@ function StoreSharedPanel({
         ))}
       </div>
       <div className="border-t border-gray-700 my-1" />
-      {/* レリック */}
       <div className="flex-1">
         <div className="text-[9px] text-gray-500 mb-0.5">レリック</div>
         {relics.map((r, i) => {
           const sellPrice = getSellPriceItem(r as { price: number })
-          const isNew = newPurchaseIds.has(`relic-${r.id}`)
+          const isMoved = movedKeys.has(`relic-${r.id}`)
+          const isNew = newPurchaseKeys.has(`relic-${r.id}`)
           return (
-            <DraggableShopItem key={`r-${i}`} id={`inv-relic-${i}`}
-              data={{ source: 'inv-relic', relicIndex: i }}>
-              <div className={`flex items-center gap-1 px-1 py-0.5 rounded text-[10px] ${isNew ? 'ring-1 ring-yellow-400 bg-yellow-900/20' : 'hover:bg-gray-700'}`}>
-                <span className="w-3 h-3 rounded text-[8px] flex items-center justify-center bg-yellow-600 flex-shrink-0">遺</span>
-                <span className="text-white flex-1 truncate">{r.name}</span>
-                <span className="text-green-400">{sellPrice}G</span>
-              </div>
-            </DraggableShopItem>
+            <Tooltip key={`r-${i}`} content={<TooltipCard item={r} />} position="bottom">
+              <DraggableShopItem id={`inv-relic-${i}`}
+                data={{ source: 'inv-relic', relicIndex: i }}>
+                <div className={`relative border rounded p-1.5 text-[10px] border-yellow-500/50 bg-yellow-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
+                  <div className="text-white truncate font-bold">{r.name}</div>
+                  <div className="text-green-400 text-[9px]">売却 {sellPrice}G</div>
+                </div>
+              </DraggableShopItem>
+            </Tooltip>
           )
         })}
         {Array.from({ length: relicEmptyCount }).map((_, i) => (
@@ -248,19 +368,59 @@ export function StoreScreen() {
     state,
     buyWeapon, buySpell, buyRelic, buyPotion,
     sellWeapon, sellSpell, sellRelic, sellPotion,
+    undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion,
+    undoSellWeapon, undoSellSpell, undoSellRelic, undoSellPotion,
+    transferWeapon, transferSpell,
     rerollStore, closeStore,
   } = useGame()
 
   const [showMap, setShowMap] = useState(false)
   const [dragData, setDragData] = useState<ShopDragData | null>(null)
   const [draggingLabel, setDraggingLabel] = useState<string | null>(null)
-  // 今回のショップで購入した装備のIDセット（強調表示用）
-  const [newPurchaseIds, setNewPurchaseIds] = useState<Set<string>>(new Set())
+  const [soldItems, setSoldItems] = useState<SoldItem[]>([])
+  const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([])
+  // 移動済みアイテムキー（点滅表示用）
+  const [movedKeys, setMovedKeys] = useState<Set<string>>(new Set())
+  // 新規購入アイテムキー（NEWバッジ表示用）
+  const [newPurchaseKeys, setNewPurchaseKeys] = useState<Set<string>>(new Set())
+  // ドラッグ中にホバーしているメンバーのインデックス
+  const [hoverMemberIndex, setHoverMemberIndex] = useState<number | null>(null)
+  const initialGoldRef = useRef<number | null>(null)
 
   const { run, storeState, mapState } = state
   if (!run || !storeState) return null
 
   const gold = run.gold
+
+  if (initialGoldRef.current === null) {
+    initialGoldRef.current = gold
+  }
+  const initialGold = initialGoldRef.current
+
+  // 商品カード用のダメージ予測をメモ化
+  const shopDamagePreviews = useMemo(() => {
+    const previews: Map<number, { memberName: string; display: string } | null> = new Map()
+    storeState.weaponSlots.forEach((item, index) => {
+      if (!item) { previews.set(index, null); return }
+      // ホバー中のメンバーがいればそのメンバーで計算
+      if (hoverMemberIndex !== null && run.party[hoverMemberIndex]) {
+        const member = run.party[hoverMemberIndex]
+        const dmg = getMemberDamagePreview(item, member, run.relics as RelicData[])
+        previews.set(index, dmg ? { memberName: member.name, display: dmg } : null)
+      } else {
+        previews.set(index, getBestDamagePreview(item, run.party, run.relics as RelicData[]))
+      }
+    })
+    return previews
+  }, [storeState.weaponSlots, run.party, run.relics, hoverMemberIndex])
+
+  const addMovedKey = useCallback((key: string) => {
+    setMovedKeys(prev => new Set(prev).add(key))
+  }, [])
+
+  const removeMovedKey = useCallback((key: string) => {
+    setMovedKeys(prev => { const s = new Set(prev); s.delete(key); return s })
+  }, [])
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current as ShopDragData
@@ -270,11 +430,25 @@ export function StoreScreen() {
     else if ('spell' in data) setDraggingLabel((data as { spell: SpellInstance }).spell.name)
     else if (data.source === 'inv-relic') setDraggingLabel(run.relics[data.relicIndex]?.name ?? '')
     else if (data.source === 'inv-potion') setDraggingLabel(run.potions[data.potionIndex]?.name ?? '')
+    else if (data.source === 'sold-item') setDraggingLabel(data.soldItem.name)
   }, [run])
+
+  // ドラッグ中のホバー検知（商品カードのダメージ予測メンバー切替用）
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const overId = event.over?.id as string | undefined
+    if (!overId) { setHoverMemberIndex(null); return }
+    // slot-weapon-{memberIndex}-{slotIndex} パターンからメンバーを検出
+    if (overId.startsWith('slot-weapon-') || overId.startsWith('slot-spell-')) {
+      const memberIdx = parseInt(overId.split('-')[2])
+      if (!isNaN(memberIdx)) { setHoverMemberIndex(memberIdx); return }
+    }
+    setHoverMemberIndex(null)
+  }, [])
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     setDragData(null)
     setDraggingLabel(null)
+    setHoverMemberIndex(null)
     if (!event.over) return
     const dropId = event.over.id as string
     const data = event.active.data.current as ShopDragData
@@ -282,134 +456,310 @@ export function StoreScreen() {
     // === 商品→空き枠 (購入) ===
     if (data.source === 'shop-weapon') {
       const item = data.item
-      // 武器枠にドロップ
       if (dropId.startsWith('slot-weapon-')) {
         const memberIndex = parseInt(dropId.split('-')[2])
         if (isWeaponData(item)) {
           buyWeapon(data.slotIndex, item, memberIndex)
-          setNewPurchaseIds(prev => new Set(prev).add(`weapon-${memberIndex}-${item.id}`))
+          addMovedKey(`weapon-${memberIndex}-${item.id}`)
+          setNewPurchaseKeys(prev => new Set(prev).add(`weapon-${memberIndex}-${item.id}`))
+          setPurchaseRecords(prev => [...prev, { itemId: item.id, type: 'weapon', shopSlotIndex: data.slotIndex, item }])
         }
-      }
-      // 魔法枠にドロップ
-      if (dropId.startsWith('slot-spell-')) {
+      } else if (dropId.startsWith('slot-spell-')) {
         const memberIndex = parseInt(dropId.split('-')[2])
         if (isSpellData(item)) {
           buySpell(data.slotIndex, item, memberIndex)
-          setNewPurchaseIds(prev => new Set(prev).add(`spell-${memberIndex}-${item.id}`))
+          addMovedKey(`spell-${memberIndex}-${item.id}`)
+          setNewPurchaseKeys(prev => new Set(prev).add(`spell-${memberIndex}-${item.id}`))
+          setPurchaseRecords(prev => [...prev, { itemId: item.id, type: 'spell', shopSlotIndex: data.slotIndex, item }])
         }
       }
     }
     if (data.source === 'shop-relic' && dropId.startsWith('slot-relic-')) {
       buyRelic(data.slotIndex, data.item)
-      setNewPurchaseIds(prev => new Set(prev).add(`relic-${data.item.id}`))
+      addMovedKey(`relic-${data.item.id}`)
+      setNewPurchaseKeys(prev => new Set(prev).add(`relic-${data.item.id}`))
+      setPurchaseRecords(prev => [...prev, { itemId: data.item.id, type: 'relic', shopSlotIndex: data.slotIndex, item: data.item }])
     }
     if (data.source === 'shop-potion' && dropId.startsWith('slot-potion-')) {
       buyPotion(data.slotIndex, data.item)
-      setNewPurchaseIds(prev => new Set(prev).add(`potion-${data.item.id}`))
+      addMovedKey(`potion-${data.item.id}`)
+      setNewPurchaseKeys(prev => new Set(prev).add(`potion-${data.item.id}`))
+      setPurchaseRecords(prev => [...prev, { itemId: data.item.id, type: 'potion', shopSlotIndex: data.slotIndex, item: data.item }])
     }
 
     // === 装備→売却枠 (売却) ===
     if (dropId === 'sell-zone') {
-      if (data.source === 'inv-weapon') sellWeapon(data.weaponIndex, data.memberIndex)
-      if (data.source === 'inv-spell') sellSpell(data.spellIndex, data.memberIndex)
-      if (data.source === 'inv-relic') sellRelic(data.relicIndex)
-      if (data.source === 'inv-potion') sellPotion(data.potionIndex)
+      if (data.source === 'inv-weapon') {
+        const weapon = run.party[data.memberIndex]?.weapons[data.weaponIndex]
+        if (weapon) {
+          setSoldItems(prev => [...prev, { name: weapon.name, type: 'weapon', sellPrice: getSellPrice(weapon), memberIndex: data.memberIndex, weapon }])
+          sellWeapon(data.weaponIndex, data.memberIndex)
+        }
+      }
+      if (data.source === 'inv-spell') {
+        const spell = run.party[data.memberIndex]?.spells[data.spellIndex]
+        if (spell) {
+          setSoldItems(prev => [...prev, { name: spell.name, type: 'spell', sellPrice: getSellPriceItem(spell), memberIndex: data.memberIndex, spell }])
+          sellSpell(data.spellIndex, data.memberIndex)
+        }
+      }
+      if (data.source === 'inv-relic') {
+        const relic = run.relics[data.relicIndex]
+        if (relic) {
+          setSoldItems(prev => [...prev, { name: relic.name, type: 'relic', sellPrice: getSellPriceItem(relic), memberIndex: 0, relicData: relic as RelicData }])
+          sellRelic(data.relicIndex)
+        }
+      }
+      if (data.source === 'inv-potion') {
+        const potion = run.potions[data.potionIndex]
+        if (potion) {
+          setSoldItems(prev => [...prev, { name: potion.name, type: 'potion', sellPrice: getSellPriceItem(potion), memberIndex: 0, potionData: potion as PotionData }])
+          sellPotion(data.potionIndex)
+        }
+      }
     }
-  }, [buyWeapon, buySpell, buyRelic, buyPotion, sellWeapon, sellSpell, sellRelic, sellPotion])
+
+    // === 装備→商品枠 (購入取り消し) ===
+    // 商品エリア内のどこにドロップしても、購入記録があれば元のスロットに返す
+    const isShopReturnDrop = dropId === 'shop-return-zone' || dropId.startsWith('return-weapon-') || dropId.startsWith('return-relic-') || dropId.startsWith('return-potion-')
+    if (isShopReturnDrop) {
+      if (data.source === 'inv-weapon') {
+        const record = purchaseRecords.find(r => r.itemId === data.weapon.id && r.type === 'weapon')
+        if (record) {
+          undoBuyWeapon(record.shopSlotIndex, record.item as WeaponData, data.memberIndex, data.weaponIndex)
+          removeMovedKey(`weapon-${data.memberIndex}-${data.weapon.id}`)
+          setNewPurchaseKeys(prev => { const s = new Set(prev); s.delete(`weapon-${data.memberIndex}-${data.weapon.id}`); return s })
+          setPurchaseRecords(prev => prev.filter(r => !(r.itemId === record.itemId && r.shopSlotIndex === record.shopSlotIndex && r.type === record.type)))
+        }
+      }
+      if (data.source === 'inv-spell') {
+        const record = purchaseRecords.find(r => r.itemId === data.spell.id && r.type === 'spell')
+        if (record) {
+          undoBuySpell(record.shopSlotIndex, record.item as SpellData, data.memberIndex, data.spellIndex)
+          removeMovedKey(`spell-${data.memberIndex}-${data.spell.id}`)
+          setNewPurchaseKeys(prev => { const s = new Set(prev); s.delete(`spell-${data.memberIndex}-${data.spell.id}`); return s })
+          setPurchaseRecords(prev => prev.filter(r => !(r.itemId === record.itemId && r.shopSlotIndex === record.shopSlotIndex && r.type === record.type)))
+        }
+      }
+      if (data.source === 'inv-relic') {
+        const relic = run.relics[data.relicIndex]
+        const record = relic && purchaseRecords.find(r => r.itemId === relic.id && r.type === 'relic')
+        if (record) {
+          undoBuyRelic(record.shopSlotIndex, record.item as RelicData, data.relicIndex)
+          removeMovedKey(`relic-${relic.id}`)
+          setNewPurchaseKeys(prev => { const s = new Set(prev); s.delete(`relic-${relic.id}`); return s })
+          setPurchaseRecords(prev => prev.filter(r => !(r.itemId === record.itemId && r.shopSlotIndex === record.shopSlotIndex && r.type === record.type)))
+        }
+      }
+      if (data.source === 'inv-potion') {
+        const potion = run.potions[data.potionIndex]
+        const record = potion && purchaseRecords.find(r => r.itemId === potion.id && r.type === 'potion')
+        if (record) {
+          undoBuyPotion(record.shopSlotIndex, record.item as PotionData, data.potionIndex)
+          removeMovedKey(`potion-${potion.id}`)
+          setNewPurchaseKeys(prev => { const s = new Set(prev); s.delete(`potion-${potion.id}`); return s })
+          setPurchaseRecords(prev => prev.filter(r => !(r.itemId === record.itemId && r.shopSlotIndex === record.shopSlotIndex && r.type === record.type)))
+        }
+      }
+    }
+
+    // === メンバー間装備移動 ===
+    if (data.source === 'inv-weapon' && dropId.startsWith('slot-weapon-')) {
+      const toMemberIndex = parseInt(dropId.split('-')[2])
+      if (toMemberIndex !== data.memberIndex) {
+        transferWeapon(data.memberIndex, data.weaponIndex, toMemberIndex)
+        addMovedKey(`weapon-${toMemberIndex}-${data.weapon.id}`)
+        // NEWバッジをメンバー移動に追従
+        setNewPurchaseKeys(prev => {
+          const oldKey = `weapon-${data.memberIndex}-${data.weapon.id}`
+          if (!prev.has(oldKey)) return prev
+          const next = new Set(prev)
+          next.delete(oldKey)
+          next.add(`weapon-${toMemberIndex}-${data.weapon.id}`)
+          return next
+        })
+      }
+    }
+    if (data.source === 'inv-spell' && dropId.startsWith('slot-spell-')) {
+      const toMemberIndex = parseInt(dropId.split('-')[2])
+      if (toMemberIndex !== data.memberIndex) {
+        transferSpell(data.memberIndex, data.spellIndex, toMemberIndex)
+        addMovedKey(`spell-${toMemberIndex}-${data.spell.id}`)
+        setNewPurchaseKeys(prev => {
+          const oldKey = `spell-${data.memberIndex}-${data.spell.id}`
+          if (!prev.has(oldKey)) return prev
+          const next = new Set(prev)
+          next.delete(oldKey)
+          next.add(`spell-${toMemberIndex}-${data.spell.id}`)
+          return next
+        })
+      }
+    }
+
+    // === 売却枠→空き枠 (売却取り消し) ===
+    if (data.source === 'sold-item') {
+      const sold = data.soldItem
+      if (sold.type === 'weapon' && sold.weapon && dropId.startsWith('slot-weapon-')) {
+        const memberIndex = parseInt(dropId.split('-')[2])
+        undoSellWeapon(sold.weapon, memberIndex, sold.sellPrice)
+        setSoldItems(prev => prev.filter((_, i) => i !== data.soldIndex))
+      }
+      if (sold.type === 'spell' && sold.spell && dropId.startsWith('slot-spell-')) {
+        const memberIndex = parseInt(dropId.split('-')[2])
+        undoSellSpell(sold.spell, memberIndex, sold.sellPrice)
+        setSoldItems(prev => prev.filter((_, i) => i !== data.soldIndex))
+      }
+      if (sold.type === 'relic' && sold.relicData && dropId.startsWith('slot-relic-')) {
+        undoSellRelic(sold.relicData, sold.sellPrice)
+        setSoldItems(prev => prev.filter((_, i) => i !== data.soldIndex))
+      }
+      if (sold.type === 'potion' && sold.potionData && dropId.startsWith('slot-potion-')) {
+        undoSellPotion(sold.potionData, sold.sellPrice)
+        setSoldItems(prev => prev.filter((_, i) => i !== data.soldIndex))
+      }
+    }
+  }, [run, purchaseRecords, buyWeapon, buySpell, buyRelic, buyPotion, sellWeapon, sellSpell, sellRelic, sellPotion, undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion, undoSellWeapon, undoSellSpell, undoSellRelic, undoSellPotion, transferWeapon, transferSpell, addMovedKey, removeMovedKey])
 
   const handleDragCancel = useCallback(() => {
     setDragData(null)
     setDraggingLabel(null)
+    setHoverMemberIndex(null)
   }, [])
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={pointerWithin}>
+    <DndContext onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={pointerWithin}>
       <div className="min-h-screen bg-gray-800 p-2 flex flex-col gap-2">
 
         {/* ===== 商品エリア + 売却枠 ===== */}
         <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg relative min-h-[200px] flex gap-2">
-          {/* 商品エリア */}
-          <div className="flex-1">
-            {/* ヘッダー: リロール + ストア名 + ゴールド */}
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-white font-bold text-xs">ショップ</span>
-                <Button variant="secondary" onClick={rerollStore} disabled={gold < storeState.rerollCost} className="text-[10px] px-2 py-0.5">
-                  リロール ({storeState.rerollCost}G)
-                </Button>
-              </div>
-              <span className="text-yellow-400 font-bold text-sm">{gold}G</span>
-            </div>
-
-            {/* 上半分: 武器・魔法 4枠 */}
-            <div className="grid grid-cols-4 gap-1.5 mb-2">
-              {storeState.weaponSlots.map((item, index) => (
-                <div key={`ws-${index}`}>
-                  {item ? (
-                    <DraggableShopItem id={`shop-weapon-${index}`}
-                      data={{ source: 'shop-weapon', slotIndex: index, item }}>
-                      <ShopItemCard name={item.name} price={item.price}
-                        type={isWeaponData(item) ? 'weapon' : 'spell'} />
-                    </DraggableShopItem>
+          {/* 商品エリア全体をドロップ可能に（購入取り消し用） */}
+          <DroppableSlot id="shop-return-zone" className="flex-1">
+            <div>
+              {/* ヘッダー */}
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-bold text-xs">ショップ</span>
+                  <Button variant="secondary" onClick={rerollStore} disabled={gold < storeState.rerollCost} className="text-[10px] px-2 py-0.5">
+                    リロール ({storeState.rerollCost}G)
+                  </Button>
+                </div>
+                <span className="font-bold text-sm">
+                  {initialGold !== gold ? (
+                    <>
+                      <span className="text-gray-400">{initialGold}G</span>
+                      <span className="text-gray-500 mx-1">→</span>
+                      <span className={gold < 0 ? 'text-red-400' : 'text-yellow-400'}>{gold}G</span>
+                    </>
                   ) : (
-                    <div className="border-2 border-dashed border-gray-700 rounded p-1.5 h-full flex items-center justify-center">
-                      <span className="text-gray-600 text-[10px]">売り切れ</span>
-                    </div>
+                    <span className="text-yellow-400">{gold}G</span>
                   )}
-                </div>
-              ))}
-            </div>
+                </span>
+              </div>
 
-            {/* 下半分: レリック2枠 + ポーション2枠 */}
-            <div className="grid grid-cols-2 gap-2">
-              {/* レリック */}
-              <div>
-                <div className="text-[9px] text-gray-500 mb-1">レリック</div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {storeState.relicSlots.map((item, index) => (
-                    <div key={`rs-${index}`}>
+              {/* 武器・魔法 4枠 */}
+              <div className="grid grid-cols-4 gap-1.5 mb-2">
+                {storeState.weaponSlots.map((item, index) => {
+                  const dmgPreview = shopDamagePreviews.get(index) ?? null
+                  const usesInfo = item
+                    ? (isWeaponData(item) ? (item.maxUses !== null ? `${item.maxUses}回` : null) : `${(item as SpellData).mpCost}MP`)
+                    : null
+                  return (
+                    <div key={`ws-${index}`}>
                       {item ? (
-                        <DraggableShopItem id={`shop-relic-${index}`}
-                          data={{ source: 'shop-relic', slotIndex: index, item }}>
-                          <ShopItemCard name={item.name} price={item.price} type="relic" />
+                        <DraggableShopItem id={`shop-weapon-${index}`}
+                          data={{ source: 'shop-weapon', slotIndex: index, item }}>
+                          <ShopItemCard name={item.name} price={item.price}
+                            type={isWeaponData(item) ? 'weapon' : 'spell'}
+                            damageInfo={dmgPreview}
+                            usesInfo={usesInfo}
+                            item={item} />
                         </DraggableShopItem>
                       ) : (
-                        <div className="border-2 border-dashed border-gray-700 rounded p-1.5 flex items-center justify-center">
-                          <span className="text-gray-600 text-[10px]">売り切れ</span>
-                        </div>
+                        <DroppableSlot id={`return-weapon-${index}`}>
+                          <div className="border-2 border-dashed border-gray-700 rounded p-1.5 h-full flex items-center justify-center">
+                            <span className="text-gray-600 text-[10px]">売り切れ</span>
+                          </div>
+                        </DroppableSlot>
                       )}
                     </div>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
-              {/* ポーション */}
-              <div>
-                <div className="text-[9px] text-gray-500 mb-1">ポーション</div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {storeState.potionSlots.map((item, index) => (
-                    <div key={`ps-${index}`}>
-                      {item ? (
-                        <DraggableShopItem id={`shop-potion-${index}`}
-                          data={{ source: 'shop-potion', slotIndex: index, item }}>
-                          <ShopItemCard name={item.name} price={item.price} type="potion" />
-                        </DraggableShopItem>
-                      ) : (
-                        <div className="border-2 border-dashed border-gray-700 rounded p-1.5 flex items-center justify-center">
-                          <span className="text-gray-600 text-[10px]">売り切れ</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+
+              {/* レリック + ポーション */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-[9px] text-gray-500 mb-1">レリック</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {storeState.relicSlots.map((item, index) => (
+                      <div key={`rs-${index}`}>
+                        {item ? (
+                          <DraggableShopItem id={`shop-relic-${index}`}
+                            data={{ source: 'shop-relic', slotIndex: index, item }}>
+                            <ShopItemCard name={item.name} price={item.price} type="relic" item={item} />
+                          </DraggableShopItem>
+                        ) : (
+                          <DroppableSlot id={`return-relic-${index}`}>
+                            <div className="border-2 border-dashed border-gray-700 rounded p-1.5 flex items-center justify-center">
+                              <span className="text-gray-600 text-[10px]">売り切れ</span>
+                            </div>
+                          </DroppableSlot>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9px] text-gray-500 mb-1">ポーション</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {storeState.potionSlots.map((item, index) => (
+                      <div key={`ps-${index}`}>
+                        {item ? (
+                          <DraggableShopItem id={`shop-potion-${index}`}
+                            data={{ source: 'shop-potion', slotIndex: index, item }}>
+                            <ShopItemCard name={item.name} price={item.price} type="potion" item={item} />
+                          </DraggableShopItem>
+                        ) : (
+                          <DroppableSlot id={`return-potion-${index}`}>
+                            <div className="border-2 border-dashed border-gray-700 rounded p-1.5 flex items-center justify-center">
+                              <span className="text-gray-600 text-[10px]">売り切れ</span>
+                            </div>
+                          </DroppableSlot>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </DroppableSlot>
 
           {/* 売却枠 */}
-          <DroppableSlot id="sell-zone" className="w-16 flex-shrink-0">
-            <div className="h-full border-2 border-dashed border-red-700/50 rounded flex flex-col items-center justify-center gap-1 bg-red-900/10">
-              <span className="text-red-400 text-lg">🗑</span>
-              <span className="text-red-400 text-[9px] font-bold">売却</span>
+          <DroppableSlot id="sell-zone" className="w-32 flex-shrink-0">
+            <div className="h-full border-2 border-dashed border-red-700/50 rounded flex flex-col bg-red-900/10 p-1.5">
+              <div className="text-red-400 text-[9px] font-bold text-center mb-1">売却</div>
+              <div className="flex-1 overflow-y-auto space-y-0.5">
+                {soldItems.map((item, i) => {
+                  const typeColors: Record<string, string> = {
+                    weapon: 'border-orange-500/50', spell: 'border-purple-500/50',
+                    relic: 'border-yellow-500/50', potion: 'border-teal-500/50',
+                  }
+                  return (
+                    <DraggableShopItem key={`sold-${i}`} id={`sold-item-${i}`}
+                      data={{ source: 'sold-item', soldIndex: i, soldItem: item }}>
+                      <div className={`text-[9px] border rounded px-1.5 py-0.5 ${typeColors[item.type]} bg-gray-800/50 cursor-grab active:cursor-grabbing animate-slow-blink`}>
+                        <div className="text-gray-300 truncate">{item.name}</div>
+                        <div className="text-green-400">+{item.sellPrice}G</div>
+                      </div>
+                    </DraggableShopItem>
+                  )
+                })}
+              </div>
+              {soldItems.length === 0 && (
+                <div className="flex-1 flex items-center justify-center">
+                  <span className="text-red-400/50 text-[10px]">ここにドロップ</span>
+                </div>
+              )}
             </div>
           </DroppableSlot>
         </div>
@@ -422,13 +772,16 @@ export function StoreScreen() {
               member={member}
               memberIndex={index}
               dragData={dragData}
-              newPurchaseIds={newPurchaseIds}
+              movedKeys={movedKeys}
+              newPurchaseKeys={newPurchaseKeys}
+              relics={run.relics as RelicData[]}
             />
           ))}
           <StoreSharedPanel
             potions={run.potions}
             relics={run.relics}
-            newPurchaseIds={newPurchaseIds}
+            movedKeys={movedKeys}
+            newPurchaseKeys={newPurchaseKeys}
           />
         </div>
 
@@ -444,12 +797,10 @@ export function StoreScreen() {
           </div>
         </div>
 
-        {/* マップオーバーレイ */}
         {showMap && mapState && (
           <MapOverlay nodes={mapState.nodes} currentStage={mapState.currentStage} onClose={() => setShowMap(false)} />
         )}
 
-        {/* D&Dオーバーレイ */}
         <DragOverlay>
           {draggingLabel && (
             <div className="bg-gray-800 border border-yellow-400 rounded px-3 py-1 text-sm text-white shadow-lg">

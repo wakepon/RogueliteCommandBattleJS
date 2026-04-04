@@ -2,7 +2,7 @@ import { EnemyInstance } from '../../Lib/Types/Enemy'
 import { EnemyIntent } from '../../Lib/Types/Battle'
 import { ResourceBar, BuffIcon } from '../Common'
 import { KillLineBar } from './KillLineBar'
-import { DamageRange } from '../../Lib/Utils/DamagePredictor'
+import { DetailedDamagePreview } from '../../Lib/Utils/DamagePredictor'
 
 interface EnemyDisplayProps {
   enemy: EnemyInstance
@@ -12,7 +12,7 @@ interface EnemyDisplayProps {
   isDragTarget?: boolean   // ドラッグ中に攻撃対象になりうる（全体強調）
   isHovered?: boolean      // ドラッグ中にホバーされている（個別強調）
   onSelect?: () => void
-  damagePreview?: DamageRange | null
+  damagePreview?: DetailedDamagePreview | null
   intent?: EnemyIntent | null
 }
 

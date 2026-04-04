@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, useCallback, useEffect, useState, useRef, ReactNode } from 'react'
 import { GameState, createInitialGameState } from '../Lib/Types/Game'
 import { gameReducer, GameAction } from '../Lib/State/GameReducer'
-import { WeaponData } from '../Lib/Types/Weapon'
+import { ExplorerWeapon, WeaponData } from '../Lib/Types/Weapon'
 import { SpellData } from '../Lib/Types/Spell'
 import { RelicData } from '../Lib/Types/Relic'
 import { PotionData } from '../Lib/Types/Potion'
@@ -24,6 +24,16 @@ interface GameContextType {
   sellSpell: (spellIndex: number, memberIndex: number) => void
   sellRelic: (relicIndex: number) => void
   sellPotion: (potionIndex: number) => void
+  undoBuyWeapon: (shopSlotIndex: number, item: WeaponData, memberIndex: number, weaponIndex: number) => void
+  undoBuySpell: (shopSlotIndex: number, item: SpellData, memberIndex: number, spellIndex: number) => void
+  undoBuyRelic: (shopSlotIndex: number, item: RelicData, relicIndex: number) => void
+  undoBuyPotion: (shopSlotIndex: number, item: PotionData, potionIndex: number) => void
+  undoSellWeapon: (weapon: ExplorerWeapon, memberIndex: number, sellPrice: number) => void
+  undoSellSpell: (spell: SpellData, memberIndex: number, sellPrice: number) => void
+  undoSellRelic: (relic: RelicData, sellPrice: number) => void
+  undoSellPotion: (potion: PotionData, sellPrice: number) => void
+  transferWeapon: (fromMemberIndex: number, weaponIndex: number, toMemberIndex: number) => void
+  transferSpell: (fromMemberIndex: number, spellIndex: number, toMemberIndex: number) => void
   rerollStore: () => void
   closeStore: () => void
   // イベント関連アクション
@@ -89,6 +99,26 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'SELL_RELIC', relicIndex }), [])
   const sellPotion = useCallback((potionIndex: number) =>
     dispatch({ type: 'SELL_POTION', potionIndex }), [])
+  const undoBuyWeapon = useCallback((shopSlotIndex: number, item: WeaponData, memberIndex: number, weaponIndex: number) =>
+    dispatch({ type: 'UNDO_BUY_WEAPON', shopSlotIndex, item, memberIndex, weaponIndex }), [])
+  const undoBuySpell = useCallback((shopSlotIndex: number, item: SpellData, memberIndex: number, spellIndex: number) =>
+    dispatch({ type: 'UNDO_BUY_SPELL', shopSlotIndex, item, memberIndex, spellIndex }), [])
+  const undoBuyRelic = useCallback((shopSlotIndex: number, item: RelicData, relicIndex: number) =>
+    dispatch({ type: 'UNDO_BUY_RELIC', shopSlotIndex, item, relicIndex }), [])
+  const undoBuyPotion = useCallback((shopSlotIndex: number, item: PotionData, potionIndex: number) =>
+    dispatch({ type: 'UNDO_BUY_POTION', shopSlotIndex, item, potionIndex }), [])
+  const undoSellWeapon = useCallback((weapon: ExplorerWeapon, memberIndex: number, sellPrice: number) =>
+    dispatch({ type: 'UNDO_SELL_WEAPON', weapon, memberIndex, sellPrice }), [])
+  const undoSellSpell = useCallback((spell: SpellData, memberIndex: number, sellPrice: number) =>
+    dispatch({ type: 'UNDO_SELL_SPELL', spell, memberIndex, sellPrice }), [])
+  const undoSellRelic = useCallback((relic: RelicData, sellPrice: number) =>
+    dispatch({ type: 'UNDO_SELL_RELIC', relic, sellPrice }), [])
+  const undoSellPotion = useCallback((potion: PotionData, sellPrice: number) =>
+    dispatch({ type: 'UNDO_SELL_POTION', potion, sellPrice }), [])
+  const transferWeapon = useCallback((fromMemberIndex: number, weaponIndex: number, toMemberIndex: number) =>
+    dispatch({ type: 'TRANSFER_WEAPON', fromMemberIndex, weaponIndex, toMemberIndex }), [])
+  const transferSpell = useCallback((fromMemberIndex: number, spellIndex: number, toMemberIndex: number) =>
+    dispatch({ type: 'TRANSFER_SPELL', fromMemberIndex, spellIndex, toMemberIndex }), [])
   const rerollStore = useCallback(() => dispatch({ type: 'REROLL_STORE' }), [])
   const closeStore = useCallback(() => dispatch({ type: 'CLOSE_STORE' }), [])
   // イベント関連アクション
@@ -140,6 +170,16 @@ export function GameProvider({ children }: GameProviderProps) {
       sellSpell,
       sellRelic,
       sellPotion,
+      undoBuyWeapon,
+      undoBuySpell,
+      undoBuyRelic,
+      undoBuyPotion,
+      undoSellWeapon,
+      undoSellSpell,
+      undoSellRelic,
+      undoSellPotion,
+      transferWeapon,
+      transferSpell,
       rerollStore,
       closeStore,
       openEvent,

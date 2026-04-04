@@ -4,11 +4,12 @@ import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortabl
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel } from '../../Lib/Core'
-import { calculateCumulativeDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
+import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
+import { RelicInstance } from '../../Lib/Types/Relic'
 import { Button } from '../Common/Button'
-import { ResourceBar } from '../Common'
+import { ResourceBar, Tooltip } from '../Common'
 import { EnemyDisplay } from './EnemyDisplay'
 import { TargetSelector, getTargetSelectionState } from './TargetSelector'
 import { DamagePopup } from './DamagePopup'
@@ -16,7 +17,7 @@ import { LevelUpModal } from './LevelUpModal'
 import { DraggableCommand } from './DraggableCommand'
 import { DroppableTarget } from './DroppableTarget'
 import { ActionOrderSlots } from './ActionOrderSlots'
-import { getItemTooltip } from '../../Lib/Utils/ItemDescription'
+import { TooltipCard } from '../Common/TooltipCard'
 import { NextStagePreview } from './NextStagePreview'
 
 const ACTION_DELAY_MS = 500
@@ -142,7 +143,7 @@ function SharedPanel({
   gold,
 }: {
   potions: { id: string; name: string; commandCategory: 'potion' }[]
-  relics: { id: string; name: string; price: number }[]
+  relics: RelicInstance[]
   isCommandPhase: boolean
   gold: number
 }) {
@@ -179,9 +180,11 @@ function SharedPanel({
         ) : (
           <div className="space-y-0.5">
             {relics.map((relic) => (
-              <div key={relic.id} className="text-[10px] text-gray-300 truncate" title={getItemTooltip(relic as never)}>
-                {relic.name}
-              </div>
+              <Tooltip key={relic.id} content={<TooltipCard item={relic} />} position="top">
+                <div className="text-[10px] text-gray-300 truncate">
+                  {relic.name}
+                </div>
+              </Tooltip>
             ))}
           </div>
         )}
@@ -452,7 +455,7 @@ export function BattleScreen() {
                 }
               }
               const damagePreview = isCommandPhase
-                ? calculateCumulativeDamagePreview(commandSlots, enemy.instanceId, party, previewOptions, tentative)
+                ? calculateDetailedDamagePreview(commandSlots, enemy.instanceId, party, previewOptions, tentative)
                 : null
 
               return (

@@ -20,6 +20,30 @@ export interface DamageRange {
   isBoosted: boolean
 }
 
+/** 乗算レリック効果の情報 */
+export interface MultiplierEffect {
+  relicName: string
+  multiplier: number
+}
+
+/** 個別コマンドのダメージセグメント（キルラインバー用） */
+export interface CommandDamageSegment {
+  explorerName: string
+  commandName: string
+  commandCategory: 'weapon' | 'spell'
+  damageRange: DamageRange
+  /** このセグメントに適用されている乗算レリック効果 */
+  activeMultipliers: MultiplierEffect[]
+}
+
+/** 個別コマンド分解付きの累計ダメージプレビュー */
+export interface DetailedDamagePreview {
+  totalMin: number
+  totalMax: number
+  isBoosted: boolean
+  segments: CommandDamageSegment[]
+}
+
 /**
  * ダメージ予測オプション
  *
@@ -156,22 +180,59 @@ export interface TentativeCommand {
   targetEnemyId: string  // ホバー中の敵ID
 }
 
-/** 特定の敵への累計ダメージプレビュー（全コマンドスロット + 仮想コマンドから） */
-export function calculateCumulativeDamagePreview(
+/** コマンドに適用中の乗算レリック効果を検出 */
+function detectActiveMultipliers(
+  relics: RelicInstance[],
+  explorer: ExplorerState,
+  command: BattleCommand,
+  killStreakActive: boolean,
+  includeConditionalRelics: boolean
+): MultiplierEffect[] {
+  if (!includeConditionalRelics) return []
+
+  const multipliers: MultiplierEffect[] = []
+
+  for (const relic of relics) {
+    const effect = relic.passiveEffect
+    if (effect.type === 'lowHpDamageMultiplier') {
+      const threshold = explorer.maxHp * effect.hpThreshold
+      if (explorer.hp <= threshold) {
+        multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
+      }
+    }
+    if (effect.type === 'killStreakBonus' && killStreakActive && isWeapon(command)) {
+      multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
+    }
+    if (effect.type === 'lastStrikeDamageMultiplier' && isWeapon(command)) {
+      if ('currentUses' in command && command.currentUses === 1) {
+        multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
+      }
+    }
+    if (effect.type === 'lowMpDamageBonus' && isSpell(command)) {
+      const threshold = explorer.maxMp * effect.mpThreshold
+      if (explorer.mp <= threshold) {
+        multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
+      }
+    }
+  }
+
+  return multipliers
+}
+
+/** 特定の敵への詳細ダメージプレビュー（個別コマンド分解付き） */
+export function calculateDetailedDamagePreview(
   commandSlots: CommandSlot[],
   targetEnemyId: string,
   party: ExplorerState[],
   options: DamagePredictOptions = {},
   tentative?: TentativeCommand | null
-): DamageRange {
+): DetailedDamagePreview {
   let totalMin = 0
   let totalMax = 0
   let anyBoosted = false
+  const segments: CommandDamageSegment[] = []
 
-  // 仮想コマンドを含めた全スロットを構築
   const allSlots: CommandSlot[] = [...commandSlots]
-
-  // 仮想コマンドがある場合、該当キャラのスロットを上書きまたは追加
   if (tentative) {
     const existingIdx = allSlots.findIndex(s => s.explorerId === tentative.explorerId)
     if (existingIdx >= 0) {
@@ -190,14 +251,10 @@ export function calculateCumulativeDamagePreview(
     const explorer = party.find(e => e.id === slot.explorerId)
     if (!explorer) continue
 
-    // このキャラが先行スロットから精密を受けるか判定
     const precisionFromOrder = willReceivePrecision(allSlots, slot.explorerId, i)
     const slotOptions = { ...options, hasPrecision: precisionFromOrder }
 
-    // この敵を直接ターゲットしているか
     const targetsThisEnemy = slot.targetId === targetEnemyId
-
-    // 全体攻撃かどうか
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
     const isEnemyAllSpell = isSpell(slot.command) && slot.command.targetType === 'enemyAll'
     const isEnemyAll = isEnemyAllWeapon || isEnemyAllSpell
@@ -218,8 +275,36 @@ export function calculateCumulativeDamagePreview(
       totalMin += range.min
       totalMax += range.max
       if (range.isBoosted) anyBoosted = true
+
+      const activeMultipliers = detectActiveMultipliers(
+        options.relics || [],
+        explorer,
+        slot.command,
+        options.killStreakActive || false,
+        options.includeConditionalRelics || false
+      )
+
+      segments.push({
+        explorerName: explorer.name,
+        commandName: slot.command.name,
+        commandCategory: isWeapon(slot.command) ? 'weapon' : 'spell',
+        damageRange: range,
+        activeMultipliers,
+      })
     }
   }
 
-  return { min: totalMin, max: totalMax, isBoosted: anyBoosted }
+  return { totalMin, totalMax, isBoosted: anyBoosted, segments }
+}
+
+/** 特定の敵への累計ダメージプレビュー（全コマンドスロット + 仮想コマンドから） */
+export function calculateCumulativeDamagePreview(
+  commandSlots: CommandSlot[],
+  targetEnemyId: string,
+  party: ExplorerState[],
+  options: DamagePredictOptions = {},
+  tentative?: TentativeCommand | null
+): DamageRange {
+  const detailed = calculateDetailedDamagePreview(commandSlots, targetEnemyId, party, options, tentative)
+  return { min: detailed.totalMin, max: detailed.totalMax, isBoosted: detailed.isBoosted }
 }

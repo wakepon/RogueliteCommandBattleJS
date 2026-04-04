@@ -1,7 +1,7 @@
 import { GameState, ResultState, EventState, MapState, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
-import { WeaponInstance, WeaponData } from '../Types/Weapon'
+import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
 import { SpellData } from '../Types/Spell'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
@@ -46,6 +46,16 @@ export type GameAction =
   | { type: 'SELL_SPELL'; spellIndex: number; memberIndex: number }
   | { type: 'SELL_RELIC'; relicIndex: number }
   | { type: 'SELL_POTION'; potionIndex: number }
+  | { type: 'UNDO_BUY_WEAPON'; shopSlotIndex: number; item: WeaponData; memberIndex: number; weaponIndex: number }
+  | { type: 'UNDO_BUY_SPELL'; shopSlotIndex: number; item: SpellData; memberIndex: number; spellIndex: number }
+  | { type: 'UNDO_BUY_RELIC'; shopSlotIndex: number; item: RelicData; relicIndex: number }
+  | { type: 'UNDO_BUY_POTION'; shopSlotIndex: number; item: PotionData; potionIndex: number }
+  | { type: 'UNDO_SELL_WEAPON'; weapon: ExplorerWeapon; memberIndex: number; sellPrice: number }
+  | { type: 'UNDO_SELL_SPELL'; spell: SpellData; memberIndex: number; sellPrice: number }
+  | { type: 'UNDO_SELL_RELIC'; relic: RelicData; sellPrice: number }
+  | { type: 'UNDO_SELL_POTION'; potion: PotionData; sellPrice: number }
+  | { type: 'TRANSFER_WEAPON'; fromMemberIndex: number; weaponIndex: number; toMemberIndex: number }
+  | { type: 'TRANSFER_SPELL'; fromMemberIndex: number; spellIndex: number; toMemberIndex: number }
   | { type: 'REROLL_STORE' }
   | { type: 'CLOSE_STORE' }
   | { type: 'OPEN_EVENT' }
@@ -224,8 +234,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const explorer = state.run.party[memberIndex]
       if (!explorer) return state
 
-      if (state.run.gold < item.price) return state
-
       const weaponInstance: WeaponInstance = {
         ...item,
         currentUses: item.maxUses === null ? null : item.maxUses,
@@ -255,8 +263,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const explorer = state.run.party[memberIndex]
       if (!explorer) return state
 
-      if (state.run.gold < item.price) return state
-
       const updatedExplorer: ExplorerState = {
         ...explorer,
         spells: [...explorer.spells, item],
@@ -278,7 +284,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.run || !state.storeState) return state
 
       const { slotIndex, item } = action
-      if (state.run.gold < item.price) return state
 
       const newRelicSlots = [...state.storeState.relicSlots]
       newRelicSlots[slotIndex] = null
@@ -298,7 +303,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.run || !state.storeState) return state
 
       const { slotIndex, item } = action
-      if (state.run.gold < item.price) return state
 
       const newPotionSlots = [...state.storeState.potionSlots]
       newPotionSlots[slotIndex] = null
@@ -395,6 +399,194 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           potions: state.run.potions.filter((_, i) => i !== action.potionIndex),
         },
       }
+    }
+
+    // === 購入取り消し ===
+
+    case 'UNDO_BUY_WEAPON': {
+      if (!state.run || !state.storeState) return state
+      const { shopSlotIndex, item, memberIndex, weaponIndex } = action
+      const explorer = state.run.party[memberIndex]
+      if (!explorer || !explorer.weapons[weaponIndex]) return state
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        weapons: explorer.weapons.filter((_, i) => i !== weaponIndex),
+      }
+      const newWeaponSlots = [...state.storeState.weaponSlots]
+      newWeaponSlots[shopSlotIndex] = item
+      const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
+
+      return {
+        ...state,
+        run: { ...state.run, gold: state.run.gold + item.price, party: updatedParty },
+        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
+      }
+    }
+
+    case 'UNDO_BUY_SPELL': {
+      if (!state.run || !state.storeState) return state
+      const { shopSlotIndex, item, memberIndex, spellIndex } = action
+      const explorer = state.run.party[memberIndex]
+      if (!explorer || !explorer.spells[spellIndex]) return state
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        spells: explorer.spells.filter((_, i) => i !== spellIndex),
+      }
+      const newWeaponSlots = [...state.storeState.weaponSlots]
+      newWeaponSlots[shopSlotIndex] = item
+      const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
+
+      return {
+        ...state,
+        run: { ...state.run, gold: state.run.gold + item.price, party: updatedParty },
+        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
+      }
+    }
+
+    case 'UNDO_BUY_RELIC': {
+      if (!state.run || !state.storeState) return state
+      const { shopSlotIndex, item, relicIndex } = action
+      if (!state.run.relics[relicIndex]) return state
+
+      const newRelicSlots = [...state.storeState.relicSlots]
+      newRelicSlots[shopSlotIndex] = item
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold + item.price,
+          relics: state.run.relics.filter((_, i) => i !== relicIndex),
+        },
+        storeState: { ...state.storeState, relicSlots: newRelicSlots },
+      }
+    }
+
+    case 'UNDO_BUY_POTION': {
+      if (!state.run || !state.storeState) return state
+      const { shopSlotIndex, item, potionIndex } = action
+      if (!state.run.potions[potionIndex]) return state
+
+      const newPotionSlots = [...state.storeState.potionSlots]
+      newPotionSlots[shopSlotIndex] = item
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold + item.price,
+          potions: state.run.potions.filter((_, i) => i !== potionIndex),
+        },
+        storeState: { ...state.storeState, potionSlots: newPotionSlots },
+      }
+    }
+
+    // === 売却取り消し ===
+
+    case 'UNDO_SELL_WEAPON': {
+      if (!state.run) return state
+      const { weapon, memberIndex, sellPrice } = action
+      const explorer = state.run.party[memberIndex]
+      if (!explorer) return state
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        weapons: [...explorer.weapons, weapon],
+      }
+      const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
+
+      return {
+        ...state,
+        run: { ...state.run, gold: state.run.gold - sellPrice, party: updatedParty },
+      }
+    }
+
+    case 'UNDO_SELL_SPELL': {
+      if (!state.run) return state
+      const { spell, memberIndex, sellPrice } = action
+      const explorer = state.run.party[memberIndex]
+      if (!explorer) return state
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        spells: [...explorer.spells, spell],
+      }
+      const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
+
+      return {
+        ...state,
+        run: { ...state.run, gold: state.run.gold - sellPrice, party: updatedParty },
+      }
+    }
+
+    case 'UNDO_SELL_RELIC': {
+      if (!state.run) return state
+      const { relic, sellPrice } = action
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold - sellPrice,
+          relics: [...state.run.relics, relic],
+        },
+      }
+    }
+
+    case 'UNDO_SELL_POTION': {
+      if (!state.run) return state
+      const { potion, sellPrice } = action
+
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          gold: state.run.gold - sellPrice,
+          potions: [...state.run.potions, potion],
+        },
+      }
+    }
+
+    // === メンバー間装備移動 ===
+
+    case 'TRANSFER_WEAPON': {
+      if (!state.run) return state
+      const { fromMemberIndex, weaponIndex, toMemberIndex } = action
+      const fromExplorer = state.run.party[fromMemberIndex]
+      const toExplorer = state.run.party[toMemberIndex]
+      if (!fromExplorer || !toExplorer) return state
+      const weapon = fromExplorer.weapons[weaponIndex]
+      if (!weapon) return state
+
+      const updatedFrom: ExplorerState = { ...fromExplorer, weapons: fromExplorer.weapons.filter((_, i) => i !== weaponIndex) }
+      const updatedTo: ExplorerState = { ...toExplorer, weapons: [...toExplorer.weapons, weapon] }
+      const updatedParty = state.run.party.map((m, i) => {
+        if (i === fromMemberIndex) return updatedFrom
+        if (i === toMemberIndex) return updatedTo
+        return m
+      })
+      return { ...state, run: { ...state.run, party: updatedParty } }
+    }
+
+    case 'TRANSFER_SPELL': {
+      if (!state.run) return state
+      const { fromMemberIndex, spellIndex, toMemberIndex } = action
+      const fromExplorer = state.run.party[fromMemberIndex]
+      const toExplorer = state.run.party[toMemberIndex]
+      if (!fromExplorer || !toExplorer) return state
+      const spell = fromExplorer.spells[spellIndex]
+      if (!spell) return state
+
+      const updatedFrom: ExplorerState = { ...fromExplorer, spells: fromExplorer.spells.filter((_, i) => i !== spellIndex) }
+      const updatedTo: ExplorerState = { ...toExplorer, spells: [...toExplorer.spells, spell] }
+      const updatedParty = state.run.party.map((m, i) => {
+        if (i === fromMemberIndex) return updatedFrom
+        if (i === toMemberIndex) return updatedTo
+        return m
+      })
+      return { ...state, run: { ...state.run, party: updatedParty } }
     }
 
     case 'REROLL_STORE': {
