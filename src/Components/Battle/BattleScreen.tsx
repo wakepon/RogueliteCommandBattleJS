@@ -3,7 +3,7 @@ import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, DragOverlay, p
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
-import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel } from '../../Lib/Core'
+import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
@@ -31,6 +31,7 @@ function CharacterPanel({
   isCommandPhase,
   availableCommands,
   targetRate,
+  previewRate,
   isSelectingTarget,
   selectedTargetId,
   draggingAllyTarget,
@@ -41,6 +42,7 @@ function CharacterPanel({
   isCommandPhase: boolean
   availableCommands: BattleCommand[]
   targetRate: number | undefined
+  previewRate: number | undefined
   isSelectingTarget: boolean
   selectedTargetId: string | null
   draggingAllyTarget: boolean
@@ -101,6 +103,12 @@ function CharacterPanel({
             <span className={positionColor}>{positionLabel}</span>
             <span className="mx-1">被弾:</span>
             <span className={targetRate >= 0.5 ? 'text-red-400 font-bold' : 'text-gray-300'}>{Math.round(targetRate * 100)}%</span>
+            {previewRate !== undefined && Math.round(previewRate * 100) !== Math.round(targetRate * 100) && (
+              <>
+                <span className="text-gray-500 mx-0.5">→</span>
+                <span className={previewRate >= 0.5 ? 'text-red-400 font-bold' : 'text-yellow-400 font-bold'}>{Math.round(previewRate * 100)}%</span>
+              </>
+            )}
           </div>
         )}
 
@@ -307,6 +315,22 @@ export function BattleScreen() {
   const uniquePotions = potions.filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
   const targetRates = calculateTargetRates(party)
 
+  // 祈りコマンドによる被弾率プレビュー
+  const previewParty = party.map(member => {
+    const prayerSlot = commandSlots.find(s =>
+      s.targetId === member.id && s.command &&
+      isWeapon(s.command) && 'effect' in s.command && s.command.effect?.type === 'targetRateUp'
+    )
+    if (!prayerSlot?.command) return member
+    if (member.battleBuffs.some(b => b.type === 'targetRateUp')) return member
+    const effect = (prayerSlot.command as { effect: { value: number } }).effect
+    return {
+      ...member,
+      battleBuffs: [...member.battleBuffs, { type: 'targetRateUp' as const, value: effect.value, duration: 1 as const }],
+    }
+  })
+  const previewTargetRates = calculateTargetRates(previewParty)
+
   // === D&D ハンドラ ===
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current
@@ -493,6 +517,7 @@ export function BattleScreen() {
           {party.map((member) => {
             const memberAvailCmds = getAvailableCommands(member, gold, potions)
             const rate = targetRates.find(r => r.explorerId === member.id)?.rate
+            const prevRate = previewTargetRates.find(r => r.explorerId === member.id)?.rate
             return (
               <CharacterPanel
                 key={member.id}
@@ -500,6 +525,7 @@ export function BattleScreen() {
                 isCommandPhase={isCommandPhase}
                 availableCommands={memberAvailCmds}
                 targetRate={rate}
+                previewRate={prevRate}
                 isSelectingTarget={isSelectingTarget}
                 selectedTargetId={selectedTargetId}
                 draggingAllyTarget={draggingCommand?.targetType === 'allySingle'}

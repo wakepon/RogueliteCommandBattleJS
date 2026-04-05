@@ -41,46 +41,32 @@ export function calculateTargetRates(party: ExplorerState[]): TargetRate[] {
   if (prayerBonuses === 0) return baseRates
 
   // 祈りバフを適用
-  const adjustedRates = baseRates.map(r => {
+  // 対象者: 被弾率を +value% (絶対値加算)
+  // 非対象者: 合計 value% を前衛/後衛の重みで按分減少
+  const totalBonus = prayerBonuses  // 例: 0.25 (25%)
+
+  // 非対象者の重み合計を計算（減少の傾斜用）
+  const unbuffedWeights = weights.filter(w => {
+    const member = alive.find(m => m.id === w.explorerId)
+    return !member?.battleBuffs.some(b => b.type === 'targetRateUp')
+  })
+  const unbuffedWeightTotal = unbuffedWeights.reduce((sum, w) => sum + w.weight, 0)
+
+  return baseRates.map(r => {
     const member = alive.find(m => m.id === r.explorerId)
     const prayerBuff = member?.battleBuffs.find(b => b.type === 'targetRateUp')
     if (prayerBuff) {
+      // 対象者: +value%
       return { ...r, rate: r.rate + prayerBuff.value / 100 }
+    }
+    // 非対象者: 重みに応じて減少を按分
+    if (unbuffedWeightTotal > 0) {
+      const w = weights.find(x => x.explorerId === r.explorerId)!
+      const reduction = totalBonus * (w.weight / unbuffedWeightTotal)
+      return { ...r, rate: Math.max(0, r.rate - reduction) }
     }
     return r
   })
-
-  // 合計が1を超える場合は正規化
-  const totalRate = adjustedRates.reduce((sum, r) => sum + r.rate, 0)
-  if (totalRate > 1) {
-    return adjustedRates.map(r => ({ ...r, rate: r.rate / totalRate }))
-  }
-
-  // 合計が1未満の場合、祈りバフなしのキャラで按分調整
-  const buffedTotal = adjustedRates
-    .filter(r => {
-      const member = alive.find(m => m.id === r.explorerId)
-      return member?.battleBuffs.some(b => b.type === 'targetRateUp')
-    })
-    .reduce((sum, r) => sum + r.rate, 0)
-  const remainingRate = 1 - buffedTotal
-  const unbuffedRates = adjustedRates.filter(r => {
-    const member = alive.find(m => m.id === r.explorerId)
-    return !member?.battleBuffs.some(b => b.type === 'targetRateUp')
-  })
-  const unbuffedTotal = unbuffedRates.reduce((sum, r) => sum + r.rate, 0)
-
-  if (unbuffedTotal > 0) {
-    return adjustedRates.map(r => {
-      const member = alive.find(m => m.id === r.explorerId)
-      if (member?.battleBuffs.some(b => b.type === 'targetRateUp')) {
-        return r
-      }
-      return { ...r, rate: (r.rate / unbuffedTotal) * remainingRate }
-    })
-  }
-
-  return adjustedRates
 }
 
 /**
