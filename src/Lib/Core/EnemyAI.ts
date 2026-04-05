@@ -4,7 +4,7 @@ import { getChargeMultiplier } from './BuffProcessor'
 
 /** 敵行動の結果 */
 export interface EnemyActionResult {
-  actionName: string       // "体当たり", "ぼんやりしている" 等
+  actionName: string       // "体当たり", "力溜め" 等
   damage: number           // プレイヤーへのダメージ
   hits: number             // 攻撃回数（通常1、連続攻撃は3）
   poisonStacks: number     // 付与する毒スタック数（0=なし）
@@ -42,20 +42,14 @@ function defaultResult(actionName: string, damage: number): EnemyActionResult {
 
 /** スライムの行動決定 */
 function selectSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
-  const table = [
-    { weight: 0.75, value: defaultResult('体当たり', 3) },
-    { weight: 0.25, value: defaultResult('ぼんやりしている', 0) },
-  ]
-  return selectByWeight(table)
+  return defaultResult('体当たり', 3)
 }
 
 /** ゴブリンの行動決定 */
 function selectGoblinAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.15, value: defaultResult('全力で斬りつける', 7) },
-    { weight: 0.55, value: defaultResult('斬りつける', 5) },
-    { weight: 0.20, value: defaultResult('小突く', 2) },
-    { weight: 0.10, value: defaultResult('様子を見ている', 0) },
+    { weight: 0.60, value: defaultResult('斬りつける', 5) },
+    { weight: 0.40, value: defaultResult('全力で斬りつける', 7) },
   ]
   return selectByWeight(table)
 }
@@ -79,9 +73,8 @@ function selectOrcAction(enemy: EnemyInstance): EnemyActionResult {
   }
 
   const table = [
-    { weight: 0.55, value: chargeAction },
-    { weight: 0.35, value: defaultResult('殴りつける', 8) },
-    { weight: 0.10, value: defaultResult('小突く', 3) },
+    { weight: 0.60, value: chargeAction },
+    { weight: 0.40, value: defaultResult('殴りつける', 8) },
   ]
   return selectByWeight(table)
 }
@@ -101,26 +94,15 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
 
   if (hpRatio > 0.5) {
     // フェーズ1: HP > 50%
-    const poisonAction: EnemyActionResult = {
-      ...defaultResult('毒ブレス', 5),
-      poisonStacks: 2,
-    }
-
     const table = [
-      { weight: 0.40, value: defaultResult('爪で引っ掻く', 15) },
-      { weight: 0.25, value: defaultResult('尻尾で薙ぎ払う', 10) },
-      { weight: 0.20, value: poisonAction },
-      { weight: 0.15, value: defaultResult('睨みつける', 0) },
+      { weight: 0.50, value: defaultResult('爪で引っ掻く', 15) },
+      { weight: 0.30, value: defaultResult('尻尾で薙ぎ払う', 10) },
+      { weight: 0.20, value: defaultResult('火炎ブレス', 18) },
     ]
     return selectByWeight(table)
   }
 
   // フェーズ2: HP ≤ 50%
-  const poisonAction: EnemyActionResult = {
-    ...defaultResult('毒ブレス', 5),
-    poisonStacks: 3,
-  }
-
   const chargeAction: EnemyActionResult = {
     ...defaultResult('力溜め', 0),
     applyCharge: true,
@@ -133,10 +115,9 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
 
   const table = [
     { weight: 0.30, value: defaultResult('爪で引っ掻く', 15) },
-    { weight: 0.25, value: defaultResult('火炎ブレス', 18) },
-    { weight: 0.20, value: poisonAction },
-    { weight: 0.15, value: chargeAction },
-    { weight: 0.10, value: multiHitAction },
+    { weight: 0.30, value: defaultResult('火炎ブレス', 18) },
+    { weight: 0.20, value: chargeAction },
+    { weight: 0.20, value: multiHitAction },
   ]
   return selectByWeight(table)
 }
