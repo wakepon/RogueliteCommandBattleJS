@@ -65,7 +65,8 @@ src/
 │   │   ├── Enemies.json
 │   │   └── StagePatterns.json
 │   └── Storage/            # 永続化
-│       └── SaveManager.ts        # localStorage操作
+│       ├── SaveManager.ts        # localStorage操作
+│       └── index.ts
 ├── Hooks/                  # React Hooks（ロジックとUIの橋渡し）
 │   ├── UseGame.tsx         # ゲーム全体の状態管理
 │   └── UseBattle.tsx       # 戦闘画面用
@@ -134,8 +135,8 @@ export interface ICommandable {
 
 /** ターゲットタイプ */
 export type TargetType =
-  | 'enemySingle'    // 敵優先1体（味方も選択可能）
-  | 'allySingle'     // 味方優先1体（敵も選択可能）
+  | 'enemySingle'    // 敵単体
+  | 'allySingle'     // 味方単体
   | 'enemyAll'       // 敵全体
   | 'allyAll'        // 味方全体
   | 'enemyRandom'    // 敵にランダム回数
@@ -184,16 +185,16 @@ export interface ISingleUse {}
 // ===== Lib/Types/Passive.ts =====
 /** パッシブ効果の種類 */
 export type PassiveEffectType =
-  | { type: 'statBonus'; stat: 'str' | 'int' | 'agi'; value: number }
+  | { type: 'statBonus'; stat: 'str' | 'int'; value: number }
   | { type: 'weaponDamageBonus'; value: number }
   | { type: 'interestCap'; value: number }
   | { type: 'lowHpDamageMultiplier'; hpThreshold: number; multiplier: number }
   | { type: 'firstHitShield' }
   | { type: 'weaponDurabilitySave'; chance: number }
-  | { type: 'weaponAttackMpRecover'; value: number }
-  | { type: 'killStreakBonus'; value: number }
+  | { type: 'weaponAttackMpRecover'; value: number; excludeWeaponId?: string }
+  | { type: 'killStreakBonus'; multiplier: number }
   | { type: 'lastStrikeDamageMultiplier'; multiplier: number }
-  | { type: 'lowMpDamageBonus'; mpThreshold: number; value: number }
+  | { type: 'lowMpDamageBonus'; mpThreshold: number; multiplier: number }
   | { type: 'thornsDamage'; value: number }
   | { type: 'regenPerTurn'; value: number }
   | { type: 'potionEffectMultiplier'; multiplier: number }
@@ -211,12 +212,14 @@ export interface IPassiveEffect {
 /** 武器効果（消費ではなく純粋な効果のみ） */
 export type WeaponEffect =
   | { type: 'lifesteal'; value: number }      // ダメージの一定割合HP回復
+  | { type: 'targetRateUp'; value: number }   // 被弾率アップ効果
 
 /** 武器データ（マスターデータ、購入可能） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {
   commandCategory: 'weapon'
   power: number
   variance: number    // ダメージブレ幅（±variance の加算ブレ）
+  scaleStat?: 'str' | 'int'  // ダメージ計算に使うステータス
   goldCost?: number   // ゴールド消費（黄金の斧など）
   hpCost?: number     // HP消費（呪われた槍など）
   effect?: WeaponEffect
@@ -224,32 +227,19 @@ export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetab
 
 /** 武器インスタンス（ゲーム中の状態、購入可能な武器） */
 export interface WeaponInstance extends WeaponData {
-  currentUses: number
+  currentUses: number | null  // nullは無制限使用
 }
 
 /** パンチ（購入不可、無限使用の特殊武器） */
 export interface PunchInstance extends ICommandable, ITargetable {
   id: 'punch'
-  name: 'パンチ'
   commandCategory: 'weapon'
   targetType: 'enemySingle'
-  power: number
-  variance: number
   maxUses: null      // 無限
   currentUses: null  // 無限
 }
 
-/** パンチの定数 */
-export const PUNCH: PunchInstance = {
-  id: 'punch',
-  name: 'パンチ',
-  commandCategory: 'weapon',
-  targetType: 'enemySingle',
-  power: 1,
-  variance: 2,
-  maxUses: null,
-  currentUses: null
-}
+// PUNCH定数として実装済み（IPurchasableを持たないため売却不可）
 
 /** 探索者が持てる武器（購入した武器 + パンチ） */
 export type ExplorerWeapon = WeaponInstance | PunchInstance
@@ -261,7 +251,7 @@ export type ExplorerWeapon = WeaponInstance | PunchInstance
 export type SpellEffect =
   | { type: 'heal'; value: number }           // HP回復
   | { type: 'steal' }                         // ゴールドを盗む
-  | { type: 'buff'; stat: 'str'; value: number; duration: 'battle' }  // バフ
+  | { type: 'buff'; stat: 'str' | 'precision'; value: number; duration: 'battle' | 'nextAction' }  // バフ
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {
@@ -331,108 +321,30 @@ export interface EnemyInstance extends EnemyData {
 
 ### インターフェース継承図
 
-```
-IItem (id, name, rarity)
-  │
-  ├─ WeaponData ─┬─ IPurchasable (price)
-  │              ├─ ICommandable (commandCategory: 'weapon')
-  │              ├─ ITargetable (targetType, minTargetCount?, maxTargetCount?)
-  │              ├─ IUseLimited (maxUses: number | null)
-  │              ├─ goldCost?: number  ← オプショナル（黄金の斧など）
-  │              └─ hpCost?: number    ← オプショナル（呪われた槍など）
-  │
-  ├─ SpellData ──┬─ IPurchasable
-  │              ├─ ICommandable (commandCategory: 'spell')
-  │              ├─ ITargetable
-  │              └─ IMpCost (mpCost)
-  │
-  ├─ RelicData ──┬─ IPurchasable
-  │              └─ IPassiveEffect (passiveEffect)
-  │
-  └─ PotionData ─┬─ IPurchasable
-                 ├─ ICommandable (commandCategory: 'potion')
-                 ├─ ITargetable (targetType: 'allySingle')
-                 └─ ISingleUse
-
-PunchInstance ──┬─ ICommandable (commandCategory: 'weapon')
-                └─ ITargetable
-                ※ IPurchasableを持たない → 売却不可
-
-消費系インターフェース:
-  IUseLimited (maxUses)     ... 武器の使用回数
-  IMpCost (mpCost)          ... 魔法のMP消費
-  IGoldCost (goldCost)      ... ゴールド消費
-  IHpCost (hpCost)          ... HP消費
-  ISingleUse                ... 使い切り（ポーション）
-```
+| 型 | 継承インターフェース |
+|---|------------------|
+| WeaponData | IItem, IPurchasable, ICommandable('weapon'), ITargetable, IUseLimited |
+| SpellData | IItem, IPurchasable, ICommandable('spell'), ITargetable, IMpCost |
+| RelicData | IItem, IPurchasable, IPassiveEffect |
+| PotionData | IItem, IPurchasable, ICommandable('potion'), ITargetable('allySingle'), ISingleUse |
+| PunchInstance | ICommandable('weapon'), ITargetable ※IPurchasableなし→売却不可 |
 
 ### 売却可否判定
 
-```typescript
-// Lib/Core/StoreLogic.ts
+`isSellable`（`Lib/Core/StoreLogic.ts`）は `IPurchasable` を持つかどうかで売却可否を判定する。
 
-/** IPurchasableを持っているかどうかで売却可否を判定 */
-export function isSellable(item: unknown): item is IPurchasable {
-  return typeof item === 'object' && item !== null && 'price' in item
-}
-
-// 使用例
-function getSellPrice(weapon: ExplorerWeapon): number | null {
-  if (!isSellable(weapon)) {
-    return null  // パンチなど売却不可
-  }
-  // 武器は使用回数に応じて売却価格が下がる
-  const basePrice = Math.floor(weapon.price / 2)
-  if (weapon.currentUses === null || weapon.maxUses === null) {
-    return basePrice
-  }
-  const usageRatio = weapon.currentUses / weapon.maxUses
-  return Math.floor(basePrice * usageRatio * 0.5)  // 常に半額ベースで使用回数按分
-}
-```
+- IPurchasableを持つ → 売却可能（価格は使用回数に応じて按分）
+- IPurchasableを持たない（パンチなど） → 売却不可
 
 ### コマンド使用可能判定
 
-`isAvailable`はインターフェースではなくロジック層で実装する。
+`isCommandAvailable` はインターフェースではなくロジック層（`Lib/Core/CommandValidator.ts`）で実装する。
 
-```typescript
-// Lib/Core/CommandValidator.ts
-export function isCommandAvailable(
-  command: ExplorerWeapon | SpellData | PotionData,
-  explorer: ExplorerState,
-  gold: number
-): boolean {
-  switch (command.commandCategory) {
-    case 'weapon':
-      const weapon = command as ExplorerWeapon
-      // 無限使用（null）でなければ残り回数をチェック
-      if (weapon.currentUses !== null && weapon.currentUses <= 0) {
-        return false
-      }
-      // ゴールド消費チェック（黄金の斧など）
-      if ('goldCost' in weapon && weapon.goldCost !== undefined) {
-        if (explorer.gold < weapon.goldCost) {
-          return false
-        }
-      }
-      // HP消費チェック（呪われた槍など）
-      // 注: HP消費は使用可能判定には含めない（自傷ダメージで死亡可能）
-      // または、HP不足で使用不可にする場合は以下を有効化:
-      // if ('hpCost' in weapon && weapon.hpCost !== undefined) {
-      //   if (explorer.hp <= weapon.hpCost) {
-      //     return false
-      //   }
-      // }
-      return true
-
-    case 'spell':
-      return explorer.mp >= (command as SpellData).mpCost
-
-    case 'potion':
-      return true  // ポーションは常に使用可能
-  }
-}
-```
+| コマンドカテゴリ | 判定条件 |
+|----------------|---------|
+| weapon | currentUses が null でなければ残り回数 > 0 かつ goldCost がある場合は所持金チェック |
+| spell | 所持MP >= mpCost |
+| potion | 常に使用可能 |
 
 ## 状態管理
 
@@ -440,6 +352,38 @@ export function isCommandAvailable(
 
 ```typescript
 // ===== Lib/Types/Game.ts =====
+
+/** マップノードタイプ */
+export type MapNodeType = 'battle' | 'event' | 'boss'
+
+/** マップノード */
+export interface MapNode {
+  id: string
+  type: MapNodeType
+  stage: number
+}
+
+/** マップ状態 */
+export interface MapState {
+  nodes: MapNode[]
+  currentNodeId: string | null
+}
+
+/** 敵プレビュー（マップ上での敵情報表示用） */
+export interface EnemyPreview {
+  enemyId: string
+  count: number
+}
+
+/** イベントサブフェーズ */
+export type EventSubPhase = 'selecting' | 'repairSelection' | 'treasureReveal' | 'treasureReplace'
+
+/** イベント状態 */
+export interface EventState {
+  subPhase: EventSubPhase
+  // その他イベント固有の状態
+}
+
 interface GameState {
   phase: 'title' | 'battle' | 'store' | 'event' | 'result' | 'map'
   run: RunState | null        // タイトル画面ではnull
@@ -456,6 +400,9 @@ interface GameState {
 ```typescript
 // ===== Lib/Types/Run.ts =====
 interface RunState {
+  // セーブデータバージョン
+  saveVersion: number       // SAVE_VERSION = 2（パーティー制導入）
+
   // Run識別・再現性
   seed: number              // ランダムシード（リプレイ・デバッグ用）
   startedAt: number         // 開始時刻（timestamp）
@@ -465,11 +412,11 @@ interface RunState {
 
   // パーティー共有リソース
   gold: number              // 所持ゴールド
-  relics: RelicInstance[]   // 所持レリック（最大5枠）
+  relics: RelicInstance[]   // 所持レリック
   potions: PotionInstance[] // 所持ポーション（最大2枠）
 
-  // パーティー
-  party: ExplorerState[]    // MVPでは1人、将来は複数人
+  // パーティー（3人: warrior, mage, cleric）
+  party: ExplorerState[]
 
   // 戦闘中のレベルアップ情報
   battleLevelUps: LevelUpInfo[]
@@ -492,6 +439,12 @@ interface RunStats {
 ```typescript
 // ===== Lib/Types/Explorer.ts =====
 
+/** キャラクタークラス */
+export type CharacterClass = 'warrior' | 'mage' | 'cleric'
+
+/** パーティー内ポジション */
+export type Position = 'front' | 'back'
+
 /** バフ */
 interface Buff {
   type: string
@@ -501,7 +454,7 @@ interface Buff {
 
 /** デバフ */
 interface Debuff {
-  type: 'poison'    // 毒など
+  type: string
   stacks: number    // スタック数
 }
 
@@ -510,6 +463,10 @@ interface ExplorerState {
   id: string
   name: string
 
+  // キャラクター属性
+  characterClass: CharacterClass
+  position: Position
+
   // 個人ステータス
   hp: number
   maxHp: number
@@ -517,20 +474,29 @@ interface ExplorerState {
   maxMp: number
   str: number
   int: number
-  agi: number
+
+  // 装備スロット数（クラスごとに異なる）
+  weaponSlotCount: number
+  magicSlotCount: number
 
   // レベル・経験値
   level: number
   exp: number                 // 経験値（累計討伐数）
+  killCount: number           // 個人の討伐数
 
   // 個人装備
-  weapons: ExplorerWeapon[]   // 最大4枠 + パンチ（パンチは常に最後）
-  spells: SpellInstance[]     // 最大4枠
+  weapons: ExplorerWeapon[]   // weaponSlotCount枠 + パンチ（パンチは常に最後）
+  spells: SpellInstance[]     // magicSlotCount枠
 
   // 戦闘中バフ/デバフ（戦闘終了時にクリア）
   battleBuffs: Buff[]
   battleDebuffs: Debuff[]
 }
+
+/**
+ * createInitialParty() で3人パーティーを生成する。
+ * - warrior（front）、mage（back）、cleric（back）の構成
+ */
 ```
 
 ### 共有リソース vs 個人リソースの整理
@@ -552,20 +518,50 @@ interface ExplorerState {
 ```typescript
 // ===== Lib/Types/Battle.ts =====
 
+/** バトルフェーズ */
+export type BattlePhase = 'command' | 'partyAction' | 'enemyAction' | 'turnEnd'
+
 /** アクターID（行動順管理用） */
 export type ActorId =
   | { type: 'explorer'; id: string }      // 探索者のid
   | { type: 'enemy'; instanceId: string } // 敵のinstanceId
 
+/** コマンドスロット（行動順を管理するスロット） */
+export interface CommandSlot {
+  explorerId: string
+  command: ExplorerWeapon | SpellData | PotionData | null
+  targetId: string | null
+}
+
+/** ダメージ寄与者 */
+export interface DamageContributor {
+  explorerId: string
+  damage: number
+}
+
+/** レベルアップポップアップ */
+export interface LevelUpPopup {
+  explorerId: string
+  level: number
+}
+
+/** 敵行動予告 */
+export interface EnemyIntent {
+  enemyInstanceId: string
+  action: string
+}
+
 interface BattleState {
+  phase: BattlePhase
   turn: number
-  turnLimit: number           // ステージごとに異なる。デフォルトは5ターン
+  turnLimit: number           // ステージごとに異なる
   enemies: EnemyInstance[]
-  actionQueue: ActorId[]      // 行動順（Agi順）
-  currentActorIndex: number
+  commandSlots: CommandSlot[]         // 各探索者のコマンドスロット（行動順）
+  activeExplorerIndex: number         // 現在コマンド入力中の探索者インデックス
+  currentCommandIndex: number         // 実行中のコマンドスロットインデックス
+  currentEnemyIndex: number           // 実行中の敵インデックス
+  enemyIntents: EnemyIntent[]         // 敵の行動予告
   stolenGold: number          // ゴールドラッシュで盗んだ金額
-  selectedCommand: ExplorerWeapon | SpellData | PotionData | null
-  selectedTargetId: string | null
   damagePopups: DamagePopup[]
   playerDamagePopups: DamagePopup[]
   levelUpPopups: LevelUpPopup[]
@@ -573,14 +569,22 @@ interface BattleState {
   battleMessageId: number
   relicState: RelicBattleState
 }
+
+/** バトルコマンド（実行待ちコマンドの情報） */
+export interface BattleCommand {
+  explorerId: string
+  command: ExplorerWeapon | SpellData | PotionData
+  targetId: string | null
+}
 ```
 
 ### StoreState（ストア画面の状態）
 
 ```typescript
 interface StoreState {
-  weaponSlots: (WeaponData | SpellData | null)[]  // 3枠。購入済みスロットはnull
-  relicSlots: (RelicData | PotionData | null)[]   // 3枠。購入済みスロットはnull
+  weaponSlots: (WeaponData | SpellData | null)[]  // 4枠。購入済みスロットはnull
+  relicSlots: (RelicData | null)[]                // 2枠。購入済みスロットはnull
+  potionSlots: (PotionData | null)[]              // 2枠。購入済みスロットはnull
   rerollCost: number  // 初期値3G、リロールするごとに1G増加
 }
 ```
@@ -615,13 +619,13 @@ localStorage保存  ← ここでセーブ
 
 ```typescript
 interface SaveData {
-  version: number      // 互換性チェック用
+  version: number      // 互換性チェック用（現在 SAVE_VERSION = 2）
   run: RunState        // Run情報のみ保存（phase等は復元時に決定）
   savedAt: number      // timestamp
 }
 ```
 
-**注**: セーブデータにはRunStateのみを保存。phaseやbattleState等はロード時に適切な値を設定する。
+**注**: セーブデータにはRunStateのみを保存。phaseやbattleState等はロード時に適切な値を設定する。VERSION 2からパーティー制に対応し、party配列の検証を行う。
 
 ### SaveManager
 
@@ -637,40 +641,18 @@ export const SaveManager = {
 
 ## 画面遷移
 
-React Routerは使用せず、`phase`によるstate切り替えで実装。
-
-```typescript
-// App.tsx
-function App() {
-  const { state, dispatch } = useGame()
-
-  switch (state.phase) {
-    case 'title':
-      return <TitleScreen />
-    case 'battle':
-      return <BattleScreen />
-    case 'store':
-      return <StoreScreen />
-    case 'event':
-      return <EventScreen />
-    case 'result':
-      return <ResultScreen />
-    case 'map':
-      return <MapScreen />
-  }
-}
-```
+React Routerは使用せず、`phase`によるstate切り替えで実装。`App.tsx` が `GameState.phase`（'title' | 'battle' | 'store' | 'event' | 'result' | 'map'）を参照して各画面コンポーネントを切り替える。
 
 ### 画面遷移フロー
 
 ```
 [title]
-   ↓ START_GAME（新規） or CONTINUE_GAME（ロード）
-[map]
-   ↓ ADVANCE_FROM_MAP（ステージ選択）
+   ↓ START_GAME（新規） → 直接 [battle] に遷移（初回マップスキップ）
+   ↓ CONTINUE_GAME（ロード） → [store] に遷移
 [battle] ←──────────────────────┐
    ↓ 勝利                        │
 [store] ─────────→ [map] ────────┘
+   ↓ ADVANCE_FROM_MAP（ステージ選択）
    ↓ Stage 4の場合
 [event] ─────────→ [map] ────────┘
    ↓ ボス撃破 or 敗北
@@ -683,93 +665,112 @@ function App() {
 
 ### Weapons.json
 
-8種の武器データ（オブジェクト辞書形式）。全武器に `variance` フィールドあり。
+10種の武器データ（オブジェクト辞書形式）。全武器に `variance` フィールドあり。`magic_bullet`、`prayer` が追加済み。投げナイフは `enemyAll` ターゲット。
 
 ```json
 {
-  "rusty_knife":     { "id": "rusty_knife",      "name": "錆びたナイフ",   "rarity": "Common",   "price": 3,  "commandCategory": "weapon", "targetType": "enemySingle", "power": 3,  "variance": 1, "maxUses": 5  },
-  "short_sword":     { "id": "short_sword",       "name": "ショートソード", "rarity": "Common",   "price": 5,  "commandCategory": "weapon", "targetType": "enemySingle", "power": 4,  "variance": 1, "maxUses": 8  },
-  "iron_sword":      { "id": "iron_sword",        "name": "鉄の剣",         "rarity": "Common",   "price": 8,  "commandCategory": "weapon", "targetType": "enemySingle", "power": 6,  "variance": 2, "maxUses": 8  },
-  "great_axe":       { "id": "great_axe",         "name": "グレートアックス","rarity": "Uncommon", "price": 12, "commandCategory": "weapon", "targetType": "enemySingle", "power": 10, "variance": 3, "maxUses": 5  },
-  "greatsword":      { "id": "greatsword",        "name": "グレートソード", "rarity": "Uncommon", "price": 12, "commandCategory": "weapon", "targetType": "enemyAll",    "power": 5,  "variance": 2, "maxUses": 4  },
-  "throwing_knife":  { "id": "throwing_knife",    "name": "投げナイフ",     "rarity": "Common",   "price": 6,  "commandCategory": "weapon", "targetType": "enemyRandom", "power": 3,  "variance": 1, "maxUses": 6, "minTargetCount": 3, "maxTargetCount": 3 },
-  "whirlwind_blade": { "id": "whirlwind_blade",   "name": "旋風の刃",       "rarity": "Rare",     "price": 15, "commandCategory": "weapon", "targetType": "enemyAll",    "power": 6,  "variance": 2, "maxUses": 4  },
-  "vampiric_blade":  { "id": "vampiric_blade",    "name": "吸血の刃",       "rarity": "Rare",     "price": 15, "commandCategory": "weapon", "targetType": "enemySingle", "power": 7,  "variance": 2, "maxUses": 5, "effect": { "type": "lifesteal", "value": 0.5 } }
+  "rusty_knife":     { "targetType": "enemySingle", ... },
+  "short_sword":     { "targetType": "enemySingle", ... },
+  "iron_sword":      { "targetType": "enemySingle", ... },
+  "great_axe":       { "targetType": "enemySingle", ... },
+  "greatsword":      { "targetType": "enemyAll",    ... },
+  "throwing_knife":  { "targetType": "enemyAll",    ... },
+  "whirlwind_blade": { "targetType": "enemyAll",    ... },
+  "vampiric_blade":  { "targetType": "enemySingle", "effect": { "type": "lifesteal" }, ... },
+  "magic_bullet":    { "targetType": "enemySingle", "scaleStat": "int", ... },
+  "prayer":          { "targetType": "allySingle",  "effect": { "type": "targetRateUp" }, ... }
 }
 ```
+
+（各武器の具体的な数値はバランス調整対象のため概要記載）
 
 ### Spells.json
 
-6種の魔法データ（オブジェクト辞書形式）。全魔法に `variance` フィールドあり。
+7種の魔法データ（オブジェクト辞書形式）。全魔法に `variance` フィールドあり。`precision` が追加済み。
 
 ```json
 {
-  "fire":      { "id": "fire",      "name": "ファイア",       "rarity": "Common",   "price": 6,  "commandCategory": "spell", "targetType": "enemySingle", "mpCost": 3, "power": 8,  "variance": 2 },
-  "firestorm": { "id": "firestorm", "name": "ファイアストーム","rarity": "Uncommon", "price": 10, "commandCategory": "spell", "targetType": "enemyAll",    "mpCost": 5, "power": 5,  "variance": 1 },
-  "heal":      { "id": "heal",      "name": "ヒール",          "rarity": "Common",   "price": 8,  "commandCategory": "spell", "targetType": "allySingle",  "mpCost": 5, "power": 0,  "variance": 0, "effect": { "type": "heal", "value": 15 } },
-  "ice_bolt":  { "id": "ice_bolt",  "name": "アイスボルト",   "rarity": "Common",   "price": 7,  "commandCategory": "spell", "targetType": "enemySingle", "mpCost": 3, "power": 6,  "variance": 2 },
-  "thunder":   { "id": "thunder",   "name": "サンダー",        "rarity": "Uncommon", "price": 9,  "commandCategory": "spell", "targetType": "enemySingle", "mpCost": 4, "power": 10, "variance": 3 },
-  "blizzard":  { "id": "blizzard",  "name": "ブリザード",      "rarity": "Rare",     "price": 12, "commandCategory": "spell", "targetType": "enemyAll",    "mpCost": 7, "power": 7,  "variance": 2 }
+  "fire":      { "targetType": "enemySingle", ... },
+  "firestorm": { "targetType": "enemyAll",    ... },
+  "heal":      { "targetType": "allySingle",  "effect": { "type": "heal" }, ... },
+  "ice_bolt":  { "targetType": "enemySingle", ... },
+  "thunder":   { "targetType": "enemySingle", ... },
+  "blizzard":  { "targetType": "enemyAll",    ... },
+  "precision": { "targetType": "allySingle",  "effect": { "type": "buff", "stat": "precision", "duration": "nextAction" }, ... }
 }
 ```
+
+（各魔法の具体的な数値はバランス調整対象のため概要記載）
 
 ### Relics.json
 
-15種のレリックデータ（オブジェクト辞書形式）。新規レリック効果多数。
-
-主なレリック例:
-
-```json
-{
-  "warrior_bracelet": { "id": "warrior_bracelet", "name": "戦士の腕輪",   "rarity": "Common",   "price": 15, "passiveEffect": { "type": "statBonus", "stat": "str", "value": 2 } },
-  "sharp_whetstone":  { "id": "sharp_whetstone",  "name": "鋭い砥石",     "rarity": "Uncommon", "price": 20, "passiveEffect": { "type": "weaponDamageBonus", "value": 3 } },
-  "piggy_bank":       { "id": "piggy_bank",        "name": "貯金箱",       "rarity": "Rare",     "price": 25, "passiveEffect": { "type": "interestCap", "value": 10 } },
-  "thorns_ring":      { "id": "thorns_ring",       "name": "いばらの指輪", "rarity": "Uncommon", "price": 18, "passiveEffect": { "type": "thornsDamage", "value": 2 } },
-  "regen_charm":      { "id": "regen_charm",       "name": "再生のお守り", "rarity": "Uncommon", "price": 20, "passiveEffect": { "type": "regenPerTurn", "value": 1 } }
-}
-```
-
-（全15種。効果の詳細値はバランス調整対象のため概要記載）
+15種のレリックデータ（オブジェクト辞書形式）。各レリックは `PassiveEffectType` に対応した `passiveEffect` を持つ。効果の詳細値はバランス調整対象のため概要記載。
 
 ### Potions.json
 
-2種のポーションデータ（オブジェクト辞書形式）。`targetType: 'allySingle'` フィールドあり。
-
-```json
-{
-  "hp_potion": { "id": "hp_potion", "name": "HPポーション", "rarity": "Common", "price": 5, "commandCategory": "potion", "targetType": "allySingle", "effect": { "type": "healHp", "value": 20 } },
-  "mp_potion": { "id": "mp_potion", "name": "MPポーション", "rarity": "Common", "price": 5, "commandCategory": "potion", "targetType": "allySingle", "effect": { "type": "healMp", "value": 10 } }
-}
-```
+2種のポーションデータ（`hp_potion`、`mp_potion`）。`targetType: 'allySingle'`。効果値はバランス調整対象のため概要記載。
 
 ### Enemies.json
 
-4種の敵データ（オブジェクト辞書形式）。敵種別ごとに行動バリエーションが定義されている。
+4種の敵データ（オブジェクト辞書形式）。全敵の `behavior` は `"attack"` に統一。行動の分岐は `EnemyAI.ts` で `enemy.id` ベースに実装される。
 
 ```json
 {
-  "slime":  { "id": "slime",  "name": "スライム", "type": "normal", "hp": 20,  "attack": 3, "agi": 2, "gold": 1, "behavior": "basic_attack" },
-  "goblin": { "id": "goblin", "name": "ゴブリン", "type": "normal", "hp": 18,  "attack": 4, "agi": 5, "gold": 1, "behavior": "agile_attack" },
-  "orc":    { "id": "orc",    "name": "オーク",   "type": "elite",  "hp": 50,  "attack": 8, "agi": 3, "gold": 2, "behavior": "charge_attack" },
-  "dragon": { "id": "dragon", "name": "ドラゴン", "type": "boss",   "hp": 150, "attack": 5, "agi": 4, "gold": 3, "behavior": "boss_pattern"  }
+  "slime":  { "id": "slime",  "name": "スライム", "type": "normal", "behavior": "attack", ... },
+  "goblin": { "id": "goblin", "name": "ゴブリン", "type": "normal", "behavior": "attack", ... },
+  "orc":    { "id": "orc",    "name": "オーク",   "type": "elite",  "behavior": "attack", ... },
+  "dragon": { "id": "dragon", "name": "ドラゴン", "type": "boss",   "behavior": "attack", ... }
 }
 ```
+
+（各敵の具体的なステータス値はバランス調整対象のため概要記載）
 
 ### StagePatterns.json
 
-`stage_1` 〜 `stage_7` の個別形式。各ステージに `turnLimit` フィールドあり。
+`stage_1` 〜 `stage_7` の個別形式。各ステージに `turnLimit` と `patterns` フィールドあり。`pattern` キーはなし。`stage_4` はイベントステージ（`turnLimit: 0`、`patterns: []`）。turnLimit の具体的な値はバランス調整対象。
 
 ```json
 {
-  "stage_1": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["slime"] }, { "pattern": "B", "enemies": ["slime", "slime"] }] },
-  "stage_2": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["slime", "goblin"] }, { "pattern": "B", "enemies": ["goblin"] }] },
-  "stage_3": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["orc"] }, { "pattern": "B", "enemies": ["orc", "slime"] }] },
-  "stage_4": { "turnLimit": 5, "patterns": [{ "pattern": "A", "enemies": ["orc", "goblin"] }] },
-  "stage_5": { "turnLimit": 6, "patterns": [{ "pattern": "A", "enemies": ["orc", "orc"] }] },
-  "stage_6": { "turnLimit": 6, "patterns": [{ "pattern": "A", "enemies": ["orc", "orc", "goblin"] }] },
-  "stage_7": { "turnLimit": 7, "patterns": [{ "pattern": "A", "enemies": ["dragon"] }] }
+  "stage_1": { "turnLimit": ..., "patterns": [{ "enemies": ["slime"] }, { "enemies": ["slime", "slime"] }] },
+  "stage_2": { "turnLimit": ..., "patterns": [{ "enemies": ["slime", "goblin"] }, { "enemies": ["goblin"] }] },
+  "stage_3": { "turnLimit": ..., "patterns": [{ "enemies": ["orc"] }, { "enemies": ["orc", "slime"] }] },
+  "stage_4": { "turnLimit": 0,  "patterns": [] },
+  "stage_5": { "turnLimit": ..., "patterns": [{ "enemies": ["orc", "orc"] }] },
+  "stage_6": { "turnLimit": ..., "patterns": [{ "enemies": ["orc", "orc", "goblin"] }] },
+  "stage_7": { "turnLimit": ..., "patterns": [{ "enemies": ["dragon"] }] }
 }
 ```
+
+## Reducerアクション概要
+
+### GameReducer 主要アクション
+
+| カテゴリ | アクション |
+|---------|-----------|
+| ゲーム制御 | START_GAME, CONTINUE_GAME, RETURN_TITLE, END_BATTLE |
+| ストア | OPEN_STORE, CLOSE_STORE, BUY_WEAPON, BUY_SPELL, BUY_RELIC, BUY_POTION, SELL_WEAPON, SELL_SPELL, SELL_RELIC, REROLL_STORE |
+| 購入取り消し | UNDO_BUY_WEAPON, UNDO_BUY_SPELL, UNDO_BUY_RELIC, UNDO_BUY_POTION |
+| 売却取り消し | UNDO_SELL_WEAPON, UNDO_SELL_SPELL, UNDO_SELL_RELIC |
+| 装備移動 | TRANSFER_WEAPON, TRANSFER_SPELL（メンバー間装備移動） |
+| イベント | OPEN_EVENT, SELECT_REST, SELECT_REPAIR, SELECT_TREASURE |
+| マップ | ADVANCE_FROM_MAP（ステージ選択） |
+
+### BattleReducer 主要アクション
+
+| カテゴリ | アクション |
+|---------|-----------|
+| コマンド設定 | SET_COMMAND_SLOT, REORDER_COMMAND_SLOTS |
+| 実行制御 | START_EXECUTION, ADVANCE_PARTY_ACTION, ADVANCE_ENEMY_ACTION |
+| ターン管理 | ADVANCE_TURN, END_TURN |
+| 表示更新 | CLEAR_DAMAGE_POPUPS, CLEAR_LEVEL_UP_POPUPS |
+
+### BattleStateFactory
+
+`createBattleState` と `generateEnemyIntents` の2つの主要関数を含む。AGI順ソート（`sortActorsByAgi`）は廃止済みで、`commandSlots` 配列順により行動順を管理する。
+
+### BattleActionProcessor
+
+`processExecuteCommand`（コマンド実行処理）、`processEnemyAction`（敵行動処理）、`processTurnEndAction`（ターン終了処理）の3主要処理関数を持つ。
 
 ## 開発フェーズとの対応
 

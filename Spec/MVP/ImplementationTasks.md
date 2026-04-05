@@ -72,7 +72,7 @@
 | 3.2 | マスターデータ | Spells.json, Potions.json | ✅ 完了 |
 | 3.3 | DamageCalculator | ダメージ計算式 | ✅ 完了 |
 | 3.4 | CommandValidator | コマンド使用可否判定 | ✅ 完了 |
-| 3.5 | 行動順計算 | BattleStateFactory.ts 内の sortActorsByAgi 関数として実装 | ✅ 完了 |
+| 3.5 | 行動順管理 | BattleStateFactory.ts 内の createBattleState / generateEnemyIntents として実装。AGI順ソートは廃止。commandSlots 配列順で行動順管理し、REORDER_COMMAND_SLOTS で並べ替え可能 | ✅ 完了 |
 | 3.6 | BattleReducer | 戦闘状態遷移 | ✅ 完了 |
 | 3.7 | useBattle Hook | 戦闘画面用Hook | ✅ 完了 |
 | 3.8 | 戦闘UI | CommandList, TargetSelector, DamagePopup | ✅ 完了 |
@@ -139,6 +139,24 @@
 
 ---
 
+## スライス9: パーティー制実装
+**動作確認**: 3人パーティーでコマンドスロット制のバトルが動作する
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|:----------:|
+| 9.1 | CharacterClass/Position型 | Explorer.ts に追加 | ✅ 完了 |
+| 9.2 | CommandSlot制 | Battle.ts に CommandSlot 型追加、行動順管理 | ✅ 完了 |
+| 9.3 | createInitialParty | 3人パーティー生成関数 | ✅ 完了 |
+| 9.4 | D&Dターゲティング | ドラッグ&ドロップによるターゲット選択UI | ✅ 完了 |
+| 9.5 | 行動順並べ替え | REORDER_COMMAND_SLOTS アクション | ✅ 完了 |
+| 9.6 | メンバー間装備移動 | TRANSFER_WEAPON/SPELL アクション | ✅ 完了 |
+| 9.7 | UNDO系アクション | 購入・売却取り消し | ✅ 完了 |
+| 9.8 | ダメージ寄与者表示 | DamageContributor 型と表示UI | ✅ 完了 |
+| 9.9 | 敵行動予告 | EnemyIntent 型と表示UI | ✅ 完了 |
+| 9.10 | パーティー内EXP分配 | 戦闘終了時の経験値配布 | ✅ 完了 |
+
+---
+
 ## 進捗サマリー
 
 | スライス | 完了タスク | 総タスク | 進捗 |
@@ -151,7 +169,8 @@
 | 6: ストア画面 | 6 | 6 | 100% |
 | 7: イベント画面 | 3 | 3 | 100% |
 | 8: セーブ/仕上げ | 3 | 3 | 100% |
-| **合計** | **40** | **40** | **100%** |
+| 9: パーティー制 | 10 | 10 | 100% |
+| **合計** | **50** | **50** | **100%** |
 
 ---
 
@@ -219,7 +238,7 @@ src/
 │   │   ├── BattleReducer.ts
 │   │   ├── GameReducer.ts
 │   │   ├── BattleActionProcessor.ts
-│   │   ├── BattleStateFactory.ts    # sortActorsByAgi を含む
+│   │   ├── BattleStateFactory.ts    # createBattleState, generateEnemyIntents を含む
 │   │   └── index.ts
 │   ├── Utils/           # ユーティリティ
 │   │   ├── ItemDescription.ts
@@ -233,7 +252,7 @@ src/
 │   │   └── StagePatterns.json
 │   └── Storage/         # 永続化
 │       ├── SaveManager.ts
-│       └── index.ts
+│       └── index.ts              # 追加済み
 ├── Hooks/               # React Hooks
 │   ├── UseGame.tsx
 │   ├── UseBattle.tsx

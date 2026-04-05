@@ -15,6 +15,31 @@ Spec/
 
 ## 更新履歴
 
+### 2026-04-06: パーティー制・敵行動刷新・UI全面更新の反映
+
+3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。
+
+**Core Game チーム** (8ファイル更新):
+- `Overview/BattleOverview.md` — 3人パーティー制（戦士・魔法使い・僧侶）に全面更新、4フェーズ制（command→partyAction→enemyAction→turnEnd）追加、新武器（魔力弾・祈り）・新魔法（精密）追加、ターゲティングシステム（前衛/後衛）追加、敵行動予告（Intent）追加、毒を実質未発動に修正
+- `Overview/EnemyOverview.md` — 全敵の行動パターンを刷新（無行動・弱攻撃・毒を削除）、ステータス値を修正（HP・所持金等）、ターゲット選択を前衛/後衛の重み付き確率に修正
+- `Overview/StoreOverview.md` — 枠数を武器/魔法4・レリック2・ポーション2（計8枠）に修正、ポーションtargetType追記
+- `MVP/BattleSystem.md` — 行動順をAgi順から4フェーズ制に修正、クラス別成長値テーブル追加、精密バフ・被ターゲット率UPバフ追加、経験値配分を「全員+1・止め刺し+1」に修正、俊足のブーツをSTRに修正
+- `MVP/EnemyCharacter.md` — 全敵のHP/ATK/所持金・行動パターンを正確な値に更新
+- `MVP/GameFlow.md` — レベルアップ効果をクラス別成長値＋全回復に修正
+- `MVP/StoreItem.md` — 陳列数を8枠に修正、魔力弾・祈り・精密を追加、レリックレアリティ複数修正
+- `MVP/PlayerStatus.md` — 3クラス制に全面改定、Agi削除、クラス別所持枠・初期装備テーブル追加
+
+**Data & State チーム** (4ファイル更新):
+- `Architecture/SystemDesign.md` — パーティー制の型定義全面更新（CharacterClass/Position/CommandSlot/BattlePhase等）、StoreState分離、SaveManager v2、Reducerアクション概要追加、sortActorsByAgi削除
+- `MVP/MVPScope.md` — 3人パーティー制実装済みに修正、敵AIから毒削除、Post-MVPから複数ユニット項目削除
+- `MVP/DevelopmentRoadmap.md` — 武器10種・魔法7種に修正、パーティー制導入フェーズ追加
+- `MVP/ImplementationTasks.md` — commandSlots管理に修正、パーティー制実装スライス追加
+
+**UI チーム** (3ファイル更新):
+- `MVP/UIUXDesign.md` — D&Dコマンドセット・ActionOrderSlots・KillLineBar・EnemyIntent・被弾率表示・ダメージ寄与者表示・TooltipCard追加、ストア画面D&D全面刷新・Undo機能・ダメージ予測追加、レイアウトを4等分グリッドに修正
+- `Overview/DungeonExploreOverview.md` — 武器修理をキャラクター単位選択方式に修正
+- `Overview/PartyAndUnitOverview.md` — 初期パーティーを3人構成に修正、各クラスのPosition・スロット数・初期装備を記載
+
 ### 2026-03-31: Next/Next+枠の追加反映
 
 - `MVP/UIUXDesign.md` — 「次ステージプレビュー（Next/Next+枠）」セクションを追加。敵エリア右上にNextとNext+の情報表示仕様を記載
