@@ -41,11 +41,21 @@ export function PlayerStatus({ explorer, gold, levelUpPopupCount, onExpFillCompl
             <span>HP</span>
             {(() => {
               const poisonDebuff = explorer.battleDebuffs.find(d => d.type === 'poison')
-              return poisonDebuff ? (
-                <span className="bg-purple-600 text-white text-[10px] px-1 rounded font-bold">
-                  毒{poisonDebuff.stacks}
-                </span>
-              ) : null
+              const weaknessDebuff = explorer.battleDebuffs.find(d => d.type === 'weakness')
+              return (
+                <>
+                  {poisonDebuff && poisonDebuff.type === 'poison' && (
+                    <span className="bg-purple-600 text-white text-[10px] px-1 rounded font-bold">
+                      毒{poisonDebuff.stacks}
+                    </span>
+                  )}
+                  {weaknessDebuff && weaknessDebuff.type === 'weakness' && (
+                    <span className="bg-yellow-700 text-white text-[10px] px-1 rounded font-bold">
+                      弱体{weaknessDebuff.duration}T
+                    </span>
+                  )}
+                </>
+              )
             })()}
           </div>
           <span>{explorer.hp} / {explorer.maxHp}</span>
@@ -97,8 +107,8 @@ export function PlayerStatus({ explorer, gold, levelUpPopupCount, onExpFillCompl
           {explorer.battleBuffs.map((buff) => (
             <BuffIcon key={`buff-${buff.type}-${buff.value}`} buff={buff} />
           ))}
-          {explorer.battleDebuffs.map((debuff) => (
-            <BuffIcon key={`debuff-${debuff.type}-${debuff.stacks}`} debuff={debuff} />
+          {explorer.battleDebuffs.map((debuff, i) => (
+            <BuffIcon key={`debuff-${debuff.type}-${i}`} debuff={debuff} />
           ))}
         </div>
       )}

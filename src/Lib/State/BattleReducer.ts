@@ -18,7 +18,11 @@ export type BattleAction =
   // 敵行動フェーズ
   | { type: 'ENEMY_ACTION'; enemyId: string; targetExplorerId: string; damage: number; explorer: ExplorerState;
       actionName: string; poisonStacks: number; mpDrain: number;
-      applyCharge: boolean; consumeCharge: boolean; hits: number }
+      applyCharge: boolean; consumeCharge: boolean; hits: number;
+      chargeAllAllies?: boolean; summonEnemyId?: string; healSelf?: number;
+      healAlly?: { amount: number }; isAoe?: boolean;
+      applyWeakness?: { value: number; duration: number };
+      applySelfDefense?: { value: number; duration: number } }
   | { type: 'ADVANCE_ENEMY_ACTION' }  // 次の敵の行動へ
   // ターン終了
   | { type: 'PROCESS_TURN_END'; totalPoisonDamage: number; updatedParty: ExplorerState[] }
@@ -257,12 +261,15 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
     case 'ENEMY_ACTION': {
       const actingEnemy = state.enemies.find(e => e.instanceId === action.enemyId)
       const enemyName = actingEnemy?.name ?? '敵'
-      const isIdle = action.damage === 0 && !action.applyCharge && action.poisonStacks === 0 && action.mpDrain === 0
-      const battleMessage = isIdle
-        ? `${enemyName}は${action.actionName}`
-        : `${enemyName}の${action.actionName}`
+      const hasEffect = action.damage > 0 || action.applyCharge || action.poisonStacks > 0 ||
+        action.mpDrain > 0 || action.chargeAllAllies || action.applySelfDefense ||
+        action.applyWeakness || action.summonEnemyId || action.healSelf || action.healAlly
+      const battleMessage = hasEffect
+        ? `${enemyName}の${action.actionName}`
+        : `${enemyName}は${action.actionName}`
 
-      const newPlayerPopups = action.damage > 0
+      // isAoe時のポップアップはBattleActionProcessor側で処理するため、ここではスキップ
+      const newPlayerPopups = (action.damage > 0 && !action.isAoe)
         ? [...state.playerDamagePopups, createPlayerDamagePopup(action.damage, action.targetExplorerId)]
         : state.playerDamagePopups
 

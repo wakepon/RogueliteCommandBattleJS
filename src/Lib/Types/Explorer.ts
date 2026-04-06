@@ -21,10 +21,9 @@ export interface Buff {
 }
 
 // バトル中のデバフ
-export interface Debuff {
-  type: 'poison'
-  stacks: number
-}
+export type Debuff =
+  | { type: 'poison'; stacks: number }
+  | { type: 'weakness'; value: number; duration: number }
 
 // Explorer（プレイヤーキャラクター）の状態
 export interface ExplorerState {

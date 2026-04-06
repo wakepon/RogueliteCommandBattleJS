@@ -1,7 +1,7 @@
 import { EnemyInstance } from '../Types/Enemy'
 import { ExplorerState } from '../Types/Explorer'
 import { BattleResult } from '../Types/Battle'
-import { getChargeMultiplier, processPoisonDamage, decrementBuffDurations } from './BuffProcessor'
+import { getChargeMultiplier, processPoisonDamage, decrementBuffDurations, decrementWeaknessDuration } from './BuffProcessor'
 
 /**
  * 敵の攻撃ダメージを計算
@@ -54,7 +54,10 @@ export function processTurnEnd(
   explorer: ExplorerState
 ): { updatedExplorer: ExplorerState; poisonDamage: number } {
   // 毒ダメージ処理
-  const { damage: poisonDamage, updatedDebuffs } = processPoisonDamage(explorer.battleDebuffs)
+  const { damage: poisonDamage, updatedDebuffs: debuffsAfterPoison } = processPoisonDamage(explorer.battleDebuffs)
+
+  // weaknessデバフのターン減少処理
+  const updatedDebuffs = decrementWeaknessDuration(debuffsAfterPoison)
 
   // バフのターン減少処理
   const updatedBuffs = decrementBuffDurations(explorer.battleBuffs)

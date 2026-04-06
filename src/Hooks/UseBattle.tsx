@@ -147,6 +147,13 @@ export function useBattle(): UseBattleResult | null {
       applyCharge: actionResult.applyCharge,
       consumeCharge: actionResult.consumeCharge,
       hits: actionResult.hits,
+      chargeAllAllies: actionResult.chargeAllAllies,
+      summonEnemyId: actionResult.summonEnemyId,
+      healSelf: actionResult.healSelf,
+      healAlly: actionResult.healAlly,
+      isAoe: actionResult.isAoe,
+      applyWeakness: actionResult.applyWeakness,
+      applySelfDefense: actionResult.applySelfDefense,
     })
   }, [battleState, run, dispatchBattle])
 

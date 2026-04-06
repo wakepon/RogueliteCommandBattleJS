@@ -92,6 +92,27 @@ export function consumeNextActionBuffs(buffs: Buff[]): Buff[] {
 }
 
 /**
+ * weaknessデバフの持続ターンを減少させ、0以下で削除する
+ * @param debuffs - 現在のデバフ配列
+ * @returns 更新後のデバフ配列
+ */
+export function decrementWeaknessDuration(debuffs: Debuff[]): Debuff[] {
+  return debuffs
+    .map(d => {
+      if (d.type === 'weakness') {
+        return { ...d, duration: d.duration - 1 }
+      }
+      return d
+    })
+    .filter(d => {
+      if (d.type === 'weakness' && d.duration <= 0) {
+        return false
+      }
+      return true
+    })
+}
+
+/**
  * ターン終了時のバフ持続ターン減少処理
  * - duration が number の場合は -1
  * - 0以下になったら削除

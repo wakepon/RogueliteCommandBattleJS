@@ -141,8 +141,8 @@ export function EnemyDisplay({
           {enemy.battleBuffs.map((buff) => (
             <BuffIcon key={`buff-${buff.type}-${buff.value}`} buff={buff} />
           ))}
-          {enemy.battleDebuffs.map((debuff) => (
-            <BuffIcon key={`debuff-${debuff.type}-${debuff.stacks}`} debuff={debuff} />
+          {enemy.battleDebuffs.map((debuff, i) => (
+            <BuffIcon key={`debuff-${debuff.type}-${i}`} debuff={debuff} />
           ))}
         </div>
       )}

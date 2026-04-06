@@ -22,8 +22,8 @@ function generateInstanceId(): string {
   return `enemy-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 }
 
-// 敵インスタンスを生成
-function createEnemyInstance(enemyId: string): EnemyInstance {
+// 敵インスタンスを生成（仲間呼びでも使用するため export）
+export function createEnemyInstance(enemyId: string): EnemyInstance {
   const data = enemiesData[enemyId]
   if (!data) {
     throw new Error(`Unknown enemy id: ${enemyId}`)

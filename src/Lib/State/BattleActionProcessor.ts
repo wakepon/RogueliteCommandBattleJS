@@ -6,6 +6,16 @@ import { BattleCommand, BattleState } from '../Types/Battle'
 import { SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
 import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
+import {
+  applyDefenseReduction,
+  applyChargeToEnemy,
+  consumeChargeFromEnemy,
+  applyChargeToAllAllies,
+  applySelfDefenseBuff,
+  applyHealSelf,
+  applyHealAlly,
+  applySummonEnemy,
+} from './EnemyEffectProcessor'
 import { isSpell, isWeapon, isWeaponInstance, isPotion } from '../Core/CommandValidator'
 import { calculateWeaponDamage, calculateSpellDamage } from '../Core/DamageCalculator'
 import { consumeNextActionBuffs } from '../Core/BuffProcessor'
@@ -206,6 +216,15 @@ function executeAttackCommand(
     return state
   }
 
+  // 敵のdefenseバフによるダメージ軽減
+  const reducedDamage = applyDefenseReduction(calculatedDamage, targetEnemy.battleBuffs)
+  if (reducedDamage !== calculatedDamage) {
+    const defenseBuff = targetEnemy.battleBuffs.find(b => b.type === 'defense')!
+    const reduction = defenseBuff.value / 100
+    contributors.push({ name: 'ガード', label: `×${(1.0 - reduction).toFixed(1)}` })
+    calculatedDamage = reducedDamage
+  }
+
   // BattleReducerに事前計算済みダメージを渡す
   let newBattleState = battleReducer(state.battleState, {
     ...battleAction,
@@ -312,7 +331,9 @@ function executeSpellAllAttack(
       relics,
     })
     if (i === 0) allContributors = result.contributors
-    return { targetId: enemy.instanceId, damage: result.damage }
+    // defenseバフによる軽減
+    const finalDamage = applyDefenseReduction(result.damage, enemy.battleBuffs)
+    return { targetId: enemy.instanceId, damage: finalDamage }
   })
 
   // BattleReducerに全体ダメージを渡す
@@ -397,7 +418,9 @@ function executeEnemyAllAttack(
       killStreakActive: state.battleState!.relicState.killStreakActive,
     })
     if (i === 0) allContributors = result.contributors
-    return { targetId: enemy.instanceId, damage: result.damage }
+    // defenseバフによる軽減
+    const finalDamage = applyDefenseReduction(result.damage, enemy.battleBuffs)
+    return { targetId: enemy.instanceId, damage: finalDamage }
   })
 
   // BattleReducerに全体ダメージを渡す
@@ -637,92 +660,167 @@ export function processEnemyAction(
   if (!state.battleState || !state.run) return state
 
   const relics = state.run.relics
-  let actualDamage = battleAction.damage
+  const hits = battleAction.hits ?? 1
+  let perHitDamage = battleAction.damage
 
-  // 壊れかけの鎧: shieldActive時にダメージ0化
+  // 壊れかけの鎧: shieldActive時に1hit目のみダメージ0化
   let newBattleState = state.battleState
-  if (state.battleState.relicState.shieldActive && actualDamage > 0) {
-    actualDamage = 0
+  let shieldAbsorbed = false
+  if (state.battleState.relicState.shieldActive && perHitDamage > 0) {
+    shieldAbsorbed = true
     newBattleState = battleReducer(state.battleState, {
       type: 'UPDATE_RELIC_STATE',
       relicState: { shieldActive: false },
     })
   }
 
+  // 合計ダメージ: シールドは1hit目のみ防ぐ
+  const actualDamage = shieldAbsorbed
+    ? perHitDamage * (hits - 1)
+    : perHitDamage * hits
+
+  // 敵エフェクトの適用（EnemyEffectProcessorのピュア関数で状態変換し、UPDATE_ENEMIESで反映）
+  let effectState = newBattleState
+
   // 力溜め付与: 敵にchargeバフを追加
   if (battleAction.applyCharge) {
-    const updatedEnemies = newBattleState.enemies.map(enemy => {
-      if (enemy.instanceId === battleAction.enemyId) {
-        const newBuff = { type: 'charge' as const, value: 2.0, duration: 'nextAction' as const }
-        return { ...enemy, battleBuffs: [...enemy.battleBuffs, newBuff] }
-      }
-      return enemy
-    })
-    newBattleState = battleReducer(newBattleState, {
-      type: 'UPDATE_ENEMIES',
-      enemies: updatedEnemies,
-    })
+    effectState = applyChargeToEnemy(effectState, battleAction.enemyId)
   }
 
   // 力溜め消費: 敵のchargeバフを除去
   if (battleAction.consumeCharge) {
-    const updatedEnemies = newBattleState.enemies.map(enemy => {
-      if (enemy.instanceId === battleAction.enemyId) {
-        return {
-          ...enemy,
-          battleBuffs: enemy.battleBuffs.filter(b => !(b.type === 'charge' && b.duration === 'nextAction')),
-        }
-      }
-      return enemy
-    })
+    effectState = consumeChargeFromEnemy(effectState, battleAction.enemyId)
+  }
+
+  // chargeAllAllies: 行動敵以外の全生存敵にchargeバフ付与
+  if (battleAction.chargeAllAllies) {
+    effectState = applyChargeToAllAllies(effectState, battleAction.enemyId)
+  }
+
+  // applySelfDefense: 行動敵に防御バフ付与（既存バフ上書き）
+  if (battleAction.applySelfDefense) {
+    const { value, duration } = battleAction.applySelfDefense
+    effectState = applySelfDefenseBuff(effectState, battleAction.enemyId, value, duration)
+  }
+
+  // healSelf: 行動敵の自己回復
+  if (battleAction.healSelf && battleAction.healSelf > 0) {
+    effectState = applyHealSelf(effectState, battleAction.enemyId, battleAction.healSelf)
+  }
+
+  // healAlly: 最もHP割合が低い生存敵（自身含む）を回復
+  if (battleAction.healAlly) {
+    effectState = applyHealAlly(effectState, battleAction.healAlly.amount)
+  }
+
+  // summonEnemyId: 戦闘中に敵を追加
+  if (battleAction.summonEnemyId) {
+    effectState = applySummonEnemy(effectState, battleAction.enemyId, battleAction.summonEnemyId)
+  }
+
+  // エフェクト適用結果をbattleReducer経由で反映
+  if (effectState.enemies !== newBattleState.enemies) {
     newBattleState = battleReducer(newBattleState, {
       type: 'UPDATE_ENEMIES',
-      enemies: updatedEnemies,
+      enemies: effectState.enemies,
     })
   }
 
-  newBattleState = battleReducer(newBattleState, {
-    ...battleAction,
-    damage: actualDamage,
-  })
+  // ダメージ処理: isAoeの場合は全生存メンバーにダメージ
+  let newRun = state.run
+  if (battleAction.isAoe && actualDamage > 0) {
+    // 全体攻撃: BattleReducerにポップアップ用のダメージを通知
+    newBattleState = battleReducer(newBattleState, {
+      ...battleAction,
+      damage: actualDamage,
+    })
 
-  let updatedExplorer = {
-    ...battleAction.explorer,
-    hp: Math.max(0, battleAction.explorer.hp - actualDamage),
-  }
-
-  // 毒付与: プレイヤーのbattleDebuffsにpoisonを加算
-  if (battleAction.poisonStacks > 0) {
-    const existingPoison = updatedExplorer.battleDebuffs.find(d => d.type === 'poison')
-    if (existingPoison) {
-      updatedExplorer = {
-        ...updatedExplorer,
-        battleDebuffs: updatedExplorer.battleDebuffs.map(d =>
-          d.type === 'poison'
-            ? { ...d, stacks: d.stacks + battleAction.poisonStacks }
-            : d
-        ),
+    // 全生存パーティーメンバーにダメージ適用
+    const aliveMembers = newRun.party.filter(m => m.hp > 0)
+    for (const member of aliveMembers) {
+      const updatedMember = {
+        ...member,
+        hp: Math.max(0, member.hp - actualDamage),
       }
-    } else {
-      updatedExplorer = {
-        ...updatedExplorer,
-        battleDebuffs: [
-          ...updatedExplorer.battleDebuffs,
-          { type: 'poison' as const, stacks: battleAction.poisonStacks },
-        ],
+      newRun = updatePartyMember(newRun, updatedMember)
+    }
+
+    // 全メンバー分のポップアップを追加
+    const aoePopups = aliveMembers.map(m => createPlayerDamagePopup(actualDamage, m.id))
+    newBattleState = {
+      ...newBattleState,
+      playerDamagePopups: [...newBattleState.playerDamagePopups, ...aoePopups],
+    }
+  } else {
+    // 単体攻撃
+    newBattleState = battleReducer(newBattleState, {
+      ...battleAction,
+      damage: actualDamage,
+    })
+
+    let updatedExplorer = {
+      ...battleAction.explorer,
+      hp: Math.max(0, battleAction.explorer.hp - actualDamage),
+    }
+
+    // 毒付与: プレイヤーのbattleDebuffsにpoisonを加算
+    if (battleAction.poisonStacks > 0) {
+      const existingPoison = updatedExplorer.battleDebuffs.find(d => d.type === 'poison')
+      if (existingPoison && existingPoison.type === 'poison') {
+        updatedExplorer = {
+          ...updatedExplorer,
+          battleDebuffs: updatedExplorer.battleDebuffs.map(d =>
+            d.type === 'poison'
+              ? { ...d, stacks: d.stacks + battleAction.poisonStacks }
+              : d
+          ),
+        }
+      } else {
+        updatedExplorer = {
+          ...updatedExplorer,
+          battleDebuffs: [
+            ...updatedExplorer.battleDebuffs,
+            { type: 'poison' as const, stacks: battleAction.poisonStacks },
+          ],
+        }
       }
     }
-  }
 
-  // MPドレイン: プレイヤーのmpを減少（最低0）
-  if (battleAction.mpDrain > 0) {
-    updatedExplorer = {
-      ...updatedExplorer,
-      mp: Math.max(0, updatedExplorer.mp - battleAction.mpDrain),
+    // MPドレイン: プレイヤーのmpを減少（最低0）
+    if (battleAction.mpDrain > 0) {
+      updatedExplorer = {
+        ...updatedExplorer,
+        mp: Math.max(0, updatedExplorer.mp - battleAction.mpDrain),
+      }
     }
-  }
 
-  let newRun = updatePartyMember(state.run, updatedExplorer)
+    // applyWeakness: プレイヤーに弱体デバフ付与
+    if (battleAction.applyWeakness) {
+      const { value, duration } = battleAction.applyWeakness
+      const existingWeakness = updatedExplorer.battleDebuffs.find(d => d.type === 'weakness')
+      if (existingWeakness) {
+        // 既存の弱体を上書き（duration更新）
+        updatedExplorer = {
+          ...updatedExplorer,
+          battleDebuffs: updatedExplorer.battleDebuffs.map(d =>
+            d.type === 'weakness'
+              ? { ...d, value, duration }
+              : d
+          ),
+        }
+      } else {
+        updatedExplorer = {
+          ...updatedExplorer,
+          battleDebuffs: [
+            ...updatedExplorer.battleDebuffs,
+            { type: 'weakness' as const, value, duration },
+          ],
+        }
+      }
+    }
+
+    newRun = updatePartyMember(newRun, updatedExplorer)
+  }
 
   // 反撃の棘: 被攻撃時に敵にダメージ（ダメージが発生した場合のみ）
   const thornsDmg = getThornsDamage(relics)
@@ -758,7 +856,28 @@ export function processTurnEndAction(
 ): GameState {
   if (!state.battleState || !state.run) return state
 
-  const newBattleState = battleReducer(state.battleState, battleAction)
+  let newBattleState = battleReducer(state.battleState, battleAction)
+
+  // 敵のバフ持続ターン減少（defenseバフ等）
+  const updatedEnemies = newBattleState.enemies.map(enemy => {
+    if (enemy.currentHp <= 0) return enemy
+    const updatedBuffs = enemy.battleBuffs
+      .map(b => {
+        if (typeof b.duration === 'number') {
+          return { ...b, duration: b.duration - 1 }
+        }
+        return b
+      })
+      .filter(b => {
+        if (typeof b.duration === 'number' && b.duration <= 0) return false
+        return true
+      })
+    return { ...enemy, battleBuffs: updatedBuffs }
+  })
+  newBattleState = battleReducer(newBattleState, {
+    type: 'UPDATE_ENEMIES',
+    enemies: updatedEnemies,
+  })
 
   return {
     ...state,

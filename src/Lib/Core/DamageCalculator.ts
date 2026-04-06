@@ -132,6 +132,13 @@ export function calculateWeaponDamage(
     }
   }
 
+  // 弱体デバフによるダメージ低下
+  const weaknessDebuff = attacker.battleDebuffs.find(d => d.type === 'weakness')
+  if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
+    rawDamage *= (1.0 - weaknessDebuff.value)
+    contributors.push({ name: '弱体', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
+  }
+
   // 基本ダメージを切り捨て後にブレを加算
   const damage = Math.floor(rawDamage) + offset
 
@@ -198,6 +205,13 @@ export function calculateSpellDamage(
   if (lowMpMult > 1.0) {
     const relic = relics.find(r => r.passiveEffect.type === 'lowMpDamageBonus')
     if (relic) contributors.push({ name: relic.name, label: `×${lowMpMult}` })
+  }
+
+  // 弱体デバフによるダメージ低下
+  const spellWeakness = attacker.battleDebuffs.find(d => d.type === 'weakness')
+  if (spellWeakness && spellWeakness.type === 'weakness') {
+    rawDamage *= (1.0 - spellWeakness.value)
+    contributors.push({ name: '弱体', label: `×${(1.0 - spellWeakness.value).toFixed(2)}` })
   }
 
   // 基本ダメージを切り捨て後にブレを加算

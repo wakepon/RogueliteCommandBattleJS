@@ -21,4 +21,5 @@ export interface EnemyInstance extends EnemyData {
   currentHp: number
   battleBuffs: Buff[]
   battleDebuffs: Debuff[]
+  hasSummoned?: boolean  // 仲間呼び1回制限用
 }
