@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, DragOverlay, pointerWithin, closestCenter, CollisionDetection } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
-import { BattleCommand } from '../../Lib/Types/Battle'
+import { BattleCommand, CommandSlot } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { Button } from '../Common/Button'
@@ -16,9 +18,25 @@ import { DamagePopup } from './DamagePopup'
 import { LevelUpModal } from './LevelUpModal'
 import { DraggableCommand } from './DraggableCommand'
 import { DroppableTarget } from './DroppableTarget'
-import { ActionOrderSlots } from './ActionOrderSlots'
 import { TooltipCard } from '../Common/TooltipCard'
 import { NextStagePreview } from './NextStagePreview'
+
+/** ターゲット名を解決 */
+function resolveTargetName(
+  targetId: string | null,
+  party: ExplorerState[],
+  enemies: { instanceId: string; name: string }[]
+): string {
+  if (!targetId) return ''
+  const enemy = enemies.find(e => e.instanceId === targetId)
+  if (enemy) return enemy.name
+  const member = party.find(m => m.id === targetId)
+  if (member) return member.name
+  return ''
+}
+
+/** 行動順番号 */
+const ORDER_BADGES = ['①', '②', '③', '④', '⑤']
 
 const ACTION_DELAY_MS = 500
 const ENEMY_TURN_DELAY_MS = 600
@@ -37,6 +55,12 @@ function CharacterPanel({
   draggingAllyTarget,
   draggingEnemyTarget,
   onAllyClick,
+  commandSlot,
+  allEnemies,
+  allParty,
+  draggingPanel,
+  orderIndex,
+  dragHandleProps,
 }: {
   member: ExplorerState
   isCommandPhase: boolean
@@ -48,6 +72,12 @@ function CharacterPanel({
   draggingAllyTarget: boolean
   draggingEnemyTarget: boolean
   onAllyClick: () => void
+  commandSlot: CommandSlot | null
+  allEnemies: { instanceId: string; name: string }[]
+  allParty: ExplorerState[]
+  draggingPanel: boolean
+  orderIndex: number
+  dragHandleProps?: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }
 }) {
   const isDead = member.hp <= 0
   const positionLabel = member.position === 'front' ? '前衛' : '後衛'
@@ -59,42 +89,62 @@ function CharacterPanel({
   const expProgress = requiredKills > 0 ? member.exp : 0
 
   return (
-    <DroppableTarget id={`ally-${member.id}`} disabled={!isCommandPhase || draggingEnemyTarget}>
+    <DroppableTarget id={`ally-${member.id}`} disabled={!isCommandPhase || draggingEnemyTarget || draggingPanel}>
       <div
         className={`relative h-full flex flex-col rounded p-1.5 ${isDead ? 'opacity-40 bg-gray-800' : 'bg-gray-800/50'}`}
         onClick={onAllyClick}
       >
-        {/* ヘッダー: 名前 + レベル */}
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-white font-bold text-xs">{member.name}</span>
-          <span className="text-yellow-400 text-[10px]">Lv.{member.level}</span>
-        </div>
-
-        {/* HP バー */}
-        <div className="mb-0.5">
-          <div className="flex justify-between text-[9px] text-gray-400">
-            <span className="text-red-400">HP</span>
-            <span>{member.hp}/{member.maxHp}</span>
+        {/* ドラッグ領域: 名前〜EXPバー */}
+        <div
+          {...(dragHandleProps?.listeners ?? {})}
+          {...(dragHandleProps?.attributes ?? {})}
+          className={`select-none ${isCommandPhase && !isDead ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        >
+          {/* ヘッダー: 行動順番号 + 名前 + レベル */}
+          <div className="flex justify-between items-center mb-1">
+            <div className="flex items-center gap-1">
+              <span className="text-yellow-400 font-bold text-[10px]">{ORDER_BADGES[orderIndex] ?? `${orderIndex + 1}`}</span>
+              <span className="text-white font-bold text-xs">{member.name}</span>
+            </div>
+            <span className="text-yellow-400 text-[10px]">Lv.{member.level}</span>
           </div>
-          <ResourceBar current={member.hp} max={member.maxHp} color="red" showText={false} size="sm" />
-        </div>
 
-        {/* MP バー */}
-        <div className="mb-0.5">
-          <div className="flex justify-between text-[9px] text-gray-400">
-            <span className="text-blue-400">MP</span>
-            <span>{member.mp}/{member.maxMp}</span>
-          </div>
-          <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" />
-        </div>
+          {/* 選択済みコマンド表示 */}
+          {commandSlot?.command && (
+            <div className="text-[10px] mb-0.5 truncate">
+              <span className="text-green-300">→{commandSlot.command.name}</span>
+              {commandSlot.targetId && (
+                <span className="text-gray-400 ml-1">→{resolveTargetName(commandSlot.targetId, allParty, allEnemies)}</span>
+              )}
+            </div>
+          )}
 
-        {/* EXP バー */}
-        <div className="mb-1">
-          <div className="flex justify-between text-[9px] text-gray-400">
-            <span className="text-yellow-400">EXP</span>
-            <span>{expProgress}/{requiredKills}</span>
+          {/* HP バー */}
+          <div className="mb-0.5">
+            <div className="flex justify-between text-[9px] text-gray-400">
+              <span className="text-red-400">HP</span>
+              <span>{member.hp}/{member.maxHp}</span>
+            </div>
+            <ResourceBar current={member.hp} max={member.maxHp} color="red" showText={false} size="sm" />
           </div>
-          <ResourceBar current={expProgress} max={requiredKills} color="yellow" showText={false} size="sm" />
+
+          {/* MP バー */}
+          <div className="mb-0.5">
+            <div className="flex justify-between text-[9px] text-gray-400">
+              <span className="text-blue-400">MP</span>
+              <span>{member.mp}/{member.maxMp}</span>
+            </div>
+            <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" />
+          </div>
+
+          {/* EXP バー */}
+          <div className="mb-1">
+            <div className="flex justify-between text-[9px] text-gray-400">
+              <span className="text-yellow-400">EXP</span>
+              <span>{expProgress}/{requiredKills}</span>
+            </div>
+            <ResourceBar current={expProgress} max={requiredKills} color="yellow" showText={false} size="sm" />
+          </div>
         </div>
 
         {/* 前衛/後衛 + 被弾率 */}
@@ -202,6 +252,43 @@ function SharedPanel({
   )
 }
 
+/** ソート可能なキャラパネルラッパー */
+function SortableCharacterPanel({
+  member,
+  isCommandPhase,
+  isDead,
+  children,
+}: {
+  member: ExplorerState
+  orderIndex: number
+  isCommandPhase: boolean
+  isDead: boolean
+  children: (dragHandleProps: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }) => React.ReactNode
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `panel-${member.id}`,
+    disabled: !isCommandPhase || isDead,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className={`${isDragging ? 'opacity-50 z-10' : ''}`}>
+      {children({ listeners: listeners ?? {}, attributes })}
+    </div>
+  )
+}
+
 export function BattleScreen() {
   const { state, returnToTitle, endBattle } = useGame()
   const battle = useBattle()
@@ -230,7 +317,7 @@ export function BattleScreen() {
     cancelCommand,
     selectTarget,
     changeActiveExplorer,
-    reorderCommandSlots,
+    reorderParty,
     setCommandSlotDirect,
     startExecution,
     executePartyAction,
@@ -260,6 +347,7 @@ export function BattleScreen() {
   const [expAnimating] = useState(false)
   const [draggingCommand, setDraggingCommand] = useState<BattleCommand | null>(null)
   const [draggingExplorerId, setDraggingExplorerId] = useState<string | null>(null)
+  const [draggingPanel, setDraggingPanel] = useState(false)
   const [hoverEnemyId, setHoverEnemyId] = useState<string | null>(null)
 
   // === フェーズ自動処理 ===
@@ -333,6 +421,15 @@ export function BattleScreen() {
 
   // === D&D ハンドラ ===
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    const activeId = event.active.id as string
+
+    // パネル並び替え
+    if (activeId.startsWith('panel-')) {
+      setDraggingPanel(true)
+      return
+    }
+
+    // コマンドD&D
     const data = event.active.data.current
     if (!data) return
 
@@ -341,7 +438,6 @@ export function BattleScreen() {
       setDraggingCommand(command)
       setDraggingExplorerId(explorerId)
       setHoverEnemyId(null)
-      // selectCommandはドロップ確定時のみ呼ぶ（ここで呼ぶとTargetSelectorが自動選択してしまう）
       const slotIndex = commandSlots.findIndex(s => s.explorerId === explorerId)
       if (slotIndex >= 0) changeActiveExplorer(slotIndex)
     }
@@ -359,6 +455,7 @@ export function BattleScreen() {
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     setDraggingCommand(null)
     setDraggingExplorerId(null)
+    setDraggingPanel(false)
     setHoverEnemyId(null)
 
     if (!event.over || !isCommandPhase) {
@@ -369,14 +466,21 @@ export function BattleScreen() {
     const activeId = event.active.id as string
     const overId = event.over.id as string
 
-    // 行動順ソートの判定
-    if (activeId.startsWith('order-') && overId.startsWith('order-')) {
-      const fromExplorerId = activeId.replace('order-', '')
-      const toExplorerId = overId.replace('order-', '')
-      const fromIndex = commandSlots.findIndex(s => s.explorerId === fromExplorerId)
-      const toIndex = commandSlots.findIndex(s => s.explorerId === toExplorerId)
-      if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
-        reorderCommandSlots(fromIndex, toIndex)
+    // パネル並び替え（ally- ドロップゾーンが内側にあるため両方のプレフィックスを認識）
+    if (activeId.startsWith('panel-')) {
+      let targetMemberId: string | null = null
+      if (overId.startsWith('panel-')) {
+        targetMemberId = overId.replace('panel-', '')
+      } else if (overId.startsWith('ally-')) {
+        targetMemberId = overId.replace('ally-', '')
+      }
+      if (targetMemberId) {
+        const fromExplorerId = activeId.replace('panel-', '')
+        const fromIndex = party.findIndex(m => m.id === fromExplorerId)
+        const toIndex = party.findIndex(m => m.id === targetMemberId)
+        if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
+          reorderParty(fromIndex, toIndex)
+        }
       }
       return
     }
@@ -387,7 +491,6 @@ export function BattleScreen() {
 
     const { command, explorerId } = data as { command: BattleCommand; explorerId: string }
 
-    // targetTypeとドロップ先の整合性を検証
     const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll'
     const isAllyTargetCmd = command.targetType === 'allySingle'
 
@@ -399,29 +502,41 @@ export function BattleScreen() {
     }
 
     if (targetId) {
-      // 単一アクションでスロットに直接セット（複数dispatch間のステート不整合を回避）
       setCommandSlotDirect(explorerId, command, targetId)
     }
-  }, [isCommandPhase, commandSlots, setCommandSlotDirect, reorderCommandSlots])
+  }, [isCommandPhase, party, setCommandSlotDirect, reorderParty, cancelCommand])
 
-  // コマンドD&DではpointerWithin（ポインタが実際に上にあるときのみ）、
-  // 行動順ソートではclosestCenter（近い要素を検出）を使い分ける
+  // コマンドD&DではpointerWithin、パネルソートではpanel-/ally-のみ対象のclosestCenter
   const customCollisionDetection: CollisionDetection = useCallback((args) => {
     if (draggingCommand) {
       return pointerWithin(args)
     }
+    if (draggingPanel) {
+      // パネルドラッグ中は panel- と ally- のみを衝突対象にする
+      const filtered = {
+        ...args,
+        droppableContainers: args.droppableContainers.filter(c => {
+          const id = String(c.id)
+          return id.startsWith('panel-') || id.startsWith('ally-')
+        }),
+      }
+      return closestCenter(filtered)
+    }
     return closestCenter(args)
-  }, [draggingCommand])
+  }, [draggingCommand, draggingPanel])
 
   const handleDragCancel = useCallback(() => {
+    if (draggingCommand) {
+      cancelCommand()
+    }
     setDraggingCommand(null)
     setDraggingExplorerId(null)
+    setDraggingPanel(false)
     setHoverEnemyId(null)
-    cancelCommand()
-  }, [cancelCommand])
+  }, [cancelCommand, draggingCommand])
 
-  // 行動順ソート用のID配列
-  const orderIds = commandSlots.map(s => `order-${s.explorerId}`)
+  // パネルソート用のID配列
+  const panelIds = party.map(m => `panel-${m.id}`)
 
   return (
     <DndContext onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={customCollisionDetection}>
@@ -486,7 +601,7 @@ export function BattleScreen() {
                 : null
 
               return (
-                <DroppableTarget key={enemy.instanceId} id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle'}>
+                <DroppableTarget key={enemy.instanceId} id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingPanel}>
                   <EnemyDisplay enemy={enemy} isCurrentActor={false}
                     isTargetSelected={isSelected} isTargetHighlighted={isHighlighted}
                     isDragTarget={isDraggingAttack}
@@ -505,40 +620,51 @@ export function BattleScreen() {
           })}
         </div>
 
-        {/* ===== 行動順スロット（D&Dソート可能 + コマンド内容表示） ===== */}
-        <div className="bg-gray-900 border border-gray-600 px-2 py-1.5 rounded-lg">
-          <SortableContext items={orderIds} strategy={horizontalListSortingStrategy}>
-            <ActionOrderSlots commandSlots={commandSlots} party={party} enemies={enemies} isCommandPhase={isCommandPhase} />
-          </SortableContext>
-        </div>
-
-        {/* ===== キャラ欄4等分（3キャラ + 共有枠） ===== */}
+        {/* ===== キャラ欄4等分（3キャラ + 共有枠）D&Dソート可能 ===== */}
         <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
-          {party.map((member) => {
-            const memberAvailCmds = getAvailableCommands(member, gold, potions)
-            const rate = targetRates.find(r => r.explorerId === member.id)?.rate
-            const prevRate = previewTargetRates.find(r => r.explorerId === member.id)?.rate
-            return (
-              <CharacterPanel
-                key={member.id}
-                member={member}
-                isCommandPhase={isCommandPhase}
-                availableCommands={memberAvailCmds}
-                targetRate={rate}
-                previewRate={prevRate}
-                isSelectingTarget={isSelectingTarget}
-                selectedTargetId={selectedTargetId}
-                draggingAllyTarget={draggingCommand?.targetType === 'allySingle'}
-                draggingEnemyTarget={draggingCommand !== null && (draggingCommand.targetType === 'enemySingle' || draggingCommand.targetType === 'enemyAll')}
-                onAllyClick={() => {
-                  if (isSelectingTarget && selectedCommand?.targetType === 'allySingle') {
-                    selectTarget(member.id)
-                    setTimeout(() => executeCommand(), 0)
-                  }
-                }}
-              />
-            )
-          })}
+          <SortableContext items={panelIds} strategy={horizontalListSortingStrategy}>
+            {party.map((member, index) => {
+              const memberAvailCmds = getAvailableCommands(member, gold, potions)
+              const rate = targetRates.find(r => r.explorerId === member.id)?.rate
+              const prevRate = previewTargetRates.find(r => r.explorerId === member.id)?.rate
+              const slot = commandSlots.find(s => s.explorerId === member.id) ?? null
+              return (
+                <SortableCharacterPanel
+                  key={member.id}
+                  member={member}
+                  orderIndex={index}
+                  isCommandPhase={isCommandPhase}
+                  isDead={member.hp <= 0}
+                >
+                  {(dragHandleProps) => (
+                    <CharacterPanel
+                      member={member}
+                      isCommandPhase={isCommandPhase}
+                      availableCommands={memberAvailCmds}
+                      targetRate={rate}
+                      previewRate={prevRate}
+                      isSelectingTarget={isSelectingTarget}
+                      selectedTargetId={selectedTargetId}
+                      draggingAllyTarget={draggingCommand?.targetType === 'allySingle'}
+                      draggingEnemyTarget={draggingCommand !== null && (draggingCommand.targetType === 'enemySingle' || draggingCommand.targetType === 'enemyAll')}
+                      onAllyClick={() => {
+                        if (isSelectingTarget && selectedCommand?.targetType === 'allySingle') {
+                          selectTarget(member.id)
+                          setTimeout(() => executeCommand(), 0)
+                        }
+                      }}
+                      commandSlot={slot}
+                      allEnemies={enemies}
+                      allParty={party}
+                      draggingPanel={draggingPanel}
+                      orderIndex={index}
+                      dragHandleProps={dragHandleProps}
+                    />
+                  )}
+                </SortableCharacterPanel>
+              )
+            })}
+          </SortableContext>
           <SharedPanel potions={uniquePotions} relics={run.relics} isCommandPhase={isCommandPhase} gold={gold} />
         </div>
 
@@ -568,6 +694,11 @@ export function BattleScreen() {
           {draggingCommand && (
             <div className="bg-gray-800 border border-yellow-400 rounded px-3 py-1 text-sm text-white shadow-lg">
               {draggingCommand.name}
+            </div>
+          )}
+          {draggingPanel && (
+            <div className="bg-gray-700 border border-yellow-400 rounded px-4 py-2 text-xs text-white shadow-lg">
+              ≡ 移動中
             </div>
           )}
         </DragOverlay>

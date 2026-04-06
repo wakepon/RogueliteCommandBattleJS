@@ -69,6 +69,7 @@ export type GameAction =
   | { type: 'CONFIRM_REPAIR' }
   | { type: 'CLOSE_EVENT' }
   | { type: 'ADVANCE_FROM_MAP' }
+  | { type: 'REORDER_PARTY'; fromIndex: number; toIndex: number }
 
 /** 次のステージへ進みマップ画面に遷移する共通ヘルパー */
 function advanceToMapPhase(state: GameState, run: RunState): GameState {
@@ -713,6 +714,41 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'CLOSE_EVENT': {
       if (!state.run) return state
       return advanceToMapPhase(state, state.run)
+    }
+
+    case 'REORDER_PARTY': {
+      if (!state.run) return state
+      const { fromIndex, toIndex } = action
+      const newParty = [...state.run.party]
+      const [moved] = newParty.splice(fromIndex, 1)
+      newParty.splice(toIndex, 0, moved)
+
+      // battleState がある場合、commandSlots も同じ順に並び替え
+      const newBattleState = state.battleState
+        ? (() => {
+            const newSlots = newParty
+              .filter(m => m.hp > 0)
+              .map(m => {
+                const existing = state.battleState!.commandSlots.find(s => s.explorerId === m.id)
+                return existing ?? { explorerId: m.id, command: null, targetId: null }
+              })
+            const activeSlot = state.battleState!.commandSlots[state.battleState!.activeExplorerIndex]
+            const newActiveIndex = activeSlot
+              ? newSlots.findIndex(s => s.explorerId === activeSlot.explorerId)
+              : 0
+            return {
+              ...state.battleState!,
+              commandSlots: newSlots,
+              activeExplorerIndex: Math.max(0, newActiveIndex),
+            }
+          })()
+        : state.battleState
+
+      return {
+        ...state,
+        run: { ...state.run, party: newParty },
+        battleState: newBattleState,
+      }
     }
 
     case 'ADVANCE_FROM_MAP': {

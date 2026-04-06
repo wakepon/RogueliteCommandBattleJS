@@ -11,7 +11,6 @@ export type BattleAction =
   | { type: 'SET_COMMAND_SLOT' }  // 現在のコマンド+ターゲットをスロットに確定
   | { type: 'SET_COMMAND_SLOT_DIRECT'; explorerId: string; command: BattleCommand; targetId: string }  // D&Dで直接スロットにセット
   | { type: 'CHANGE_ACTIVE_EXPLORER'; index: number }  // コマンド入力キャラ切替
-  | { type: 'REORDER_COMMAND_SLOTS'; fromIndex: number; toIndex: number }  // 行動順入れ替え
   | { type: 'START_EXECUTION' }  // 実行開始 → partyAction phase
   // パーティー行動フェーズ
   | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}>; contributors?: DamageContributor[] }
@@ -165,17 +164,6 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         activeExplorerIndex: action.index,
         selectedCommand: null,
         selectedTargetId: null,
-      }
-    }
-
-    case 'REORDER_COMMAND_SLOTS': {
-      const { fromIndex, toIndex } = action
-      const slots = [...state.commandSlots]
-      const [moved] = slots.splice(fromIndex, 1)
-      slots.splice(toIndex, 0, moved)
-      return {
-        ...state,
-        commandSlots: slots,
       }
     }
 
