@@ -16,7 +16,47 @@
     "hp": 28,
     "attack": 5,
     "agi": 4,
-    "gold": 6,
+    "gold": 3,
+    "behavior": "attack"
+  },
+  "sewer_rat": {
+    "id": "sewer_rat",
+    "name": "どぶネズミ",
+    "type": "normal",
+    "hp": 15,
+    "attack": 3,
+    "agi": 5,
+    "gold": 3,
+    "behavior": "attack"
+  },
+  "hedro_slime": {
+    "id": "hedro_slime",
+    "name": "ヘドロスライム",
+    "type": "normal",
+    "hp": 15,
+    "attack": 3,
+    "agi": 2,
+    "gold": 3,
+    "behavior": "attack"
+  },
+  "shaman": {
+    "id": "shaman",
+    "name": "シャーマン",
+    "type": "normal",
+    "hp": 20,
+    "attack": 3,
+    "agi": 3,
+    "gold": 5,
+    "behavior": "attack"
+  },
+  "fairy": {
+    "id": "fairy",
+    "name": "妖精",
+    "type": "normal",
+    "hp": 15,
+    "attack": 2,
+    "agi": 6,
+    "gold": 5,
     "behavior": "attack"
   },
   "orc": {
@@ -27,6 +67,46 @@
     "attack": 7,
     "agi": 3,
     "gold": 18,
+    "behavior": "attack"
+  },
+  "assassin": {
+    "id": "assassin",
+    "name": "アサシン",
+    "type": "elite",
+    "hp": 35,
+    "attack": 10,
+    "agi": 8,
+    "gold": 15,
+    "behavior": "attack"
+  },
+  "sleep_tiger": {
+    "id": "sleep_tiger",
+    "name": "スリープタイガー",
+    "type": "elite",
+    "hp": 45,
+    "attack": 8,
+    "agi": 4,
+    "gold": 16,
+    "behavior": "attack"
+  },
+  "dark_mage": {
+    "id": "dark_mage",
+    "name": "ダークメイジ",
+    "type": "elite",
+    "hp": 40,
+    "attack": 6,
+    "agi": 5,
+    "gold": 16,
+    "behavior": "attack"
+  },
+  "orc_lord": {
+    "id": "orc_lord",
+    "name": "オークロード",
+    "type": "elite",
+    "hp": 50,
+    "attack": 7,
+    "agi": 3,
+    "gold": 20,
     "behavior": "attack"
   },
   "dragon": {

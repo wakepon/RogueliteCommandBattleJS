@@ -42,7 +42,7 @@ export interface UseBattleResult {
   cancelCommand: () => void
   selectTarget: (targetId: string) => void
   changeActiveExplorer: (index: number) => void
-  reorderCommandSlots: (fromIndex: number, toIndex: number) => void
+  reorderParty: (fromIndex: number, toIndex: number) => void
   setCommandSlotDirect: (explorerId: string, command: BattleCommand, targetId: string) => void
   startExecution: () => void
 
@@ -93,9 +93,9 @@ export function useBattle(): UseBattleResult | null {
     dispatchBattle({ type: 'CHANGE_ACTIVE_EXPLORER', index })
   }, [dispatchBattle])
 
-  const reorderCommandSlots = useCallback((fromIndex: number, toIndex: number) => {
-    dispatchBattle({ type: 'REORDER_COMMAND_SLOTS', fromIndex, toIndex })
-  }, [dispatchBattle])
+  const reorderParty = useCallback((fromIndex: number, toIndex: number) => {
+    dispatch({ type: 'REORDER_PARTY', fromIndex, toIndex })
+  }, [dispatch])
 
   const setCommandSlotDirect = useCallback((explorerId: string, command: BattleCommand, targetId: string) => {
     dispatchBattle({ type: 'SET_COMMAND_SLOT_DIRECT', explorerId, command, targetId })
@@ -147,6 +147,13 @@ export function useBattle(): UseBattleResult | null {
       applyCharge: actionResult.applyCharge,
       consumeCharge: actionResult.consumeCharge,
       hits: actionResult.hits,
+      chargeAllAllies: actionResult.chargeAllAllies,
+      summonEnemyId: actionResult.summonEnemyId,
+      healSelf: actionResult.healSelf,
+      healAlly: actionResult.healAlly,
+      isAoe: actionResult.isAoe,
+      applyWeakness: actionResult.applyWeakness,
+      applySelfDefense: actionResult.applySelfDefense,
     })
   }, [battleState, run, dispatchBattle])
 
@@ -243,7 +250,7 @@ export function useBattle(): UseBattleResult | null {
     cancelCommand,
     selectTarget,
     changeActiveExplorer,
-    reorderCommandSlots,
+    reorderParty,
     setCommandSlotDirect,
     startExecution,
 

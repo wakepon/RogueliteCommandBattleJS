@@ -11,7 +11,6 @@ export type BattleAction =
   | { type: 'SET_COMMAND_SLOT' }  // 現在のコマンド+ターゲットをスロットに確定
   | { type: 'SET_COMMAND_SLOT_DIRECT'; explorerId: string; command: BattleCommand; targetId: string }  // D&Dで直接スロットにセット
   | { type: 'CHANGE_ACTIVE_EXPLORER'; index: number }  // コマンド入力キャラ切替
-  | { type: 'REORDER_COMMAND_SLOTS'; fromIndex: number; toIndex: number }  // 行動順入れ替え
   | { type: 'START_EXECUTION' }  // 実行開始 → partyAction phase
   // パーティー行動フェーズ
   | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}>; contributors?: DamageContributor[] }
@@ -19,7 +18,11 @@ export type BattleAction =
   // 敵行動フェーズ
   | { type: 'ENEMY_ACTION'; enemyId: string; targetExplorerId: string; damage: number; explorer: ExplorerState;
       actionName: string; poisonStacks: number; mpDrain: number;
-      applyCharge: boolean; consumeCharge: boolean; hits: number }
+      applyCharge: boolean; consumeCharge: boolean; hits: number;
+      chargeAllAllies?: boolean; summonEnemyId?: string; healSelf?: number;
+      healAlly?: { amount: number }; isAoe?: boolean;
+      applyWeakness?: { value: number; duration: number };
+      applySelfDefense?: { value: number; duration: number } }
   | { type: 'ADVANCE_ENEMY_ACTION' }  // 次の敵の行動へ
   // ターン終了
   | { type: 'PROCESS_TURN_END'; totalPoisonDamage: number; updatedParty: ExplorerState[] }
@@ -168,17 +171,6 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       }
     }
 
-    case 'REORDER_COMMAND_SLOTS': {
-      const { fromIndex, toIndex } = action
-      const slots = [...state.commandSlots]
-      const [moved] = slots.splice(fromIndex, 1)
-      slots.splice(toIndex, 0, moved)
-      return {
-        ...state,
-        commandSlots: slots,
-      }
-    }
-
     case 'START_EXECUTION': {
       return {
         ...state,
@@ -269,12 +261,15 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
     case 'ENEMY_ACTION': {
       const actingEnemy = state.enemies.find(e => e.instanceId === action.enemyId)
       const enemyName = actingEnemy?.name ?? '敵'
-      const isIdle = action.damage === 0 && !action.applyCharge && action.poisonStacks === 0 && action.mpDrain === 0
-      const battleMessage = isIdle
-        ? `${enemyName}は${action.actionName}`
-        : `${enemyName}の${action.actionName}`
+      const hasEffect = action.damage > 0 || action.applyCharge || action.poisonStacks > 0 ||
+        action.mpDrain > 0 || action.chargeAllAllies || action.applySelfDefense ||
+        action.applyWeakness || action.summonEnemyId || action.healSelf || action.healAlly
+      const battleMessage = hasEffect
+        ? `${enemyName}の${action.actionName}`
+        : `${enemyName}は${action.actionName}`
 
-      const newPlayerPopups = action.damage > 0
+      // isAoe時のポップアップはBattleActionProcessor側で処理するため、ここではスキップ
+      const newPlayerPopups = (action.damage > 0 && !action.isAoe)
         ? [...state.playerDamagePopups, createPlayerDamagePopup(action.damage, action.targetExplorerId)]
         : state.playerDamagePopups
 
