@@ -3,6 +3,7 @@ import { ExplorerWeapon } from './Weapon'
 import { SpellInstance } from './Spell'
 import { PotionInstance } from './Potion'
 import { LevelUpInfo } from '../Core/LevelUpCalculator'
+import { EnemyActionResult } from '../Core/EnemyAI'
 
 /** バトルコマンド型（武器・魔法・ポーション） */
 export type BattleCommand = ExplorerWeapon | SpellInstance | PotionInstance
@@ -60,6 +61,7 @@ export interface EnemyIntent {
   enemyInstanceId: string
   actionName: string
   damage: number  // 0 = 非攻撃行動
+  storedAction: EnemyActionResult  // 実行時に使用（インテントと行動の一致を保証）
 }
 
 /** レリック戦闘内状態 */

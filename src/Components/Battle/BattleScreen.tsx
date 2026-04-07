@@ -351,8 +351,11 @@ export function BattleScreen() {
   const [hoverEnemyId, setHoverEnemyId] = useState<string | null>(null)
 
   // === フェーズ自動処理 ===
+  // レベルアップポップアップ表示中はフェーズ進行を一時停止
+  const hasLevelUpPopups = levelUpPopups.length > 0
+
   useEffect(() => {
-    if (phase !== 'partyAction') return
+    if (phase !== 'partyAction' || hasLevelUpPopups) return
     const timers: ReturnType<typeof setTimeout>[] = []
     const t1 = setTimeout(() => {
       executePartyAction()
@@ -361,10 +364,10 @@ export function BattleScreen() {
     }, ACTION_DELAY_MS)
     timers.push(t1)
     return () => timers.forEach(t => clearTimeout(t))
-  }, [phase, battleState.currentCommandIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, battleState.currentCommandIndex, hasLevelUpPopups]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (phase !== 'enemyAction') return
+    if (phase !== 'enemyAction' || hasLevelUpPopups) return
     const aliveEnemies = enemies.filter(e => e.currentHp > 0)
     if (battleState.currentEnemyIndex >= aliveEnemies.length) return
     const timers: ReturnType<typeof setTimeout>[] = []
@@ -375,10 +378,10 @@ export function BattleScreen() {
     }, ENEMY_TURN_DELAY_MS)
     timers.push(t1)
     return () => timers.forEach(t => clearTimeout(t))
-  }, [phase, battleState.currentEnemyIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, battleState.currentEnemyIndex, hasLevelUpPopups]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (phase !== 'turnEnd') return
+    if (phase !== 'turnEnd' || hasLevelUpPopups) return
     const timers: ReturnType<typeof setTimeout>[] = []
     const t1 = setTimeout(() => {
       processTurnEnd()
@@ -387,15 +390,16 @@ export function BattleScreen() {
     }, ACTION_DELAY_MS)
     timers.push(t1)
     return () => timers.forEach(t => clearTimeout(t))
-  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, hasLevelUpPopups]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (hasLevelUpPopups) return
     const result = checkBattleResult(enemies, party)
     if (result === 'ongoing') return
     // HPバーアニメーション(300ms) + 余韻(500ms) を待ってから遷移
     const timer = setTimeout(() => endBattle(result), 800)
     return () => clearTimeout(timer)
-  }, [enemies, party, endBattle])
+  }, [enemies, party, endBattle, hasLevelUpPopups])
 
   const isCommandPhase = phase === 'command'
   // ドラッグ中はクリックベースのターゲット選択を無効化（D&Dで処理するため）
@@ -687,7 +691,7 @@ export function BattleScreen() {
         )}
 
         {!expAnimating && levelUpPopups.length > 0 && (
-          <LevelUpModal levelUpInfo={levelUpPopups[0].levelUpInfo} onComplete={() => removeLevelUpPopup(levelUpPopups[0].id)} />
+          <LevelUpModal key={levelUpPopups[0].id} levelUpInfo={levelUpPopups[0].levelUpInfo} onComplete={() => removeLevelUpPopup(levelUpPopups[0].id)} />
         )}
 
         <DragOverlay>

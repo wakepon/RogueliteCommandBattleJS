@@ -106,7 +106,7 @@ function consumeCommandCost(
   return { updatedExplorer: explorer, updatedGold: gold }
 }
 
-/** レベルアップポップアップをバトルステートに追加 */
+/** レベルアップポップアップをバトルステートに追加（全件キューイング） */
 function addLevelUpPopupsToBattle(
   battleState: BattleState,
   levelUps: LevelUpInfo[]
@@ -114,10 +114,14 @@ function addLevelUpPopupsToBattle(
   if (levelUps.length === 0) {
     return battleState
   }
-  return battleReducer(battleState, {
-    type: 'ADD_LEVEL_UP_POPUP',
-    levelUpInfo: levelUps[0],
-  })
+  let result = battleState
+  for (const levelUp of levelUps) {
+    result = battleReducer(result, {
+      type: 'ADD_LEVEL_UP_POPUP',
+      levelUpInfo: levelUp,
+    })
+  }
+  return result
 }
 
 /** ポーションコマンドを実行 */
@@ -128,25 +132,29 @@ function executePotionCommand(
 ): GameState {
   if (!state.battleState || !state.run) return state
 
-  const { selectedCommand } = state.battleState
-  if (!selectedCommand || !isPotion(selectedCommand)) return state
+  const { selectedCommand, selectedTargetId } = state.battleState
+  if (!selectedCommand || !isPotion(selectedCommand) || !selectedTargetId) return state
 
   const newBattleState = battleReducer(state.battleState, battleAction)
   const potionMultiplier = getPotionEffectMultiplier(relics)
 
-  let updatedExplorer = battleAction.explorer
+  // ターゲットに回復を適用（使用者ではなく選択されたメンバー）
+  const targetMember = state.run.party.find(e => e.id === selectedTargetId)
+  if (!targetMember) return state
+
+  let updatedTarget = targetMember
   const { effect } = selectedCommand
   if (effect.type === 'healHp') {
     const healAmount = Math.floor(effect.value * potionMultiplier)
-    updatedExplorer = {
-      ...updatedExplorer,
-      hp: Math.min(updatedExplorer.hp + healAmount, updatedExplorer.maxHp),
+    updatedTarget = {
+      ...updatedTarget,
+      hp: Math.min(updatedTarget.hp + healAmount, updatedTarget.maxHp),
     }
   } else if (effect.type === 'healMp') {
     const healAmount = Math.floor(effect.value * potionMultiplier)
-    updatedExplorer = {
-      ...updatedExplorer,
-      mp: Math.min(updatedExplorer.mp + healAmount, updatedExplorer.maxMp),
+    updatedTarget = {
+      ...updatedTarget,
+      mp: Math.min(updatedTarget.mp + healAmount, updatedTarget.maxMp),
     }
   }
 
@@ -157,7 +165,7 @@ function executePotionCommand(
     ...state,
     battleState: newBattleState,
     run: {
-      ...updatePartyMember(state.run, updatedExplorer),
+      ...updatePartyMember(state.run, updatedTarget),
       potions: updatedPotions,
     },
   }
@@ -513,22 +521,29 @@ function executeAllySpellCommand(
 ): GameState {
   if (!state.battleState || !state.run) return state
 
-  const { selectedCommand } = state.battleState
-  if (!selectedCommand || !isSpell(selectedCommand)) return state
+  const { selectedCommand, selectedTargetId } = state.battleState
+  if (!selectedCommand || !isSpell(selectedCommand) || !selectedTargetId) return state
 
   const newBattleState = battleReducer(state.battleState, battleAction)
 
-  // MP消費（consumeCommandCostを使用して他パスと一貫性を保つ）
+  // MP消費は術者に適用
   const { updatedExplorer: explorerAfterCost } = consumeCommandCost(
     battleAction.explorer, selectedCommand, state.run.gold, 0
   )
 
-  let updatedExplorer = explorerAfterCost
+  // ターゲットに効果を適用（術者と異なる場合がある）
+  const isSelfTarget = battleAction.explorer.id === selectedTargetId
+  const targetMember = isSelfTarget
+    ? explorerAfterCost
+    : state.run.party.find(e => e.id === selectedTargetId)
+  if (!targetMember) return state
+
+  let updatedTarget = targetMember
 
   if (selectedCommand.effect?.type === 'heal') {
-    updatedExplorer = {
-      ...updatedExplorer,
-      hp: Math.min(updatedExplorer.hp + selectedCommand.effect.value, updatedExplorer.maxHp),
+    updatedTarget = {
+      ...updatedTarget,
+      hp: Math.min(updatedTarget.hp + selectedCommand.effect.value, updatedTarget.maxHp),
     }
   }
 
@@ -539,16 +554,22 @@ function executeAllySpellCommand(
       value: selectedCommand.effect.value,
       duration: selectedCommand.effect.duration,
     }
-    updatedExplorer = {
-      ...updatedExplorer,
-      battleBuffs: [...updatedExplorer.battleBuffs, newBuff],
+    updatedTarget = {
+      ...updatedTarget,
+      battleBuffs: [...updatedTarget.battleBuffs, newBuff],
     }
+  }
+
+  // 術者とターゲットが同じ場合は1回、異なる場合は2回updatePartyMember
+  let updatedRun = updatePartyMember(state.run, updatedTarget)
+  if (!isSelfTarget) {
+    updatedRun = updatePartyMember(updatedRun, explorerAfterCost)
   }
 
   return {
     ...state,
     battleState: newBattleState,
-    run: updatePartyMember(state.run, updatedExplorer),
+    run: updatedRun,
   }
 }
 

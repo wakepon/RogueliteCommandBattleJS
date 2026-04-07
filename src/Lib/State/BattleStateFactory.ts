@@ -100,6 +100,7 @@ export function generateEnemyIntents(
         enemyInstanceId: enemy.instanceId,
         actionName: action.actionName,
         damage: action.damage,
+        storedAction: action,
       }
     })
 }

@@ -133,7 +133,15 @@ export function useBattle(): UseBattleResult | null {
     const targetMember = run.party.find(m => m.id === targetId)
     if (!targetMember) return
 
-    const actionResult = selectEnemyAction(enemy, targetMember)
+    // インテント生成時に保存されたアクションを使用（表示と実行の一致を保証）
+    const storedIntent = battleState.enemyIntents.find(
+      i => i.enemyInstanceId === enemy.instanceId
+    )
+    // フォールバック: 召喚で追加された敵などインテント未生成の場合
+    if (!storedIntent) {
+      console.warn(`No stored intent for enemy ${enemy.instanceId}, re-rolling action`)
+    }
+    const actionResult = storedIntent?.storedAction ?? selectEnemyAction(enemy, targetMember)
 
     dispatchBattle({
       type: 'ENEMY_ACTION',
