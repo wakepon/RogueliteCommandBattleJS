@@ -53,6 +53,7 @@ src/
 │   │   ├── BattleReducer.ts      # 戦闘中の状態遷移
 │   │   ├── BattleActionProcessor.ts  # 戦闘アクション処理
 │   │   ├── BattleStateFactory.ts     # 戦闘状態生成
+│   │   ├── EnemyEffectProcessor.ts   # 敵エフェクト処理（防御バフ軽減、力溜め付与/消費、全体力溜め、自己防御バフ、自己回復、味方回復、召喚）
 │   │   └── index.ts
 │   ├── Utils/              # ユーティリティ
 │   │   ├── ItemDescription.ts    # アイテム説明文生成
@@ -316,6 +317,7 @@ export interface EnemyInstance extends EnemyData {
   currentHp: number
   battleBuffs: Buff[]
   battleDebuffs: Debuff[]
+  hasSummoned?: boolean     // 召喚済みフラグ
 }
 ```
 
@@ -358,21 +360,21 @@ export type MapNodeType = 'battle' | 'event' | 'boss'
 
 /** マップノード */
 export interface MapNode {
-  id: string
-  type: MapNodeType
   stage: number
+  nodeType: MapNodeType
+  enemies: EnemyPreview[]
 }
 
 /** マップ状態 */
 export interface MapState {
   nodes: MapNode[]
-  currentNodeId: string | null
+  currentStage: number
 }
 
 /** 敵プレビュー（マップ上での敵情報表示用） */
 export interface EnemyPreview {
   enemyId: string
-  count: number
+  type: EnemyType
 }
 
 /** イベントサブフェーズ */
@@ -452,11 +454,10 @@ interface Buff {
   duration: number | 'battle' | 'nextAction'  // ターン数 or 戦闘終了まで or 次の行動まで
 }
 
-/** デバフ */
-interface Debuff {
-  type: string
-  stacks: number    // スタック数
-}
+/** デバフ（union型） */
+type Debuff =
+  | { type: 'poison'; stacks: number }
+  | { type: 'weakness'; value: number; duration: number }
 
 /** 探索者の状態 */
 interface ExplorerState {
@@ -535,20 +536,49 @@ export interface CommandSlot {
 
 /** ダメージ寄与者 */
 export interface DamageContributor {
-  explorerId: string
-  damage: number
+  name: string
+  label: string
 }
 
 /** レベルアップポップアップ */
 export interface LevelUpPopup {
-  explorerId: string
-  level: number
+  id: string
+  levelUpInfo: LevelUpInfo
+  timestamp: number
+}
+
+/** プレイヤーダメージポップアップ */
+export interface PlayerDamagePopup {
+  id: string
+  damage: number
+  targetExplorerId: string
+  timestamp: number
 }
 
 /** 敵行動予告 */
 export interface EnemyIntent {
   enemyInstanceId: string
-  action: string
+  actionName: string
+  damage: number
+  storedAction: EnemyActionResult   // インテント生成時に行動結果を格納し実行時に再利用
+}
+
+/** 敵行動結果（拡張フィールド） */
+export interface EnemyActionResult {
+  // 基本攻撃・ダメージ
+  damage?: number
+  isAoe?: boolean               // 全体攻撃フラグ
+  // 力溜め系
+  chargeAllAllies?: boolean     // 全味方に力溜め付与
+  // 召喚
+  summonEnemyId?: string        // 召喚する敵ID
+  // 回復
+  healSelf?: number             // 自己回復量
+  healAlly?: number             // 味方回復量
+  // デバフ付与
+  applyWeakness?: boolean       // 弱体デバフ付与
+  // バフ付与
+  applySelfDefense?: boolean    // 自己防御バフ付与
 }
 
 interface BattleState {
@@ -562,20 +592,18 @@ interface BattleState {
   currentEnemyIndex: number           // 実行中の敵インデックス
   enemyIntents: EnemyIntent[]         // 敵の行動予告
   stolenGold: number          // ゴールドラッシュで盗んだ金額
+  selectedCommand: BattleCommand | null   // 選択中のコマンド
+  selectedTargetId: string | null         // 選択中のターゲットID
   damagePopups: DamagePopup[]
-  playerDamagePopups: DamagePopup[]
+  playerDamagePopups: PlayerDamagePopup[]
   levelUpPopups: LevelUpPopup[]
   battleMessage: string | null
   battleMessageId: number
   relicState: RelicBattleState
 }
 
-/** バトルコマンド（実行待ちコマンドの情報） */
-export interface BattleCommand {
-  explorerId: string
-  command: ExplorerWeapon | SpellData | PotionData
-  targetId: string | null
-}
+/** バトルコマンド（ExplorerWeapon | SpellInstance | PotionInstance の union type alias） */
+export type BattleCommand = ExplorerWeapon | SpellInstance | PotionInstance
 ```
 
 ### StoreState（ストア画面の状態）
@@ -712,14 +740,26 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 ### Enemies.json
 
-4種の敵データ（オブジェクト辞書形式）。全敵の `behavior` は `"attack"` に統一。行動の分岐は `EnemyAI.ts` で `enemy.id` ベースに実装される。
+12種の敵データ（オブジェクト辞書形式）。全敵の `behavior` は `"attack"` に統一。行動の分岐は `EnemyAI.ts` で `enemy.id` ベースに実装される。
+
+- normal（6種）: slime, goblin, sewer_rat, hedro_slime, shaman, fairy
+- elite（5種）: orc, assassin, sleep_tiger, dark_mage, orc_lord
+- boss（1種）: dragon
 
 ```json
 {
-  "slime":  { "id": "slime",  "name": "スライム", "type": "normal", "behavior": "attack", ... },
-  "goblin": { "id": "goblin", "name": "ゴブリン", "type": "normal", "behavior": "attack", ... },
-  "orc":    { "id": "orc",    "name": "オーク",   "type": "elite",  "behavior": "attack", ... },
-  "dragon": { "id": "dragon", "name": "ドラゴン", "type": "boss",   "behavior": "attack", ... }
+  "slime":       { "id": "slime",       "name": "スライム",     "type": "normal", "behavior": "attack", ... },
+  "goblin":      { "id": "goblin",      "name": "ゴブリン",     "type": "normal", "behavior": "attack", ... },
+  "sewer_rat":   { "id": "sewer_rat",   "name": "ドブネズミ",   "type": "normal", "behavior": "attack", ... },
+  "hedro_slime": { "id": "hedro_slime", "name": "ヘドロスライム","type": "normal", "behavior": "attack", ... },
+  "shaman":      { "id": "shaman",      "name": "シャーマン",   "type": "normal", "behavior": "attack", ... },
+  "fairy":       { "id": "fairy",       "name": "フェアリー",   "type": "normal", "behavior": "attack", ... },
+  "orc":         { "id": "orc",         "name": "オーク",       "type": "elite",  "behavior": "attack", ... },
+  "assassin":    { "id": "assassin",    "name": "アサシン",     "type": "elite",  "behavior": "attack", ... },
+  "sleep_tiger": { "id": "sleep_tiger", "name": "眠り虎",       "type": "elite",  "behavior": "attack", ... },
+  "dark_mage":   { "id": "dark_mage",   "name": "ダークメイジ", "type": "elite",  "behavior": "attack", ... },
+  "orc_lord":    { "id": "orc_lord",    "name": "オークロード", "type": "elite",  "behavior": "attack", ... },
+  "dragon":      { "id": "dragon",      "name": "ドラゴン",     "type": "boss",   "behavior": "attack", ... }
 }
 ```
 
@@ -727,16 +767,16 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 ### StagePatterns.json
 
-`stage_1` 〜 `stage_7` の個別形式。各ステージに `turnLimit` と `patterns` フィールドあり。`pattern` キーはなし。`stage_4` はイベントステージ（`turnLimit: 0`、`patterns: []`）。turnLimit の具体的な値はバランス調整対象。
+`stage_1` 〜 `stage_7` の個別形式。各ステージに `turnLimit` と `patterns` フィールドあり。`pattern` キーはなし。`stage_4` はイベントステージ（`turnLimit: 0`、`patterns: []`）。turnLimit の具体的な値はバランス調整対象。新敵12種を含む拡張パターンに全面更新済み。
 
 ```json
 {
-  "stage_1": { "turnLimit": ..., "patterns": [{ "enemies": ["slime"] }, { "enemies": ["slime", "slime"] }] },
-  "stage_2": { "turnLimit": ..., "patterns": [{ "enemies": ["slime", "goblin"] }, { "enemies": ["goblin"] }] },
-  "stage_3": { "turnLimit": ..., "patterns": [{ "enemies": ["orc"] }, { "enemies": ["orc", "slime"] }] },
+  "stage_1": { "turnLimit": ..., "patterns": [{ "enemies": ["slime"] }, { "enemies": ["slime", "slime"] }, { "enemies": ["sewer_rat"] }, ...] },
+  "stage_2": { "turnLimit": ..., "patterns": [{ "enemies": ["slime", "goblin"] }, { "enemies": ["hedro_slime"] }, ...] },
+  "stage_3": { "turnLimit": ..., "patterns": [{ "enemies": ["orc"] }, { "enemies": ["shaman", "goblin"] }, { "enemies": ["assassin"] }, ...] },
   "stage_4": { "turnLimit": 0,  "patterns": [] },
-  "stage_5": { "turnLimit": ..., "patterns": [{ "enemies": ["orc", "orc"] }] },
-  "stage_6": { "turnLimit": ..., "patterns": [{ "enemies": ["orc", "orc", "goblin"] }] },
+  "stage_5": { "turnLimit": ..., "patterns": [{ "enemies": ["orc", "fairy"] }, { "enemies": ["sleep_tiger"] }, ...] },
+  "stage_6": { "turnLimit": ..., "patterns": [{ "enemies": ["dark_mage", "orc"] }, { "enemies": ["orc_lord"] }, ...] },
   "stage_7": { "turnLimit": ..., "patterns": [{ "enemies": ["dragon"] }] }
 }
 ```
@@ -751,7 +791,9 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 | ストア | OPEN_STORE, CLOSE_STORE, BUY_WEAPON, BUY_SPELL, BUY_RELIC, BUY_POTION, SELL_WEAPON, SELL_SPELL, SELL_RELIC, REROLL_STORE |
 | 購入取り消し | UNDO_BUY_WEAPON, UNDO_BUY_SPELL, UNDO_BUY_RELIC, UNDO_BUY_POTION |
 | 売却取り消し | UNDO_SELL_WEAPON, UNDO_SELL_SPELL, UNDO_SELL_RELIC |
+| ポーション売却 | SELL_POTION, UNDO_SELL_POTION |
 | 装備移動 | TRANSFER_WEAPON, TRANSFER_SPELL（メンバー間装備移動） |
+| パーティー管理 | REORDER_PARTY（パーティー並び替え。commandSlotsも連動） |
 | イベント | OPEN_EVENT, SELECT_REST, SELECT_REPAIR, SELECT_TREASURE |
 | マップ | ADVANCE_FROM_MAP（ステージ選択） |
 
@@ -759,10 +801,13 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 | カテゴリ | アクション |
 |---------|-----------|
-| コマンド設定 | SET_COMMAND_SLOT, REORDER_COMMAND_SLOTS |
-| 実行制御 | START_EXECUTION, ADVANCE_PARTY_ACTION, ADVANCE_ENEMY_ACTION |
-| ターン管理 | ADVANCE_TURN, END_TURN |
-| 表示更新 | CLEAR_DAMAGE_POPUPS, CLEAR_LEVEL_UP_POPUPS |
+| コマンド選択 | SELECT_COMMAND, CANCEL_COMMAND, SELECT_TARGET |
+| コマンド設定 | SET_COMMAND_SLOT, SET_COMMAND_SLOT_DIRECT |
+| 探索者切替 | CHANGE_ACTIVE_EXPLORER |
+| 実行制御 | START_EXECUTION, ADVANCE_PARTY_ACTION, ADVANCE_ENEMY_ACTION, EXECUTE_COMMAND, ENEMY_ACTION |
+| ターン管理 | PROCESS_TURN_END, START_NEW_TURN |
+| 表示更新 | REMOVE_POPUP, REMOVE_PLAYER_POPUP, ADD_LEVEL_UP_POPUP, REMOVE_LEVEL_UP_POPUP |
+| レリック・敵 | UPDATE_RELIC_STATE, UPDATE_ENEMIES |
 
 ### BattleStateFactory
 

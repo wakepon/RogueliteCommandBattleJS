@@ -15,6 +15,27 @@ Spec/
 
 ## 更新履歴
 
+### 2026-04-08: 敵パターン拡張・バグ修正・UI統合の反映
+
+3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。
+
+**Core Game チーム** (6ファイル更新):
+- `Overview/BattleOverview.md` — 弱体(weakness)デバフ・自己防御バフ追加、storedActionによるインテント一致保証を追記、ゴブリン所持金3Gに修正
+- `Overview/EnemyOverview.md` — 実装済み敵を4種→12種に拡張（新敵8体の行動パターン追加）、行動バリエーション拡張（召喚・AoE・回復・デバフ等）、既存敵の行動名修正、ドラゴンのフェーズ行動を全面更新
+- `MVP/EnemyCharacter.md` — 新敵8体のステータス・行動パターン追加、ステージ編成テーブル全面更新（Stage 1〜6）、新行動カテゴリ概要テーブル追加
+- `MVP/BattleSystem.md` — 弱体デバフ・自己防御バフを持続ターン表に追加、バフ/デバフ処理タイミングをturnEndフェーズに修正
+- `MVP/GameFlow.md` — Stage 1〜6の敵構成を新編成に更新
+- `MVP/StoreItem.md` — マッスルアップ（未実装）を魔法テーブルから削除
+
+**Data & State チーム** (4ファイル更新):
+- `Architecture/SystemDesign.md` — EnemyEffectProcessor.ts追加、型定義全面更新（EnemyIntent.storedAction、Debuff union型、DamageContributor、LevelUpPopup、MapNode/MapState、EnemyActionResult拡張フィールド等）、Enemies.json 12種・StagePatterns.json拡張、GameReducer/BattleReducerアクション一覧更新
+- `MVP/MVPScope.md` — 敵AI機能範囲を拡張（召喚・AoE・回復・デバフ等）
+- `MVP/DevelopmentRoadmap.md` — 敵データ数12種に修正、フェーズ4に敵パターン拡張・EnemyEffectProcessor等を追記
+- `MVP/ImplementationTasks.md` — REORDER_PARTY修正、スライス10（敵パターン拡張）追加
+
+**UI チーム** (1ファイル更新):
+- `MVP/UIUXDesign.md` — ActionOrderSlots→CharacterPanel統合に修正、TargetSelector統合ナビゲーション追記、LevelUpModalキュー形式・フェーズ一時停止追記、コマンドカテゴリ拡張（祈/回）、弱体デバフバッジ追記
+
 ### 2026-04-06: パーティー制・敵行動刷新・UI全面更新の反映
 
 3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。

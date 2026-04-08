@@ -72,7 +72,7 @@
 | 3.2 | マスターデータ | Spells.json, Potions.json | ✅ 完了 |
 | 3.3 | DamageCalculator | ダメージ計算式 | ✅ 完了 |
 | 3.4 | CommandValidator | コマンド使用可否判定 | ✅ 完了 |
-| 3.5 | 行動順管理 | BattleStateFactory.ts 内の createBattleState / generateEnemyIntents として実装。AGI順ソートは廃止。commandSlots 配列順で行動順管理し、REORDER_COMMAND_SLOTS で並べ替え可能 | ✅ 完了 |
+| 3.5 | 行動順管理 | BattleStateFactory.ts 内の createBattleState / generateEnemyIntents として実装。AGI順ソートは廃止。commandSlots 配列順で行動順管理し、REORDER_PARTY (GameReducer) でパーティー並び替え可能。commandSlotsも連動 | ✅ 完了 |
 | 3.6 | BattleReducer | 戦闘状態遷移 | ✅ 完了 |
 | 3.7 | useBattle Hook | 戦闘画面用Hook | ✅ 完了 |
 | 3.8 | 戦闘UI | CommandList, TargetSelector, DamagePopup | ✅ 完了 |
@@ -148,12 +148,26 @@
 | 9.2 | CommandSlot制 | Battle.ts に CommandSlot 型追加、行動順管理 | ✅ 完了 |
 | 9.3 | createInitialParty | 3人パーティー生成関数 | ✅ 完了 |
 | 9.4 | D&Dターゲティング | ドラッグ&ドロップによるターゲット選択UI | ✅ 完了 |
-| 9.5 | 行動順並べ替え | REORDER_COMMAND_SLOTS アクション | ✅ 完了 |
+| 9.5 | パーティー並び替え | REORDER_PARTY アクション（GameReducer）。commandSlotsも連動 | ✅ 完了 |
 | 9.6 | メンバー間装備移動 | TRANSFER_WEAPON/SPELL アクション | ✅ 完了 |
 | 9.7 | UNDO系アクション | 購入・売却取り消し | ✅ 完了 |
 | 9.8 | ダメージ寄与者表示 | DamageContributor 型と表示UI | ✅ 完了 |
 | 9.9 | 敵行動予告 | EnemyIntent 型と表示UI | ✅ 完了 |
 | 9.10 | パーティー内EXP分配 | 戦闘終了時の経験値配布 | ✅ 完了 |
+
+---
+
+## スライス10: 敵パターン拡張
+**動作確認**: 新敵が正しく行動し、拡張された行動システムが機能する
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|:----------:|
+| 10.1 | 新敵8体追加 | sewer_rat, hedro_slime, shaman, fairy（normal）、assassin, sleep_tiger, dark_mage, orc_lord（elite）をEnemies.jsonに追加 | ✅ 完了 |
+| 10.2 | EnemyActionResult拡張 | chargeAllAllies, summonEnemyId, healSelf, healAlly, isAoe, applyWeakness, applySelfDefense フィールド追加 | ✅ 完了 |
+| 10.3 | EnemyEffectProcessor.ts新規追加 | 防御バフ軽減、力溜め付与/消費、全体力溜め、自己防御バフ、自己回復、味方回復、召喚の処理を担当 | ✅ 完了 |
+| 10.4 | StagePatterns.json拡張 | 新敵12種を含むパターンに全面更新 | ✅ 完了 |
+| 10.5 | EnemyIntent.storedAction追加 | インテント生成時に行動結果を格納し実行時に再利用 | ✅ 完了 |
+| 10.6 | Debuff型weakness追加 | `{ type: 'weakness'; value: number; duration: number }` をunion型に追加 | ✅ 完了 |
 
 ---
 
@@ -170,7 +184,8 @@
 | 7: イベント画面 | 3 | 3 | 100% |
 | 8: セーブ/仕上げ | 3 | 3 | 100% |
 | 9: パーティー制 | 10 | 10 | 100% |
-| **合計** | **50** | **50** | **100%** |
+| 10: 敵パターン拡張 | 6 | 6 | 100% |
+| **合計** | **56** | **56** | **100%** |
 
 ---
 
