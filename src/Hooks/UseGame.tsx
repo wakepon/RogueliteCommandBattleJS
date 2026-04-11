@@ -6,6 +6,7 @@ import { SpellData } from '../Lib/Types/Spell'
 import { RelicData } from '../Lib/Types/Relic'
 import { PotionData } from '../Lib/Types/Potion'
 import { SaveManager } from '../Lib/Storage'
+import { initTuningReceiver } from '../Lib/Tuning'
 
 interface GameContextType {
   state: GameState
@@ -136,6 +137,11 @@ export function GameProvider({ children }: GameProviderProps) {
   const closeEvent = useCallback(() => dispatch({ type: 'CLOSE_EVENT' }), [])
   // マップ関連アクション
   const advanceFromMap = useCallback(() => dispatch({ type: 'ADVANCE_FROM_MAP' }), [])
+
+  // Tuning Editorからのリアルタイム反映（DEV時のみ）
+  useEffect(() => {
+    initTuningReceiver()
+  }, [])
 
   // 自動セーブ: ストア画面に「遷移した」ときのみセーブ
   // （ストア画面での買い物ごとにセーブしない）

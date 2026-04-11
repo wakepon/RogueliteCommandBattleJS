@@ -3,13 +3,10 @@ import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { RelicData, RelicInstance } from '../Types/Relic'
 import { RunState } from '../Types/Run'
 import RelicsData from '../Data/Relics.json'
+import { getTuningValue } from '../Tuning/TuningStore'
 
 // マスターデータを型付け
 const relicsData = RelicsData as Record<string, RelicData>
-
-// 定数
-const REST_HEAL_PERCENT = 0.5  // 休憩時の最大HP回復割合（仕様: 50%）
-const MAX_RELIC_COUNT = 5
 
 /** 簡易的な疑似乱数生成器（シード付き） */
 function seededRandom(seed: number): number {
@@ -23,7 +20,7 @@ function seededRandom(seed: number): number {
  * @returns 回復量（最大HPの50%、端数切り上げ）
  */
 export function calculateRestHeal(maxHp: number): number {
-  return Math.ceil(maxHp * REST_HEAL_PERCENT)
+  return Math.ceil(maxHp * getTuningValue('rest_heal_percent', 0.5))
 }
 
 /**
@@ -145,7 +142,7 @@ export function getRandomRelic(seed: number, excludeIds: string[] = []): RelicDa
  * @returns 満杯ならtrue
  */
 export function isRelicSlotFull(relics: RelicInstance[]): boolean {
-  return relics.length >= MAX_RELIC_COUNT
+  return relics.length >= getTuningValue('max_relic_count', 5)
 }
 
 /**

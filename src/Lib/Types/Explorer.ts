@@ -1,7 +1,8 @@
-import { ExplorerWeapon, PUNCH, WeaponInstance, WeaponData } from './Weapon'
+import { ExplorerWeapon, createPunch, WeaponInstance, WeaponData } from './Weapon'
 import { SpellInstance, SpellData } from './Spell'
 import WeaponsData from '../Data/Weapons.json'
 import SpellsData from '../Data/Spells.json'
+import { getTuningValue } from '../Tuning/TuningStore'
 
 // マスターデータを型付け
 const weaponsData = WeaponsData as Record<string, WeaponData>
@@ -48,14 +49,26 @@ export interface ExplorerState {
   battleDebuffs: Debuff[]
 }
 
-// 武器インスタンスを生成（マスターデータから）
+// 武器インスタンスを生成（マスターデータから、Tuningオーバーライド付き）
 export function createWeaponInstance(weaponId: string): WeaponInstance {
   const data = weaponsData[weaponId]
   if (!data) {
     throw new Error(`${weaponId} not found in weapons data`)
   }
+
+  let power = data.power
+  let variance = data.variance
+
+  // 魔力弾はTuningでオーバーライド可能
+  if (weaponId === 'magic_bullet') {
+    power = getTuningValue('magic_bullet_power', data.power)
+    variance = getTuningValue('magic_bullet_variance', data.variance)
+  }
+
   return {
     ...data,
+    power,
+    variance,
     currentUses: data.maxUses === null ? null : data.maxUses,
   } as WeaponInstance
 }
@@ -84,51 +97,54 @@ interface ClassTemplate {
   spells: () => SpellInstance[]
 }
 
-const CLASS_TEMPLATES: Record<CharacterClass, ClassTemplate> = {
-  warrior: {
-    name: '戦士',
-    characterClass: 'warrior',
-    position: 'front',
-    hp: 60,
-    mp: 5,
-    str: 7,
-    int: 3,
-    weaponSlotCount: 4,
-    magicSlotCount: 0,
-    weapons: () => [createWeaponInstance('rusty_knife'), PUNCH],
-    spells: () => [],
-  },
-  mage: {
-    name: '魔法使い',
-    characterClass: 'mage',
-    position: 'back',
-    hp: 30,
-    mp: 25,
-    str: 3,
-    int: 7,
-    weaponSlotCount: 0,
-    magicSlotCount: 4,
-    weapons: () => [createWeaponInstance('magic_bullet')],
-    spells: () => [createSpellInstance('fire')],
-  },
-  cleric: {
-    name: '僧侶',
-    characterClass: 'cleric',
-    position: 'back',
-    hp: 40,
-    mp: 15,
-    str: 4,
-    int: 5,
-    weaponSlotCount: 1,
-    magicSlotCount: 3,
-    weapons: () => [createWeaponInstance('prayer')],
-    spells: () => [createSpellInstance('heal'), createSpellInstance('precision')],
-  },
+/** Tuning対応のクラステンプレートを取得 */
+function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
+  return {
+    warrior: {
+      name: '戦士',
+      characterClass: 'warrior',
+      position: 'front',
+      hp: getTuningValue('warrior_hp', 60),
+      mp: getTuningValue('warrior_mp', 5),
+      str: getTuningValue('warrior_str', 7),
+      int: getTuningValue('warrior_int', 3),
+      weaponSlotCount: getTuningValue('warrior_weaponSlotCount', 4),
+      magicSlotCount: getTuningValue('warrior_magicSlotCount', 0),
+      weapons: () => [createWeaponInstance('rusty_knife'), createPunch()],
+      spells: () => [],
+    },
+    mage: {
+      name: '魔法使い',
+      characterClass: 'mage',
+      position: 'back',
+      hp: getTuningValue('mage_hp', 30),
+      mp: getTuningValue('mage_mp', 25),
+      str: getTuningValue('mage_str', 3),
+      int: getTuningValue('mage_int', 7),
+      weaponSlotCount: getTuningValue('mage_weaponSlotCount', 0),
+      magicSlotCount: getTuningValue('mage_magicSlotCount', 4),
+      weapons: () => [createWeaponInstance('magic_bullet')],
+      spells: () => [createSpellInstance('fire')],
+    },
+    cleric: {
+      name: '僧侶',
+      characterClass: 'cleric',
+      position: 'back',
+      hp: getTuningValue('cleric_hp', 40),
+      mp: getTuningValue('cleric_mp', 15),
+      str: getTuningValue('cleric_str', 4),
+      int: getTuningValue('cleric_int', 5),
+      weaponSlotCount: getTuningValue('cleric_weaponSlotCount', 1),
+      magicSlotCount: getTuningValue('cleric_magicSlotCount', 3),
+      weapons: () => [createWeaponInstance('prayer')],
+      spells: () => [createSpellInstance('heal'), createSpellInstance('precision')],
+    },
+  }
 }
 
 // クラスを指定してExplorerを生成
 function createExplorerByClass(characterClass: CharacterClass, index: number): ExplorerState {
-  const template = CLASS_TEMPLATES[characterClass]
+  const template = getClassTemplates()[characterClass]
   return {
     id: `explorer-${index}`,
     name: template.name,

@@ -3,6 +3,7 @@ import { ExplorerWeapon } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { EnemyInstance } from '../Types/Enemy'
 import { RelicInstance } from '../Types/Relic'
+import { getTuningValue } from '../Tuning/TuningStore'
 import {
   getStatBonus,
   getWeaponDamageBonus,
@@ -49,7 +50,7 @@ function generateVarianceOffset(variance: number): number {
 function calculateBuffMultiplier(buffs: Buff[], stat: 'str' | 'int'): number {
   const statBuffs = buffs.filter(buff => buff.type === stat)
   const totalValue = statBuffs.reduce((sum, buff) => sum + buff.value, 0)
-  return 1.0 + (totalValue * 0.1)
+  return 1.0 + (totalValue * getTuningValue('buff_multiplier_per_point', 0.1))
 }
 
 /**

@@ -1,4 +1,5 @@
 import { ExplorerState } from '../Types/Explorer'
+import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 各キャラの被ターゲット率 */
 export interface TargetRate {
@@ -18,10 +19,12 @@ export function calculateTargetRates(party: ExplorerState[]): TargetRate[] {
   const alive = party.filter(m => m.hp > 0)
   if (alive.length === 0) return []
 
-  // 基本ウェイト: 前衛=2, 後衛=1
+  // 基本ウェイト: 前衛/後衛（Tuning対応）
+  const frontWeight = getTuningValue('front_position_weight', 2)
+  const backWeight = getTuningValue('back_position_weight', 1)
   const weights = alive.map(m => ({
     explorerId: m.id,
-    weight: m.position === 'front' ? 2 : 1,
+    weight: m.position === 'front' ? frontWeight : backWeight,
   }))
 
   // 祈りバフによる補正

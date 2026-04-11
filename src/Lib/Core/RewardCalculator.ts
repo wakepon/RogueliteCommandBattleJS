@@ -1,10 +1,13 @@
 import { EnemyInstance, EnemyType } from '../Types/Enemy'
+import { getTuningValue } from '../Tuning/TuningStore'
 
-/** 敵タイプ別の基本報酬 */
-const BASE_GOLD_BY_TYPE: Record<EnemyType, number> = {
-  normal: 3,
-  elite: 5,
-  boss: 10,
+/** 敵タイプ別の基本報酬（Tuning対応） */
+function getBaseGoldByType(): Record<EnemyType, number> {
+  return {
+    normal: getTuningValue('gold_reward_normal', 3),
+    elite: getTuningValue('gold_reward_elite', 5),
+    boss: getTuningValue('gold_reward_boss', 10),
+  }
 }
 
 /** 敵タイプの強さ順位（大きいほど強い） */
@@ -13,12 +16,6 @@ const TYPE_STRENGTH: Record<EnemyType, number> = {
   elite: 2,
   boss: 3,
 }
-
-/** 通常の利子上限 */
-const DEFAULT_INTEREST_CAP = 5
-
-/** 貯金箱レリック所持時の利子上限 */
-const PIGGY_BANK_INTEREST_CAP = 10
 
 /**
  * 最大利子を計算
@@ -75,8 +72,10 @@ export function calculateReward(
   total: number
 } {
   const strongestType = getStrongestEnemyType(enemies)
-  const baseGold = BASE_GOLD_BY_TYPE[strongestType]
-  const interestCap = hasPiggyBank ? PIGGY_BANK_INTEREST_CAP : DEFAULT_INTEREST_CAP
+  const baseGold = getBaseGoldByType()[strongestType]
+  const interestCap = hasPiggyBank
+    ? getTuningValue('interest_cap_piggybank', 10)
+    : getTuningValue('interest_cap_default', 5)
   const interestGold = calculateInterest(currentGold, interestCap)
   const total = baseGold + interestGold + stolenGold
 

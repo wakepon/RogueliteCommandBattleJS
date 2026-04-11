@@ -2,6 +2,7 @@ import { IItem } from './Item'
 import { IPurchasable } from './Purchasable'
 import { ICommandable, ITargetable } from './Command'
 import { IUseLimited } from './Consumable'
+import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 武器効果 */
 export type WeaponEffect =
@@ -36,12 +37,27 @@ export interface PunchInstance {
   currentUses: null
 }
 
+/** パンチのインスタンスを生成（Tuningで威力調整可能） */
+export function createPunch(): PunchInstance {
+  return {
+    id: 'punch',
+    name: 'パンチ',
+    commandCategory: 'weapon',
+    targetType: 'enemySingle',
+    power: getTuningValue('punch_power', 1),
+    variance: getTuningValue('punch_variance', 2),
+    maxUses: null,
+    currentUses: null,
+  }
+}
+
+/** 後方互換: 定数としてのパンチ（テスト等で使用） */
 export const PUNCH: PunchInstance = {
   id: 'punch',
   name: 'パンチ',
   commandCategory: 'weapon',
   targetType: 'enemySingle',
-  power: 1,  // STR × 1 = STR分のダメージ
+  power: 1,
   variance: 2,
   maxUses: null,
   currentUses: null,

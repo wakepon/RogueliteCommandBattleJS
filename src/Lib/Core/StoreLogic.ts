@@ -9,20 +9,13 @@ import WeaponsData from '../Data/Weapons.json'
 import SpellsData from '../Data/Spells.json'
 import RelicsData from '../Data/Relics.json'
 import PotionsData from '../Data/Potions.json'
+import { getTuningValue } from '../Tuning/TuningStore'
 
 // マスターデータを型付け
 const weaponsData = WeaponsData as Record<string, WeaponData>
 const spellsData = SpellsData as Record<string, SpellData>
 const relicsData = RelicsData as Record<string, RelicData>
 const potionsData = PotionsData as Record<string, PotionData>
-
-// 定数
-const WEAPON_SLOT_COUNT = 4
-const RELIC_SLOT_COUNT = 2
-const POTION_SLOT_COUNT = 2
-const BASE_REROLL_COST = 3
-const MAX_RELIC_COUNT = 5
-const MAX_POTION_COUNT = 2
 // MAX_WEAPON_COUNT, MAX_SPELL_COUNT は ExplorerState.weaponSlotCount/magicSlotCount に移行
 
 /** 簡易的な疑似乱数生成器（シード付き） */
@@ -52,19 +45,19 @@ export function generateWeaponSlotItems(seed: number): (WeaponData | SpellData)[
   const allSpells = Object.values(spellsData)
   const allItems = [...allWeapons, ...allSpells]
 
-  return pickRandom(allItems, WEAPON_SLOT_COUNT, seed)
+  return pickRandom(allItems, getTuningValue('store_weapon_slots', 4), seed)
 }
 
 /** レリック枠の商品を抽選 */
 export function generateRelicSlotItems(seed: number): RelicData[] {
   const allRelics = Object.values(relicsData)
-  return pickRandom(allRelics, RELIC_SLOT_COUNT, seed + 100)
+  return pickRandom(allRelics, getTuningValue('store_relic_slots', 2), seed + 100)
 }
 
 /** ポーション枠の商品を抽選 */
 export function generatePotionSlotItems(seed: number): PotionData[] {
   const allPotions = Object.values(potionsData)
-  return pickRandom(allPotions, POTION_SLOT_COUNT, seed + 200)
+  return pickRandom(allPotions, getTuningValue('store_potion_slots', 2), seed + 200)
 }
 
 /** ストア状態を生成 */
@@ -73,7 +66,7 @@ export function createStoreState(seed: number): StoreState {
     weaponSlots: generateWeaponSlotItems(seed),
     relicSlots: generateRelicSlotItems(seed),
     potionSlots: generatePotionSlotItems(seed),
-    rerollCost: BASE_REROLL_COST,
+    rerollCost: getTuningValue('base_reroll_cost', 3),
   }
 }
 
@@ -125,12 +118,12 @@ export function canBuySpell(explorer: ExplorerState): boolean {
 
 /** レリック枠に空きがあるかチェック */
 export function canBuyRelic(relics: RelicInstance[]): boolean {
-  return relics.length < MAX_RELIC_COUNT
+  return relics.length < getTuningValue('max_relic_count', 5)
 }
 
 /** ポーション枠に空きがあるかチェック */
 export function canBuyPotion(potions: PotionInstance[]): boolean {
-  return potions.length < MAX_POTION_COUNT
+  return potions.length < getTuningValue('max_potion_count', 2)
 }
 
 /** リロール処理 */

@@ -1,19 +1,10 @@
 import { Buff, Debuff } from '../Types/Explorer'
-
-/**
- * 毒の1ティックあたりの固定ダメージ
- */
-const POISON_DAMAGE_PER_TICK = 2
+import { getTuningValue } from '../Tuning/TuningStore'
 
 /**
  * 力溜めバフのタイプ名
  */
 const CHARGE_BUFF_TYPE = 'charge'
-
-/**
- * 力溜めバフの倍率
- */
-const CHARGE_MULTIPLIER = 2.0
 
 /**
  * 毒ダメージを計算し、スタックを1減少させる
@@ -35,7 +26,7 @@ export function processPoisonDamage(debuffs: Debuff[]): {
     }
   }
 
-  const damage = POISON_DAMAGE_PER_TICK
+  const damage = getTuningValue('poison_damage_per_tick', 2)
   const newStacks = poisonDebuff.stacks - 1
 
   // スタックが0以下になったら削除
@@ -68,7 +59,7 @@ export function getChargeMultiplier(buffs: Buff[]): number {
   const hasCharge = buffs.some(
     b => b.type === CHARGE_BUFF_TYPE && b.duration === 'nextAction'
   )
-  return hasCharge ? CHARGE_MULTIPLIER : 1.0
+  return hasCharge ? getTuningValue('charge_multiplier', 2.0) : 1.0
 }
 
 /**

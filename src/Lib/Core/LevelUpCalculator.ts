@@ -1,4 +1,5 @@
 import { ExplorerState, CharacterClass } from '../Types/Explorer'
+import { getTuningValue } from '../Tuning/TuningStore'
 
 /** レベルアップ時の情報 */
 export interface LevelUpInfo {
@@ -26,7 +27,8 @@ export interface LevelUpInfo {
  * - Lv4→5: 7体
  */
 export function getRequiredKillsForNextLevel(currentLevel: number): number {
-  return Math.floor(3 * Math.log2(currentLevel + 1))
+  const coefficient = getTuningValue('levelup_formula_coefficient', 3)
+  return Math.floor(coefficient * Math.log2(currentLevel + 1))
 }
 
 /**
@@ -38,11 +40,28 @@ export function canLevelUp(explorer: ExplorerState): boolean {
   return explorer.exp >= required
 }
 
-// クラス別レベルアップ成長値
-const CLASS_GROWTH: Record<CharacterClass, { maxHp: number; maxMp: number; str: number; int: number }> = {
-  warrior: { maxHp: 7, maxMp: 1, str: 2, int: 0 },
-  mage:    { maxHp: 3, maxMp: 4, str: 0, int: 2 },
-  cleric:  { maxHp: 5, maxMp: 3, str: 1, int: 1 },
+// クラス別レベルアップ成長値（Tuning対応）
+function getClassGrowth(): Record<CharacterClass, { maxHp: number; maxMp: number; str: number; int: number }> {
+  return {
+    warrior: {
+      maxHp: getTuningValue('warrior_growth_maxHp', 7),
+      maxMp: getTuningValue('warrior_growth_maxMp', 1),
+      str: getTuningValue('warrior_growth_str', 2),
+      int: getTuningValue('warrior_growth_int', 0),
+    },
+    mage: {
+      maxHp: getTuningValue('mage_growth_maxHp', 3),
+      maxMp: getTuningValue('mage_growth_maxMp', 4),
+      str: getTuningValue('mage_growth_str', 0),
+      int: getTuningValue('mage_growth_int', 2),
+    },
+    cleric: {
+      maxHp: getTuningValue('cleric_growth_maxHp', 5),
+      maxMp: getTuningValue('cleric_growth_maxMp', 3),
+      str: getTuningValue('cleric_growth_str', 1),
+      int: getTuningValue('cleric_growth_int', 1),
+    },
+  }
 }
 
 /**
@@ -61,7 +80,7 @@ export function applyLevelUp(explorer: ExplorerState): {
   const newLevel = previousLevel + 1
 
   // クラス別成長値を取得
-  const growth = CLASS_GROWTH[explorer.characterClass]
+  const growth = getClassGrowth()[explorer.characterClass]
 
   // 新しい最大値を計算
   const newMaxHp = explorer.maxHp + growth.maxHp
