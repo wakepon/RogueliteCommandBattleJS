@@ -69,7 +69,7 @@ function getClassGrowth(): Record<CharacterClass, { maxHp: number; maxMp: number
  * - level +1
  * - exp から必要分を消費
  * - クラス別の成長値でステータス増加
- * - HP/MP: 全回復
+ * - HP/MP: 旧最大値の50%回復（上限は新最大値）
  */
 export function applyLevelUp(explorer: ExplorerState): {
   updatedExplorer: ExplorerState
@@ -92,8 +92,8 @@ export function applyLevelUp(explorer: ExplorerState): {
     exp: explorer.exp - requiredExp,
     maxHp: newMaxHp,
     maxMp: newMaxMp,
-    hp: newMaxHp,   // 全回復
-    mp: newMaxMp,   // 全回復
+    hp: Math.min(explorer.hp + Math.ceil(explorer.maxHp * 0.5), newMaxHp),
+    mp: Math.min(explorer.mp + Math.ceil(explorer.maxMp * 0.5), newMaxMp),
     str: explorer.str + growth.str,
     int: explorer.int + growth.int,
   }
