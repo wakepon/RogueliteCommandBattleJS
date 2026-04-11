@@ -140,7 +140,8 @@ export function GameProvider({ children }: GameProviderProps) {
 
   // Tuning Editorからのリアルタイム反映（DEV時のみ）
   useEffect(() => {
-    initTuningReceiver()
+    const cleanup = initTuningReceiver()
+    return () => cleanup?.()
   }, [])
 
   // 自動セーブ: ストア画面に「遷移した」ときのみセーブ

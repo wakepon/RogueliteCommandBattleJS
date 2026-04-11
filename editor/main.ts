@@ -238,7 +238,10 @@ async function init(): Promise<void> {
   } catch (e) {
     console.error('Tuning Editor init failed:', e)
     const content = document.getElementById('content')!
-    content.innerHTML = `<p style="color: #f88; padding: 20px;">初期化に失敗しました: ${e}</p>`
+    const errorMsg = document.createElement('p')
+    errorMsg.style.cssText = 'color: #f88; padding: 20px;'
+    errorMsg.textContent = `初期化に失敗しました: ${e}`
+    content.appendChild(errorMsg)
   }
 }
 

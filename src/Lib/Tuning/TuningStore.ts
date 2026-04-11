@@ -1,14 +1,14 @@
 import tuningData from '../Data/TuningData.json'
 import { TuningConfig } from './TuningConfig'
 
-/** DEV時のエディタからのオーバーライド値 */
-let _devOverrides: Record<string, unknown> = {}
+/** DEV時のエディタからのオーバーライド値（凍結して保持） */
+let _devOverrides: Readonly<Record<string, unknown>> = Object.freeze({})
 
 /**
  * DEVオーバーライドを設定する（TuningReceiverから呼ばれる）
  */
 export function setDevOverrides(overrides: Record<string, unknown>): void {
-  _devOverrides = overrides
+  _devOverrides = Object.freeze({ ...overrides })
 }
 
 /**

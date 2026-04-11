@@ -51,16 +51,4 @@ export function createPunch(): PunchInstance {
   }
 }
 
-/** 後方互換: 定数としてのパンチ（テスト等で使用） */
-export const PUNCH: PunchInstance = {
-  id: 'punch',
-  name: 'パンチ',
-  commandCategory: 'weapon',
-  targetType: 'enemySingle',
-  power: 1,
-  variance: 2,
-  maxUses: null,
-  currentUses: null,
-}
-
 export type ExplorerWeapon = WeaponInstance | PunchInstance
