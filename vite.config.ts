@@ -10,6 +10,8 @@ export default defineConfig(({ command }) => ({
     ...(command === 'serve' ? [tuningSavePlugin()] : []),
   ],
   base: '/RogueliteCommandBattleJS/',
+  // MPA設定: エディタページをSPA fallbackで上書きさせない
+  appType: 'mpa',
   build: {
     rollupOptions: {
       input: {
