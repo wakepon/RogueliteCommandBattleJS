@@ -493,7 +493,11 @@ export function BattleScreen() {
     const data = event.active.data.current
     if (!data || !('command' in data)) return
 
-    const { command, explorerId } = data as { command: BattleCommand; explorerId: string }
+    const { command, explorerId: rawExplorerId } = data as { command: BattleCommand; explorerId: string }
+    // ポーションは explorerId="shared" で来るので、アクティブエクスプローラーのIDに差し替え
+    const explorerId = rawExplorerId === 'shared'
+      ? commandSlots[battleState.activeExplorerIndex]?.explorerId ?? rawExplorerId
+      : rawExplorerId
 
     const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll'
     const isAllyTargetCmd = command.targetType === 'allySingle'
@@ -508,7 +512,7 @@ export function BattleScreen() {
     if (targetId) {
       setCommandSlotDirect(explorerId, command, targetId)
     }
-  }, [isCommandPhase, party, setCommandSlotDirect, reorderParty, cancelCommand])
+  }, [isCommandPhase, party, setCommandSlotDirect, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex])
 
   // コマンドD&DではpointerWithin、パネルソートではpanel-/ally-のみ対象のclosestCenter
   const customCollisionDetection: CollisionDetection = useCallback((args) => {
