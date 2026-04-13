@@ -46,7 +46,7 @@ interface GameContextType {
   replaceRelic: (sellRelicId: string) => void
   selectRepair: () => void
   toggleRepairWeapon: (weaponId: string) => void
-  confirmRepair: () => void
+  confirmRepair: (explorerId: string) => void
   closeEvent: () => void
   // マップ関連アクション
   advanceFromMap: () => void
@@ -133,7 +133,7 @@ export function GameProvider({ children }: GameProviderProps) {
   const selectRepair = useCallback(() => dispatch({ type: 'SELECT_REPAIR' }), [])
   const toggleRepairWeapon = useCallback((weaponId: string) =>
     dispatch({ type: 'TOGGLE_REPAIR_WEAPON', weaponId }), [])
-  const confirmRepair = useCallback(() => dispatch({ type: 'CONFIRM_REPAIR' }), [])
+  const confirmRepair = useCallback((explorerId: string) => dispatch({ type: 'CONFIRM_REPAIR', explorerId }), [])
   const closeEvent = useCallback(() => dispatch({ type: 'CLOSE_EVENT' }), [])
   // マップ関連アクション
   const advanceFromMap = useCallback(() => dispatch({ type: 'ADVANCE_FROM_MAP' }), [])

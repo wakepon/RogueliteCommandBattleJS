@@ -144,15 +144,7 @@ export function EventScreen() {
 
     const handleConfirm = () => {
       if (!selectedCharId) return
-      // selectedWeaponIdsにキャラIDが入っているが、confirmRepairはweaponIdsとして処理する
-      // GameReducerのCONFIRM_REPAIRでparty全員に適用されるので、対象キャラの全武器IDを渡す
-      const targetMember = run.party.find(m => m.id === selectedCharId)
-      if (!targetMember) return
-      const allWeaponIds = targetMember.weapons.map(w => w.id)
-      // 一旦全クリアしてから全武器IDを設定
-      if (selectedCharId) toggleRepairWeapon(selectedCharId)
-      allWeaponIds.forEach(id => toggleRepairWeapon(id))
-      confirmRepair()
+      confirmRepair(selectedCharId)
     }
 
     return (

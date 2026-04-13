@@ -22,6 +22,7 @@ import {
   addRelic,
   replaceRelic,
   repairWeapons,
+  getRepairableWeapons,
 } from '../Core/EventLogic'
 import { generateMapNodes } from '../Core/MapGenerator'
 import { getInterestCapBonus } from '../Core/RelicProcessor'
@@ -66,7 +67,7 @@ export type GameAction =
   | { type: 'REPLACE_RELIC'; sellRelicId: string }
   | { type: 'SELECT_REPAIR' }
   | { type: 'TOGGLE_REPAIR_WEAPON'; weaponId: string }
-  | { type: 'CONFIRM_REPAIR' }
+  | { type: 'CONFIRM_REPAIR'; explorerId: string }
   | { type: 'CLOSE_EVENT' }
   | { type: 'ADVANCE_FROM_MAP' }
   | { type: 'REORDER_PARTY'; fromIndex: number; toIndex: number }
@@ -701,11 +702,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'CONFIRM_REPAIR': {
       if (!state.run || !state.eventState) return state
 
-      const { selectedWeaponIds } = state.eventState
-      if (selectedWeaponIds.length === 0) return state
+      const { explorerId } = action
+      const targetExplorer = state.run.party.find(m => m.id === explorerId)
+      if (!targetExplorer) return state
+
+      // 対象キャラの修理可能な全武器IDを収集
+      const repairableIds = getRepairableWeapons(targetExplorer.weapons).map(w => w.id)
+      if (repairableIds.length === 0) return state
 
       const updatedParty = state.run.party.map(explorer =>
-        repairWeapons(explorer, selectedWeaponIds)
+        explorer.id === explorerId ? repairWeapons(explorer, repairableIds) : explorer
       )
 
       return advanceToMapPhase(state, { ...state.run, party: updatedParty })
