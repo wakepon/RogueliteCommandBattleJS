@@ -41,8 +41,9 @@ function pickRandom<T>(array: T[], count: number, seed: number): T[] {
 
 /** 武器/魔法枠の商品を抽選 */
 export function generateWeaponSlotItems(seed: number): (WeaponData | SpellData)[] {
-  const allWeapons = Object.values(weaponsData)
-  const allSpells = Object.values(spellsData)
+  // 耐久値∞の武器（パンチ、魔力弾等）とMP消費0の魔法はショップに並べない
+  const allWeapons = Object.values(weaponsData).filter(w => w.maxUses !== null)
+  const allSpells = Object.values(spellsData).filter(s => s.mpCost > 0)
   const allItems = [...allWeapons, ...allSpells]
 
   return pickRandom(allItems, getTuningValue('store_weapon_slots', 4), seed)

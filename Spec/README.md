@@ -15,6 +15,31 @@ Spec/
 
 ## 更新履歴
 
+### 2026-04-13: Tuning Editor導入・バランス調整・ポーションD&D修正の反映
+
+3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。
+
+**Core Game チーム** (8ファイル更新):
+- `Overview/BattleOverview.md` — 戦闘報酬の基礎ゴールドをTuning Editor調整可能表記に修正（デフォルト: normal 6G, elite 10G, boss 20G）、利息上限をTuning Editor調整可能表記に修正、バランス調整の注記追加
+- `Overview/EnemyOverview.md` — 全12敵のHP値をコード現在値に更新（全敵3倍、ドラゴン1.5倍の引き上げ反映）
+- `Overview/StoreOverview.md` — ストア枠数・リロールコスト・上限がTuning Editorで調整可能の注記追加
+- `Overview/DungeonExploreOverview.md` — 休憩回復量にTuning Editor調整可能の注記追加
+- `MVP/BattleSystem.md` — レベルアップ回復を「全回復」→「旧最大値の50%回復」に修正、報酬・利子をTuning Editor対応に修正
+- `MVP/EnemyCharacter.md` — 全12敵のHP値をコード現在値に更新
+- `MVP/GameFlow.md` — レベルアップ回復を「部分回復（50%）」に修正、休憩回復にTuning Editor注記追加
+- `MVP/StoreItem.md` — リロールコスト・枠数のTuning Editor調整可能注記追加
+
+**Data & State チーム** (4ファイル更新):
+- `Architecture/SystemDesign.md` — Lib/Tuning/（6ファイル）・editor/（4ファイル）・vite-plugins/のフォルダ構造追加、「バランス調整システム（Tuning Editor）」セクション新設、設計方針・ビルド設定変更を記載
+- `MVP/MVPScope.md` — 実装するもの（Core）にTuning Editorを追加
+- `MVP/DevelopmentRoadmap.md` — フェーズ5「バランス調整」を詳細化（Tuning Editor・敵HP引き上げ・回復率変更）
+- `MVP/ImplementationTasks.md` — スライス11（Tuning Editor、11タスク）追加、進捗サマリー更新
+
+**UI チーム** (1ファイル更新):
+- `MVP/UIUXDesign.md` — Tuning Editorセクション新設（レイアウト・BroadcastChannel通信・保存機能）、ポーションD&D操作仕様（shared→アクティブエクスプローラー変換）追記、全体攻撃バッジ「全体」→「全」修正
+
+**注意:** `Architecture/SystemDesign.md` が914行（800行上限超過）。次回メンテナンス時にセクション分割を推奨。
+
 ### 2026-04-08: 敵パターン拡張・バグ修正・UI統合の反映
 
 3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。

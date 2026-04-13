@@ -171,6 +171,25 @@
 
 ---
 
+## スライス11: Tuning Editor
+**動作確認**: DEV環境でTuning Editorを開き、スライダー操作がリアルタイムにゲームへ反映される
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|:----------:|
+| 11.1 | TuningConfig型定義 | 6カテゴリの型定義（enemy, player, reward, store, levelup, battle） | ✅ 完了 |
+| 11.2 | TuningSchema | デフォルト値・バリデーション | ✅ 完了 |
+| 11.3 | TuningStore | 現在のTuningConfigを保持・参照 | ✅ 完了 |
+| 11.4 | TuningSerializer | TuningConfig ↔ JSON変換 | ✅ 完了 |
+| 11.5 | TuningReceiver | BroadcastChannel受信 → TuningStore更新 | ✅ 完了 |
+| 11.6 | TuningData.json | Tuning Editorが書き出すパラメータ調整値ファイル | ✅ 完了 |
+| 11.7 | tuning-save-plugin | Viteプラグイン: 保存リクエストをTuningData.jsonに書き出す | ✅ 完了 |
+| 11.8 | editor UI | editor/index.html, style.css, main.ts, EditorUI.ts（React非依存） | ✅ 完了 |
+| 11.9 | vite.config.ts MPA化 | appType: 'mpa' に設定しeditorを別エントリーポイントとして扱う | ✅ 完了 |
+| 11.10 | tsconfig更新 | include に "editor" を追加 | ✅ 完了 |
+| 11.11 | getTuningValue統合 | 各Core/TypesのコードがTuningStoreからパラメータを参照するよう統合 | ✅ 完了 |
+
+---
+
 ## 進捗サマリー
 
 | スライス | 完了タスク | 総タスク | 進捗 |
@@ -185,7 +204,8 @@
 | 8: セーブ/仕上げ | 3 | 3 | 100% |
 | 9: パーティー制 | 10 | 10 | 100% |
 | 10: 敵パターン拡張 | 6 | 6 | 100% |
-| **合計** | **56** | **56** | **100%** |
+| 11: Tuning Editor | 11 | 11 | 100% |
+| **合計** | **67** | **67** | **100%** |
 
 ---
 
@@ -248,6 +268,7 @@ src/
 │   │   ├── EventLogic.ts
 │   │   ├── MapGenerator.ts
 │   │   ├── RelicProcessor.ts
+│   │   ├── TargetingSystem.ts   # 前衛/後衛ターゲット率計算
 │   │   └── index.ts
 │   ├── State/           # 状態管理
 │   │   ├── BattleReducer.ts
@@ -258,13 +279,21 @@ src/
 │   ├── Utils/           # ユーティリティ
 │   │   ├── ItemDescription.ts
 │   │   └── DamagePredictor.ts
+│   ├── Tuning/          # バランス調整システム（DEV専用）
+│   │   ├── TuningConfig.ts
+│   │   ├── TuningSchema.ts
+│   │   ├── TuningStore.ts
+│   │   ├── TuningReceiver.ts
+│   │   ├── TuningSerializer.ts
+│   │   └── index.ts
 │   ├── Data/            # マスターデータ
 │   │   ├── Weapons.json
 │   │   ├── Spells.json
 │   │   ├── Relics.json
 │   │   ├── Potions.json
 │   │   ├── Enemies.json
-│   │   └── StagePatterns.json
+│   │   ├── StagePatterns.json
+│   │   └── TuningData.json      # Tuning Editorが書き出すパラメータ調整値
 │   └── Storage/         # 永続化
 │       ├── SaveManager.ts
 │       └── index.ts              # 追加済み
@@ -303,4 +332,13 @@ src/
 │       ├── MapScreen.tsx
 │       └── index.ts
 └── App.tsx              # エントリーポイント
+
+editor/                  # Tuning Editor（プロジェクトルート、React非依存）
+├── index.html
+├── style.css
+├── main.ts
+└── EditorUI.ts
+
+vite-plugins/            # Viteカスタムプラグイン
+└── tuning-save-plugin.ts
 ```

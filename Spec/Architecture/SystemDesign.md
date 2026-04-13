@@ -12,6 +12,7 @@
 | セーブ/ロード | localStorage、戦闘終了後のみ | シンプル、中断再開は戦闘後から |
 | 画面遷移 | state切り替え | React Router不要、シンプル |
 | 状態管理 | useReducer + Context | MVPの規模に十分、外部依存なし |
+| バランス調整 | Tuning Editor（DEV専用） | BroadcastChannelでリアルタイム反映 |
 
 ## フォルダ構造
 
@@ -47,6 +48,7 @@ src/
 │   │   ├── EventLogic.ts         # イベント画面ロジック
 │   │   ├── MapGenerator.ts       # マップ生成
 │   │   ├── RelicProcessor.ts     # レリック効果処理
+│   │   ├── TargetingSystem.ts    # 前衛/後衛ターゲット率計算
 │   │   └── index.ts
 │   ├── State/              # 状態遷移
 │   │   ├── GameReducer.ts        # ゲーム全体の状態遷移
@@ -64,12 +66,20 @@ src/
 │   │   ├── Relics.json
 │   │   ├── Potions.json
 │   │   ├── Enemies.json
-│   │   └── StagePatterns.json
+│   │   ├── StagePatterns.json
+│   │   └── TuningData.json       # Tuning Editorが書き出すパラメータ調整値
+│   ├── Tuning/             # バランス調整システム（DEV専用）
+│   │   ├── TuningConfig.ts       # TuningConfig型定義（6カテゴリ）
+│   │   ├── TuningSchema.ts       # デフォルト値・バリデーション
+│   │   ├── TuningStore.ts        # 現在のTuningConfigを保持・参照
+│   │   ├── TuningReceiver.ts     # BroadcastChannel受信・TuningStore更新
+│   │   ├── TuningSerializer.ts   # TuningConfig ↔ JSON変換
+│   │   └── index.ts
 │   └── Storage/            # 永続化
 │       ├── SaveManager.ts        # localStorage操作
 │       └── index.ts
 ├── Hooks/                  # React Hooks（ロジックとUIの橋渡し）
-│   ├── UseGame.tsx         # ゲーム全体の状態管理
+│   ├── UseGame.tsx         # ゲーム全体の状態管理。initTuningReceiver を呼び出し
 │   └── UseBattle.tsx       # 戦闘画面用
 ├── Components/             # UIコンポーネント
 │   ├── Screens/            # 画面単位
@@ -89,7 +99,20 @@ src/
 │   └── Common/             # 共通UI部品
 │       └── MapContent.tsx
 └── App.tsx                 # エントリーポイント、画面切り替え
+
+editor/                     # Tuning Editor（プロジェクトルート、React非依存）
+├── index.html
+├── style.css
+├── main.ts
+└── EditorUI.ts
+
+vite-plugins/               # Viteカスタムプラグイン
+└── tuning-save-plugin.ts   # Tuning Editorの保存リクエストをTuningData.jsonに書き出す
 ```
+
+**ビルド設定の変更点:**
+- `vite.config.ts`: `appType: 'mpa'` に設定（メインアプリとeditorを別エントリーポイントとして扱う）
+- `tsconfig.json`: `include` に `"editor"` を追加
 
 ## インターフェース設計
 
@@ -817,6 +840,59 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 `processExecuteCommand`（コマンド実行処理）、`processEnemyAction`（敵行動処理）、`processTurnEndAction`（ターン終了処理）の3主要処理関数を持つ。
 
+## バランス調整システム（Tuning Editor）
+
+DEV専用のパラメータ調整ツール。React非依存の独立したHTMLページとして実装されており、ゲーム本体とはBroadcastChannelで通信する。
+
+### アーキテクチャ概要
+
+```
+editor/                    ←  Tuning Editor UI（ブラウザの別タブで起動）
+    EditorUI.ts            ←  スライダー/入力UIの描画、BroadcastChannel送信
+    main.ts                ←  エントリーポイント
+
+src/Lib/Tuning/            ←  ゲーム本体側の受信・参照レイヤー
+    TuningReceiver.ts      ←  BroadcastChannel受信 → TuningStore更新
+    TuningStore.ts         ←  現在のTuningConfigを保持
+    TuningConfig.ts        ←  型定義
+    TuningSchema.ts        ←  デフォルト値・バリデーション
+    TuningSerializer.ts    ←  JSON変換
+
+vite-plugins/
+    tuning-save-plugin.ts  ←  保存リクエストをTuningData.jsonに書き出す
+```
+
+### データフロー
+
+```
+Tuning Editor UI
+    ↓ BroadcastChannel（リアルタイム送信）
+TuningReceiver → TuningStore 更新
+    ↓
+ゲームロジック（各Core/Typesのコード）が getTuningValue() で参照
+    ↓（保存操作時）
+vite-plugins/tuning-save-plugin → TuningData.json に書き出し
+    ↓（次回起動時）
+TuningStore がTuningData.jsonを初期値として読み込む
+```
+
+### TuningConfig型（6カテゴリ）
+
+| カテゴリ | 概要 |
+|---------|------|
+| enemy | 敵HP・攻撃力などの倍率 |
+| player | パーティーの基礎ステータス倍率 |
+| reward | 報酬金額・利子率の調整値 |
+| store | ストア価格・リロールコストの調整値 |
+| levelup | レベルアップ時のHP/MP回復率など |
+| battle | ターン制限・ダメージ計算の調整値 |
+
+各カテゴリの具体的な数値はバランス調整対象のため概要記載。
+
+### DEV専用について
+
+Tuning Editor は開発時のみ使用するツールであり、本番ビルドには含まれない。`TuningData.json` のみが本番環境に反映される。
+
 ## 開発フェーズとの対応
 
 | フェーズ | 実装対象 |
@@ -825,6 +901,7 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 | **Phase 2: ゲームループ** | `Lib/State/GameReducer.ts`、`Lib/Core/RewardCalculator.ts`、`Lib/Core/StoreLogic.ts`、`Lib/Storage/SaveManager.ts` |
 | **Phase 3: データとUI** | `Lib/Data/*.json`、`Components/`、`Hooks/` |
 | **Phase 4: バランス調整** | `Lib/Data/*.json`の数値調整 |
+| **Phase 5: Tuning Editor** | `Lib/Tuning/`、`editor/`、`vite-plugins/`、各Core/Typesの`getTuningValue`統合 |
 
 ## 設計原則
 
