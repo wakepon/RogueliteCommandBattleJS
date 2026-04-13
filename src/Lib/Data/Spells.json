@@ -74,6 +74,98 @@
     "variance": 5,
     "effect": null
   },
+  "barrier": {
+    "id": "barrier",
+    "name": "バリア",
+    "rarity": "Uncommon",
+    "price": 8,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 4,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "shield",
+      "value": 15
+    }
+  },
+  "life_tap": {
+    "id": "life_tap",
+    "name": "生命変換",
+    "rarity": "Uncommon",
+    "price": 6,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 0,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "hpToMp",
+      "hpCost": 10,
+      "mpGain": 8
+    }
+  },
+  "gold_hex": {
+    "id": "gold_hex",
+    "name": "金のまじない",
+    "rarity": "Uncommon",
+    "price": 6,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 5,
+    "power": 2,
+    "variance": 3,
+    "effect": {
+      "type": "goldOnHit",
+      "value": 2
+    }
+  },
+  "gold_burst": {
+    "id": "gold_burst",
+    "name": "ゴールドバースト",
+    "rarity": "Rare",
+    "price": 9,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 5,
+    "power": 0,
+    "variance": 3,
+    "effect": {
+      "type": "goldDamage",
+      "rate": 0.2,
+      "multiplier": 3
+    }
+  },
+  "field_repair": {
+    "id": "field_repair",
+    "name": "戦場の鍛冶",
+    "rarity": "Rare",
+    "price": 8,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 6,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "repairWeapons",
+      "value": 2
+    }
+  },
+  "weapon_enchant": {
+    "id": "weapon_enchant",
+    "name": "武器強化",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 4,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "weaponPowerBuff",
+      "value": 3
+    }
+  },
   "precision": {
     "id": "precision",
     "name": "精密",

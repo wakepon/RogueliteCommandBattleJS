@@ -2,22 +2,19 @@ import { ItemCard } from '../Common/ItemCard'
 import { Tooltip, TooltipCard } from '../Common'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RunState } from '../../Lib/Types/Run'
-import { StoreState } from '../../Lib/Types/Game'
+import { StoreState, ShopSlot } from '../../Lib/Types/Game'
 import { WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData } from '../../Lib/Types/Spell'
 import { RelicData } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import {
-  isWeaponData,
-  isSpellData,
-  isRelicData,
-  isPotionData,
   getSellPrice,
   getSellPriceItem,
   canBuyWeapon,
   canBuySpell,
   canBuyRelic,
   canBuyPotion,
+  STORE_CATEGORY_LABELS,
 } from '../../Lib/Core/StoreLogic'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
@@ -52,47 +49,68 @@ export function StoreShopPanel({
   sellRelic,
   sellPotion,
 }: StoreShopPanelProps) {
-  /** 武器/魔法の購入処理 */
-  const handleBuyWeaponSlot = (slotIndex: number, item: WeaponData | SpellData) => {
-    if (gold < item.price) return
-    if (isWeaponData(item)) {
-      if (!canBuyWeapon(explorer)) return
-      buyWeapon(slotIndex, item)
-    } else if (isSpellData(item)) {
-      if (!canBuySpell(explorer)) return
-      buySpell(slotIndex, item)
-    }
-  }
+  // 選択済みショップがなければ何も表示しない
+  if (storeState.selectedShopIndex === null) return null
+  const shop = storeState.shopOptions[storeState.selectedShopIndex]
 
-  /** レリック/ポーションの購入処理 */
-  const handleBuyRelicSlot = (slotIndex: number, item: RelicData | PotionData) => {
-    if (gold < item.price) return
-    if (isRelicData(item)) {
-      if (!canBuyRelic(run.relics)) return
-      buyRelic(slotIndex, item)
-    } else if (isPotionData(item)) {
-      if (!canBuyPotion(run.potions)) return
-      buyPotion(slotIndex, item)
+  /** スロットの購入処理 */
+  const handleBuySlot = (slotIndex: number, slot: ShopSlot) => {
+    if (!slot.item || gold < slot.item.price) return
+    switch (slot.category) {
+      case 'weapon':
+        if (!canBuyWeapon(explorer)) return
+        buyWeapon(slotIndex, slot.item)
+        break
+      case 'spell':
+        if (!canBuySpell(explorer)) return
+        buySpell(slotIndex, slot.item)
+        break
+      case 'relic':
+        if (!canBuyRelic(run.relics)) return
+        buyRelic(slotIndex, slot.item)
+        break
+      case 'potion':
+        if (!canBuyPotion(run.potions)) return
+        buyPotion(slotIndex, slot.item)
+        break
     }
   }
 
   /** 購入可能かチェック */
-  const canBuyWeaponSlot = (item: WeaponData | SpellData): boolean => {
-    if (gold < item.price) return false
-    if (isWeaponData(item)) return canBuyWeapon(explorer)
-    if (isSpellData(item)) return canBuySpell(explorer)
-    return false
-  }
-
-  /** 購入可能かチェック（レリック/ポーション） */
-  const canBuyRelicSlot = (item: RelicData | PotionData): boolean => {
-    if (gold < item.price) return false
-    if (isRelicData(item)) return canBuyRelic(run.relics)
-    if (isPotionData(item)) return canBuyPotion(run.potions)
-    return false
+  const canBuySlot = (slot: ShopSlot): boolean => {
+    if (!slot.item || gold < slot.item.price) return false
+    switch (slot.category) {
+      case 'weapon': return canBuyWeapon(explorer)
+      case 'spell': return canBuySpell(explorer)
+      case 'relic': return canBuyRelic(run.relics)
+      case 'potion': return canBuyPotion(run.potions)
+    }
   }
 
   const predOpts = { relics: run.relics }
+  const topSlots = shop.slots.slice(0, 3)
+  const bottomSlots = shop.slots.slice(3, 6)
+
+  /** スロット1つをレンダリング */
+  const renderSlot = (slot: ShopSlot, slotIndex: number) => (
+    <div key={`slot-${slotIndex}`}>
+      {slot.item ? (
+        <ItemCard
+          item={slot.item}
+          showPrice
+          compact
+          onClick={() => handleBuySlot(slotIndex, slot)}
+          disabled={!canBuySlot(slot)}
+          explorer={explorer}
+          relics={run.relics}
+        />
+      ) : (
+        <div className="border-2 border-dashed border-gray-600 rounded-lg p-1.5 h-12 flex items-center justify-center">
+          <span className="text-gray-500 text-xs">売り切れ</span>
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <div className="grid grid-cols-2 gap-3 h-full overflow-hidden">
@@ -100,55 +118,19 @@ export function StoreShopPanel({
       <div className="overflow-y-auto">
         <div className="text-xs text-gray-400 mb-2">shop</div>
 
-        {/* 武器/魔法スロット */}
+        {/* 上段カテゴリ */}
         <div className="mb-3">
-          <div className="text-xs text-gray-500 mb-1">武器・魔法</div>
+          <div className="text-xs text-gray-500 mb-1">{STORE_CATEGORY_LABELS[shop.categories[0]]}</div>
           <div className="grid grid-cols-3 gap-1">
-            {storeState.weaponSlots.map((item, index) => (
-              <div key={`weapon-slot-${index}`}>
-                {item ? (
-                  <ItemCard
-                    item={item}
-                    showPrice
-                    compact
-                    onClick={() => handleBuyWeaponSlot(index, item)}
-                    disabled={!canBuyWeaponSlot(item)}
-                    explorer={explorer}
-                    relics={run.relics}
-                  />
-                ) : (
-                  <div className="border-2 border-dashed border-gray-600 rounded-lg p-1.5 h-12 flex items-center justify-center">
-                    <span className="text-gray-500 text-xs">売り切れ</span>
-                  </div>
-                )}
-              </div>
-            ))}
+            {topSlots.map((slot, i) => renderSlot(slot, i))}
           </div>
         </div>
 
-        {/* レリック/ポーションスロット */}
+        {/* 下段カテゴリ */}
         <div>
-          <div className="text-xs text-gray-500 mb-1">レリック・ポーション</div>
+          <div className="text-xs text-gray-500 mb-1">{STORE_CATEGORY_LABELS[shop.categories[1]]}</div>
           <div className="grid grid-cols-3 gap-1">
-            {storeState.relicSlots.map((item, index) => (
-              <div key={`relic-slot-${index}`}>
-                {item ? (
-                  <ItemCard
-                    item={item}
-                    showPrice
-                    compact
-                    onClick={() => handleBuyRelicSlot(index, item)}
-                    disabled={!canBuyRelicSlot(item)}
-                    explorer={explorer}
-                    relics={run.relics}
-                  />
-                ) : (
-                  <div className="border-2 border-dashed border-gray-600 rounded-lg p-1.5 h-12 flex items-center justify-center">
-                    <span className="text-gray-500 text-xs">売り切れ</span>
-                  </div>
-                )}
-              </div>
-            ))}
+            {bottomSlots.map((slot, i) => renderSlot(slot, i + 3))}
           </div>
         </div>
       </div>

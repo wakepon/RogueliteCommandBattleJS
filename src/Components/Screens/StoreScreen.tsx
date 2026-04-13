@@ -10,7 +10,8 @@ import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
-import { getSellPrice, getSellPriceItem, isWeaponData, isSpellData } from '../../Lib/Core/StoreLogic'
+import { getSellPrice, getSellPriceItem, isWeaponData, isSpellData, STORE_CATEGORY_LABELS } from '../../Lib/Core/StoreLogic'
+import { ShopSlot, ShopOption } from '../../Lib/Types/Game'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
@@ -43,6 +44,26 @@ type ShopDragData =
   | { source: 'inv-relic'; relicIndex: number }
   | { source: 'inv-potion'; potionIndex: number }
   | { source: 'sold-item'; soldIndex: number; soldItem: SoldItem }
+
+/** ShopSlotからShopDragDataを生成する */
+function slotToDragData(slotIndex: number, slot: ShopSlot): ShopDragData | null {
+  if (!slot.item) return null
+  switch (slot.category) {
+    case 'weapon':
+      return { source: 'shop-weapon', slotIndex, item: slot.item }
+    case 'spell':
+      return { source: 'shop-weapon', slotIndex, item: slot.item }
+    case 'relic':
+      return { source: 'shop-relic', slotIndex, item: slot.item }
+    case 'potion':
+      return { source: 'shop-potion', slotIndex, item: slot.item }
+  }
+}
+
+/** ShopSlotのカテゴリからアイテムタイプカラーを取得 */
+function getSlotType(slot: ShopSlot): 'weapon' | 'spell' | 'relic' | 'potion' {
+  return slot.category
+}
 
 // === ダメージ予測ヘルパー ===
 
@@ -141,6 +162,63 @@ function ShopItemCard({ name, price, type, damageInfo, usesInfo, item }: {
       </div>
     </Tooltip>
   )
+}
+
+// === ショップ選択画面のプレビュー ===
+
+// === ショップスロットのレンダラー ===
+
+function ShopSlotRenderer({
+  slot,
+  slotIndex,
+  dmgPreview,
+}: {
+  slot: ShopSlot
+  slotIndex: number
+  dmgPreview: { memberName: string; display: string } | null
+}) {
+  if (!slot.item) {
+    return (
+      <DroppableSlot id={`return-slot-${slotIndex}`}>
+        <div className="border-2 border-dashed border-gray-700 rounded p-1.5 h-full flex items-center justify-center">
+          <span className="text-gray-600 text-[10px]">売り切れ</span>
+        </div>
+      </DroppableSlot>
+    )
+  }
+
+  const item = slot.item
+  const dragData = slotToDragData(slotIndex, slot)
+  if (!dragData) return null
+
+  const type = getSlotType(slot)
+  const usesInfo = getSlotUsesInfo(slot)
+
+  return (
+    <DraggableShopItem id={`shop-slot-${slotIndex}`} data={dragData}>
+      <ShopItemCard
+        name={item.name}
+        price={item.price}
+        type={type}
+        damageInfo={dmgPreview}
+        usesInfo={usesInfo}
+        item={item}
+      />
+    </DraggableShopItem>
+  )
+}
+
+/** スロットの使用回数/MP情報を取得 */
+function getSlotUsesInfo(slot: ShopSlot): string | null {
+  if (!slot.item) return null
+  switch (slot.category) {
+    case 'weapon':
+      return slot.item.maxUses !== null ? `${slot.item.maxUses}回` : null
+    case 'spell':
+      return `${slot.item.mpCost}MP`
+    default:
+      return null
+  }
 }
 
 // === キャラ欄 ===
@@ -371,7 +449,7 @@ export function StoreScreen() {
     undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion,
     undoSellWeapon, undoSellSpell, undoSellRelic, undoSellPotion,
     transferWeapon, transferSpell,
-    rerollStore, closeStore,
+    rerollStore, closeStore, selectShop,
   } = useGame()
 
   const [showMap, setShowMap] = useState(false)
@@ -397,12 +475,23 @@ export function StoreScreen() {
   }
   const initialGold = initialGoldRef.current
 
-  // 商品カード用のダメージ予測をメモ化
+  // 選択中のショップ
+  const selectedShop: ShopOption | null = storeState.selectedShopIndex !== null
+    ? storeState.shopOptions[storeState.selectedShopIndex]
+    : null
+
+  // 商品カード用のダメージ予測をメモ化（選択済みショップのスロットベース）
   const shopDamagePreviews = useMemo(() => {
     const previews: Map<number, { memberName: string; display: string } | null> = new Map()
-    storeState.weaponSlots.forEach((item, index) => {
-      if (!item) { previews.set(index, null); return }
-      // ホバー中のメンバーがいればそのメンバーで計算
+    if (!selectedShop) return previews
+    selectedShop.slots.forEach((slot, index) => {
+      if (!slot.item) { previews.set(index, null); return }
+      // 武器/魔法のみダメージ予測
+      if (slot.category !== 'weapon' && slot.category !== 'spell') {
+        previews.set(index, null)
+        return
+      }
+      const item = slot.item as WeaponData | SpellData
       if (hoverMemberIndex !== null && run.party[hoverMemberIndex]) {
         const member = run.party[hoverMemberIndex]
         const dmg = getMemberDamagePreview(item, member, run.relics as RelicData[])
@@ -412,7 +501,7 @@ export function StoreScreen() {
       }
     })
     return previews
-  }, [storeState.weaponSlots, run.party, run.relics, hoverMemberIndex])
+  }, [selectedShop, run.party, run.relics, hoverMemberIndex])
 
   const addMovedKey = useCallback((key: string) => {
     setMovedKeys(prev => new Set(prev).add(key))
@@ -521,7 +610,7 @@ export function StoreScreen() {
 
     // === 装備→商品枠 (購入取り消し) ===
     // 商品エリア内のどこにドロップしても、購入記録があれば元のスロットに返す
-    const isShopReturnDrop = dropId === 'shop-return-zone' || dropId.startsWith('return-weapon-') || dropId.startsWith('return-relic-') || dropId.startsWith('return-potion-')
+    const isShopReturnDrop = dropId === 'shop-return-zone' || dropId.startsWith('return-slot-')
     if (isShopReturnDrop) {
       if (data.source === 'inv-weapon') {
         const record = purchaseRecords.find(r => r.itemId === data.weapon.id && r.type === 'weapon')
@@ -626,6 +715,80 @@ export function StoreScreen() {
     setHoverMemberIndex(null)
   }, [])
 
+  // ショップ選択画面
+  if (storeState.selectedShopIndex === null) {
+    return (
+      <div className="min-h-screen bg-gray-800 p-2 flex flex-col gap-2">
+
+        {/* ===== ショップ選択エリア（商品エリアの位置） ===== */}
+        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-white font-bold text-xs">ショップを選択</span>
+            <span className="text-yellow-400 font-bold text-sm">{gold}G</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {storeState.shopOptions.map((option, optIdx) => (
+              <button
+                key={optIdx}
+                className="bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 rounded-lg p-3 flex flex-col items-center gap-1 transition-colors cursor-pointer min-h-[80px]"
+                onClick={() => selectShop(optIdx)}
+              >
+                <div className="text-white font-bold text-sm">
+                  {STORE_CATEGORY_LABELS[option.categories[0]]}
+                  <span className="text-gray-500 mx-1">・</span>
+                  {STORE_CATEGORY_LABELS[option.categories[1]]}
+                </div>
+                <div className="text-gray-500 text-[10px]">各{option.slots.length / 2}枠</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ===== キャラ欄4等分（3キャラ + 共有枠） ===== */}
+        <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
+          {run.party.map((member, index) => (
+            <StoreCharacterPanel
+              key={member.id}
+              member={member}
+              memberIndex={index}
+              dragData={null}
+              movedKeys={movedKeys}
+              newPurchaseKeys={newPurchaseKeys}
+              relics={run.relics as RelicData[]}
+            />
+          ))}
+          <StoreSharedPanel
+            potions={run.potions}
+            relics={run.relics}
+            movedKeys={movedKeys}
+            newPurchaseKeys={newPurchaseKeys}
+          />
+        </div>
+
+        {/* ===== スキップボタン ===== */}
+        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+          <div className="flex gap-2 justify-center">
+            {mapState && (
+              <Button variant="secondary" onClick={() => setShowMap(true)}>マップ</Button>
+            )}
+            <Button variant="primary" onClick={closeStore} className="flex-1 max-w-md">
+              ショップをスキップ
+            </Button>
+          </div>
+        </div>
+
+        {showMap && mapState && (
+          <MapOverlay nodes={mapState.nodes} currentStage={mapState.currentStage} onClose={() => setShowMap(false)} />
+        )}
+      </div>
+    )
+  }
+
+  // ショップ選択済み: 通常のショップ画面
+  const shop = selectedShop!
+  const topSlots = shop.slots.slice(0, 3)
+  const bottomSlots = shop.slots.slice(3, 6)
+
   return (
     <DndContext onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={pointerWithin}>
       <div className="min-h-screen bg-gray-800 p-2 flex flex-col gap-2">
@@ -656,79 +819,39 @@ export function StoreScreen() {
                 </span>
               </div>
 
-              {/* 武器・魔法 4枠 */}
-              <div className="grid grid-cols-4 gap-1.5 mb-2">
-                {storeState.weaponSlots.map((item, index) => {
-                  const dmgPreview = shopDamagePreviews.get(index) ?? null
-                  const usesInfo = item
-                    ? (isWeaponData(item) ? (item.maxUses !== null ? `${item.maxUses}回` : null) : `${(item as SpellData).mpCost}MP`)
-                    : null
-                  return (
-                    <div key={`ws-${index}`}>
-                      {item ? (
-                        <DraggableShopItem id={`shop-weapon-${index}`}
-                          data={{ source: 'shop-weapon', slotIndex: index, item }}>
-                          <ShopItemCard name={item.name} price={item.price}
-                            type={isWeaponData(item) ? 'weapon' : 'spell'}
-                            damageInfo={dmgPreview}
-                            usesInfo={usesInfo}
-                            item={item} />
-                        </DraggableShopItem>
-                      ) : (
-                        <DroppableSlot id={`return-weapon-${index}`}>
-                          <div className="border-2 border-dashed border-gray-700 rounded p-1.5 h-full flex items-center justify-center">
-                            <span className="text-gray-600 text-[10px]">売り切れ</span>
-                          </div>
-                        </DroppableSlot>
-                      )}
-                    </div>
-                  )
-                })}
+              {/* 上段: 最初のカテゴリ3枠 */}
+              <div className="mb-2">
+                <div className="text-[9px] text-gray-500 mb-1">{STORE_CATEGORY_LABELS[shop.categories[0]]}</div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {topSlots.map((slot, localIdx) => {
+                    const slotIndex = localIdx
+                    return (
+                      <ShopSlotRenderer
+                        key={`top-${localIdx}`}
+                        slot={slot}
+                        slotIndex={slotIndex}
+                        dmgPreview={shopDamagePreviews.get(slotIndex) ?? null}
+                      />
+                    )
+                  })}
+                </div>
               </div>
 
-              {/* レリック + ポーション */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="text-[9px] text-gray-500 mb-1">レリック</div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {storeState.relicSlots.map((item, index) => (
-                      <div key={`rs-${index}`}>
-                        {item ? (
-                          <DraggableShopItem id={`shop-relic-${index}`}
-                            data={{ source: 'shop-relic', slotIndex: index, item }}>
-                            <ShopItemCard name={item.name} price={item.price} type="relic" item={item} />
-                          </DraggableShopItem>
-                        ) : (
-                          <DroppableSlot id={`return-relic-${index}`}>
-                            <div className="border-2 border-dashed border-gray-700 rounded p-1.5 flex items-center justify-center">
-                              <span className="text-gray-600 text-[10px]">売り切れ</span>
-                            </div>
-                          </DroppableSlot>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[9px] text-gray-500 mb-1">ポーション</div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {storeState.potionSlots.map((item, index) => (
-                      <div key={`ps-${index}`}>
-                        {item ? (
-                          <DraggableShopItem id={`shop-potion-${index}`}
-                            data={{ source: 'shop-potion', slotIndex: index, item }}>
-                            <ShopItemCard name={item.name} price={item.price} type="potion" item={item} />
-                          </DraggableShopItem>
-                        ) : (
-                          <DroppableSlot id={`return-potion-${index}`}>
-                            <div className="border-2 border-dashed border-gray-700 rounded p-1.5 flex items-center justify-center">
-                              <span className="text-gray-600 text-[10px]">売り切れ</span>
-                            </div>
-                          </DroppableSlot>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+              {/* 下段: 2番目のカテゴリ3枠 */}
+              <div>
+                <div className="text-[9px] text-gray-500 mb-1">{STORE_CATEGORY_LABELS[shop.categories[1]]}</div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {bottomSlots.map((slot, localIdx) => {
+                    const slotIndex = localIdx + 3
+                    return (
+                      <ShopSlotRenderer
+                        key={`bottom-${localIdx}`}
+                        slot={slot}
+                        slotIndex={slotIndex}
+                        dmgPreview={shopDamagePreviews.get(slotIndex) ?? null}
+                      />
+                    )
+                  })}
                 </div>
               </div>
             </div>

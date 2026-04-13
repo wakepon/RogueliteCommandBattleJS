@@ -27,7 +27,12 @@ import {
   getRegenPerTurn,
   getPotionEffectMultiplier,
   hasRelicEffect,
+  getWeaponBreakIncrement,
+  getWeaponBreakAttackBonus,
+  getGoldPerKill,
+  getDamageTakenToMpRate,
 } from '../Core/RelicProcessor'
+import { processShieldDamageReduction } from '../Core/BuffProcessor'
 
 /** RunStateのpartyを更新 */
 function updatePartyMember(run: RunState, updatedExplorer: ExplorerState): RunState {
@@ -90,8 +95,14 @@ function consumeCommandCost(
       newGold = gold - command.goldCost
     }
 
+    // hpCost消費（呪いの槍など）- HP最低1を保証
+    let updatedExplorer: ExplorerState = { ...explorer, weapons: updatedWeapons }
+    if (isWeaponInstance(command) && command.hpCost !== undefined) {
+      updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - command.hpCost) }
+    }
+
     return {
-      updatedExplorer: { ...explorer, weapons: updatedWeapons },
+      updatedExplorer,
       updatedGold: newGold,
     }
   }
@@ -211,6 +222,7 @@ function executeAttackCommand(
     const result = calculateWeaponDamage(battleAction.explorer, selectedCommand, targetEnemy, {
       relics,
       killStreakActive: state.battleState.relicState.killStreakActive,
+      weaponBreakMultiplier: state.run.weaponBreakMultiplier ?? 0,
     })
     calculatedDamage = result.damage
     contributors = result.contributors
@@ -220,6 +232,16 @@ function executeAttackCommand(
     })
     calculatedDamage = result.damage
     contributors = result.contributors
+
+    // ゴールドバースト: 所持金の一定割合を消費してダメージ追加
+    if (selectedCommand.effect?.type === 'goldDamage') {
+      const goldToConsume = Math.ceil(state.run.gold * selectedCommand.effect.rate)
+      const goldBonusDamage = goldToConsume * selectedCommand.effect.multiplier
+      calculatedDamage += Math.floor(goldBonusDamage)
+      if (goldToConsume > 0) {
+        contributors.push({ name: 'ゴールドバースト', label: `${goldToConsume}G→+${Math.floor(goldBonusDamage)}` })
+      }
+    }
   } else {
     return state
   }
@@ -242,9 +264,15 @@ function executeAttackCommand(
 
   // コスト消費
   const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
-  const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
+  let { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
     battleAction.explorer, selectedCommand, state.run.gold, durabilitySaveChance
   )
+
+  // ゴールドバースト: ゴールド消費
+  if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'goldDamage') {
+    const goldToConsume = Math.ceil(state.run.gold * selectedCommand.effect.rate)
+    updatedGold -= goldToConsume
+  }
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
 
@@ -282,6 +310,36 @@ function executeAttackCommand(
     }
   }
 
+  // 武器破壊検出: 耐久が0になった武器があればレリック効果を適用
+  let updatedWeaponBreakMultiplier = state.run.weaponBreakMultiplier ?? 0
+  if (isWeaponAttack) {
+    const weaponBefore = battleAction.explorer.weapons.find(w => w.id === selectedCommand.id)
+    const weaponAfter = finalExplorer.weapons.find(w => w.id === selectedCommand.id)
+    if (weaponBefore && weaponAfter &&
+        weaponBefore.currentUses !== null && weaponBefore.currentUses > 0 &&
+        weaponAfter.currentUses !== null && weaponAfter.currentUses <= 0) {
+      // 不死鳥の残り火: 蓄積倍率を加算
+      const breakIncrement = getWeaponBreakIncrement(relics)
+      if (breakIncrement > 0) {
+        updatedWeaponBreakMultiplier += breakIncrement
+      }
+      // 鍛冶師の金槌: 次の武器攻撃にPowerボーナス
+      const breakBonus = getWeaponBreakAttackBonus(relics)
+      if (breakBonus > 0) {
+        finalExplorer = {
+          ...finalExplorer,
+          battleBuffs: [...finalExplorer.battleBuffs, { type: 'weaponPowerBonus', value: breakBonus, duration: 'nextAction' as const }],
+        }
+      }
+    }
+  }
+
+  // 魔法の goldOnHit 効果: ゴールド獲得
+  let extraGold = 0
+  if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'goldOnHit') {
+    extraGold += selectedCommand.effect.value
+  }
+
   // 攻撃後にnextActionバフ（精密など）を消費
   finalExplorer = {
     ...finalExplorer,
@@ -293,10 +351,17 @@ function executeAttackCommand(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold,
+    gold: updatedGold + extraGold,
+    weaponBreakMultiplier: updatedWeaponBreakMultiplier,
   }
 
   if (defeatedCount > 0) {
+    // 商人の護符: 敵撃破時ゴールド追加
+    const goldPerKill = getGoldPerKill(relics)
+    if (goldPerKill > 0) {
+      updatedRun = { ...updatedRun, gold: updatedRun.gold + goldPerKill * defeatedCount }
+    }
+
     // パーティー全員にEXP配分（止めキャラにボーナス）
     const { updatedParty, allLevelUps } = distributeExpToParty(
       updatedRun.party, finalExplorer.id, defeatedCount
@@ -560,11 +625,60 @@ function executeAllySpellCommand(
     }
   }
 
+  // シールド効果（バリア）
+  if (selectedCommand.effect?.type === 'shield') {
+    const shieldBuff: Buff = {
+      type: 'shield',
+      value: selectedCommand.effect.value,
+      duration: 1,
+    }
+    updatedTarget = {
+      ...updatedTarget,
+      battleBuffs: [...updatedTarget.battleBuffs, shieldBuff],
+    }
+  }
+
+  // 生命変換（HP→MP）
+  if (selectedCommand.effect?.type === 'hpToMp') {
+    updatedTarget = {
+      ...updatedTarget,
+      hp: Math.max(1, updatedTarget.hp - selectedCommand.effect.hpCost),
+      mp: Math.min(updatedTarget.mp + selectedCommand.effect.mpGain, updatedTarget.maxMp),
+    }
+  }
+
+  // 武器強化（次の武器攻撃Power+N）
+  if (selectedCommand.effect?.type === 'weaponPowerBuff') {
+    const wpBuff: Buff = {
+      type: 'weaponPowerBonus',
+      value: selectedCommand.effect.value,
+      duration: 'nextAction',
+    }
+    updatedTarget = {
+      ...updatedTarget,
+      battleBuffs: [...updatedTarget.battleBuffs, wpBuff],
+    }
+  }
+
+  // 戦場の鍛冶（武器耐久回復）
+  if (selectedCommand.effect?.type === 'repairWeapons') {
+    const repairValue = selectedCommand.effect.value
+    updatedTarget = {
+      ...updatedTarget,
+      weapons: updatedTarget.weapons.map(w => {
+        if (w.currentUses === null || w.maxUses === null) return w
+        return { ...w, currentUses: Math.min(w.currentUses + repairValue, w.maxUses) } as typeof w
+      }),
+    }
+  }
+
   // 術者とターゲットが同じ場合は1回、異なる場合は2回updatePartyMember
   let updatedRun = updatePartyMember(state.run, updatedTarget)
   if (!isSelfTarget) {
     updatedRun = updatePartyMember(updatedRun, explorerAfterCost)
   }
+
+  // ゴールドバースト（所持金消費→ダメージ）は敵単体対象なのでここでは処理しない
 
   return {
     ...state,
@@ -756,12 +870,18 @@ export function processEnemyAction(
       damage: actualDamage,
     })
 
-    // 全生存パーティーメンバーにダメージ適用
+    // 全生存パーティーメンバーにダメージ適用（シールドバフ考慮）
     const aliveMembers = newRun.party.filter(m => m.hp > 0)
     for (const member of aliveMembers) {
+      const { reducedDamage: memberDamage, updatedBuffs: memberBuffs } = processShieldDamageReduction(member.battleBuffs, actualDamage)
+      // 苦痛のリング: 被ダメの一定割合をMP回復
+      const dmgToMpRate = getDamageTakenToMpRate(relics)
+      const mpRecovery = dmgToMpRate > 0 ? Math.ceil(memberDamage * dmgToMpRate) : 0
       const updatedMember = {
         ...member,
-        hp: Math.max(0, member.hp - actualDamage),
+        hp: Math.max(0, member.hp - memberDamage),
+        mp: Math.min(member.mp + mpRecovery, member.maxMp),
+        battleBuffs: memberBuffs,
       }
       newRun = updatePartyMember(newRun, updatedMember)
     }
@@ -779,9 +899,18 @@ export function processEnemyAction(
       damage: actualDamage,
     })
 
+    // シールドバフによるダメージ軽減
+    const { reducedDamage: shieldedDamage, updatedBuffs: shieldedBuffs } = processShieldDamageReduction(battleAction.explorer.battleBuffs, actualDamage)
+
+    // 苦痛のリング: 被ダメの一定割合をMP回復
+    const dmgToMpRate = getDamageTakenToMpRate(relics)
+    const mpRecovery = dmgToMpRate > 0 ? Math.ceil(shieldedDamage * dmgToMpRate) : 0
+
     let updatedExplorer = {
       ...battleAction.explorer,
-      hp: Math.max(0, battleAction.explorer.hp - actualDamage),
+      hp: Math.max(0, battleAction.explorer.hp - shieldedDamage),
+      mp: Math.min(battleAction.explorer.mp + mpRecovery, battleAction.explorer.maxMp),
+      battleBuffs: shieldedBuffs,
     }
 
     // 毒付与: プレイヤーのbattleDebuffsにpoisonを加算

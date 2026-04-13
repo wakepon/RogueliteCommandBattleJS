@@ -27,13 +27,6 @@
     "price": 7,
     "passiveEffect": { "type": "statBonus", "stat": "int", "value": 2 }
   },
-  "swift_boots": {
-    "id": "swift_boots",
-    "name": "俊足のブーツ",
-    "rarity": "Common",
-    "price": 7,
-    "passiveEffect": { "type": "statBonus", "stat": "str", "value": 1 }
-  },
   "cracked_armor": {
     "id": "cracked_armor",
     "name": "壊れかけの鎧",
@@ -55,13 +48,6 @@
     "price": 8,
     "passiveEffect": { "type": "weaponAttackMpRecover", "value": 3, "excludeWeaponId": "punch" }
   },
-  "bloodstained_gloves": {
-    "id": "bloodstained_gloves",
-    "name": "血染めの手袋",
-    "rarity": "Uncommon",
-    "price": 7,
-    "passiveEffect": { "type": "killStreakBonus", "multiplier": 1.5 }
-  },
   "sharpener_card": {
     "id": "sharpener_card",
     "name": "研ぎ師の名刺",
@@ -81,21 +67,14 @@
     "name": "反撃の棘",
     "rarity": "Common",
     "price": 5,
-    "passiveEffect": { "type": "thornsDamage", "value": 3 }
+    "passiveEffect": { "type": "thornsDamage", "value": 5 }
   },
   "regen_moss": {
     "id": "regen_moss",
     "name": "再生のコケ",
     "rarity": "Uncommon",
     "price": 7,
-    "passiveEffect": { "type": "regenPerTurn", "value": 2 }
-  },
-  "fury_flame": {
-    "id": "fury_flame",
-    "name": "怒りの炎",
-    "rarity": "Rare",
-    "price": 8,
-    "passiveEffect": { "type": "lowHpDamageMultiplier", "hpThreshold": 0.3, "multiplier": 1.5 }
+    "passiveEffect": { "type": "regenPerTurn", "value": 10 }
   },
   "alchemy_catalyst": {
     "id": "alchemy_catalyst",
@@ -103,5 +82,47 @@
     "rarity": "Common",
     "price": 5,
     "passiveEffect": { "type": "potionEffectMultiplier", "multiplier": 1.5 }
+  },
+  "blood_pact": {
+    "id": "blood_pact",
+    "name": "血の契約",
+    "rarity": "Uncommon",
+    "price": 7,
+    "passiveEffect": { "type": "battleStartHpReduction", "rate": 0.7, "strBonus": 3 }
+  },
+  "pain_ring": {
+    "id": "pain_ring",
+    "name": "苦痛のリング",
+    "rarity": "Common",
+    "price": 5,
+    "passiveEffect": { "type": "damageTakenToMp", "rate": 0.25 }
+  },
+  "merchants_talisman": {
+    "id": "merchants_talisman",
+    "name": "商人の護符",
+    "rarity": "Rare",
+    "price": 8,
+    "passiveEffect": { "type": "goldPerKill", "value": 2 }
+  },
+  "gold_ring": {
+    "id": "gold_ring",
+    "name": "金の指輪",
+    "rarity": "Common",
+    "price": 4,
+    "passiveEffect": { "type": "interestCap", "value": 5 }
+  },
+  "phoenix_ember": {
+    "id": "phoenix_ember",
+    "name": "不死鳥の残り火",
+    "rarity": "Rare",
+    "price": 9,
+    "passiveEffect": { "type": "weaponBreakDamageMultiplier", "increment": 0.25 }
+  },
+  "smiths_hammer": {
+    "id": "smiths_hammer",
+    "name": "鍛冶師の金槌",
+    "rarity": "Uncommon",
+    "price": 6,
+    "passiveEffect": { "type": "weaponBreakNextAttackBonus", "value": 4 }
   }
 }

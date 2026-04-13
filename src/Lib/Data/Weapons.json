@@ -103,6 +103,92 @@
     "maxUses": null,
     "scaleStat": "int"
   },
+  "cursed_spear": {
+    "id": "cursed_spear",
+    "name": "呪いの槍",
+    "rarity": "Rare",
+    "price": 7,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 6,
+    "variance": 6,
+    "maxUses": 5,
+    "hpCost": 5
+  },
+  "berserker_axe": {
+    "id": "berserker_axe",
+    "name": "猛撃の斧",
+    "rarity": "Uncommon",
+    "price": 9,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 5,
+    "variance": 6,
+    "maxUses": 4,
+    "effect": {
+      "type": "conditionalPower",
+      "hpThreshold": 0.5,
+      "bonusPower": 5
+    }
+  },
+  "golden_sword": {
+    "id": "golden_sword",
+    "name": "黄金の剣",
+    "rarity": "Uncommon",
+    "price": 6,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 4,
+    "variance": 5,
+    "maxUses": 5,
+    "goldCost": 1
+  },
+  "jewel_staff": {
+    "id": "jewel_staff",
+    "name": "宝石の杖",
+    "rarity": "Rare",
+    "price": 8,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 3,
+    "variance": 4,
+    "maxUses": 4,
+    "goldCost": 2,
+    "scaleStat": "int"
+  },
+  "disposable_blade": {
+    "id": "disposable_blade",
+    "name": "使い捨ての剣",
+    "rarity": "Common",
+    "price": 3,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 4,
+    "variance": 4,
+    "maxUses": 2
+  },
+  "glass_sword": {
+    "id": "glass_sword",
+    "name": "ガラスの剣",
+    "rarity": "Uncommon",
+    "price": 5,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 8,
+    "variance": 8,
+    "maxUses": 1
+  },
+  "rusty_greatsword": {
+    "id": "rusty_greatsword",
+    "name": "錆びた大剣",
+    "rarity": "Common",
+    "price": 5,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 5,
+    "variance": 7,
+    "maxUses": 2
+  },
   "prayer": {
     "id": "prayer",
     "name": "祈り",

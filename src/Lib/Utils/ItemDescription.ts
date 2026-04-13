@@ -58,6 +58,16 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
       return `毎ターンHP${effect.value}回復`
     case 'potionEffectMultiplier':
       return `ポーション効果${effect.multiplier}倍`
+    case 'battleStartHpReduction':
+      return `戦闘開始時HP${Math.floor(effect.rate * 100)}%化、STR+${effect.strBonus}`
+    case 'damageTakenToMp':
+      return `被ダメの${Math.floor(effect.rate * 100)}%をMP回復`
+    case 'goldPerKill':
+      return `敵撃破時+${effect.value}G`
+    case 'weaponBreakDamageMultiplier':
+      return `武器破壊ごとにダメージ+${Math.floor(effect.increment * 100)}%蓄積`
+    case 'weaponBreakNextAttackBonus':
+      return `武器破壊後、次の武器攻撃Power+${effect.value}`
   }
 }
 
@@ -80,6 +90,15 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       if (weapon.effect.type === 'lifesteal') {
         desc += ` | 吸血: ${weapon.effect.value}`
       }
+      if (weapon.effect.type === 'conditionalPower') {
+        desc += ` | HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`
+      }
+    }
+    if ('hpCost' in weapon && weapon.hpCost) {
+      desc += ` | HP${weapon.hpCost}消費`
+    }
+    if ('goldCost' in weapon && weapon.goldCost) {
+      desc += ` | ${weapon.goldCost}G消費/回`
     }
     return desc
   }
@@ -103,6 +122,18 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ' | ゴールドを盗む'
       } else if (spell.effect.type === 'buff') {
         desc += ` | STR +${spell.effect.value}`
+      } else if (spell.effect.type === 'shield') {
+        desc += ` | シールド${spell.effect.value}付与`
+      } else if (spell.effect.type === 'hpToMp') {
+        desc += ` | HP${spell.effect.hpCost}消費→MP${spell.effect.mpGain}回復`
+      } else if (spell.effect.type === 'goldOnHit') {
+        desc += ` | ヒット時+${spell.effect.value}G`
+      } else if (spell.effect.type === 'goldDamage') {
+        desc += ` | 所持金${Math.floor(spell.effect.rate * 100)}%消費→×${spell.effect.multiplier}ダメ`
+      } else if (spell.effect.type === 'repairWeapons') {
+        desc += ` | 武器耐久+${spell.effect.value}回復`
+      } else if (spell.effect.type === 'weaponPowerBuff') {
+        desc += ` | 次の武器攻撃Power+${spell.effect.value}`
       }
     }
     return desc
@@ -171,6 +202,15 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       if (command.effect.type === 'lifesteal') {
         desc += ` 吸血:${command.effect.value}`
       }
+      if (command.effect.type === 'conditionalPower') {
+        desc += ` HP${Math.floor(command.effect.hpThreshold * 100)}%以下P+${command.effect.bonusPower}`
+      }
+    }
+    if ('hpCost' in command && command.hpCost) {
+      desc += ` HP${command.hpCost}消費`
+    }
+    if ('goldCost' in command && command.goldCost) {
+      desc += ` ${command.goldCost}G/回`
     }
     return desc
   }
@@ -191,6 +231,18 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ' ゴールドを盗む'
       } else if (command.effect.type === 'buff') {
         desc += ` STR+${command.effect.value}`
+      } else if (command.effect.type === 'shield') {
+        desc += ` シールド${command.effect.value}`
+      } else if (command.effect.type === 'hpToMp') {
+        desc += ` HP${command.effect.hpCost}→MP${command.effect.mpGain}`
+      } else if (command.effect.type === 'goldOnHit') {
+        desc += ` +${command.effect.value}G`
+      } else if (command.effect.type === 'goldDamage') {
+        desc += ` 金${Math.floor(command.effect.rate * 100)}%→×${command.effect.multiplier}ダメ`
+      } else if (command.effect.type === 'repairWeapons') {
+        desc += ` 耐久+${command.effect.value}`
+      } else if (command.effect.type === 'weaponPowerBuff') {
+        desc += ` 次武器P+${command.effect.value}`
       }
     }
     return desc

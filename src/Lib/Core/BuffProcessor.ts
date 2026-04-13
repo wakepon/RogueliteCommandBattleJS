@@ -104,6 +104,32 @@ export function decrementWeaknessDuration(debuffs: Debuff[]): Debuff[] {
 }
 
 /**
+ * シールドバフによるダメージ軽減処理
+ * シールドの value 分だけダメージを吸収し、使用後はシールドを削除する
+ * @param buffs - 現在のバフ配列
+ * @param incomingDamage - 受けるダメージ量
+ * @returns { reducedDamage, updatedBuffs }
+ */
+export function processShieldDamageReduction(
+  buffs: Buff[],
+  incomingDamage: number
+): { reducedDamage: number; updatedBuffs: Buff[] } {
+  const shieldBuff = buffs.find(b => b.type === 'shield')
+
+  if (!shieldBuff || incomingDamage <= 0) {
+    return { reducedDamage: incomingDamage, updatedBuffs: buffs }
+  }
+
+  const absorbed = Math.min(shieldBuff.value, incomingDamage)
+  const reducedDamage = Math.max(0, incomingDamage - absorbed)
+
+  // シールドを消費（1回使い切り）
+  const updatedBuffs = buffs.filter(b => b.type !== 'shield')
+
+  return { reducedDamage, updatedBuffs }
+}
+
+/**
  * ターン終了時のバフ持続ターン減少処理
  * - duration が number の場合は -1
  * - 0以下になったら削除

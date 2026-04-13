@@ -8,6 +8,7 @@ import { getTuningValue } from '../Tuning/TuningStore'
 export type WeaponEffect =
   | { type: 'lifesteal'; value: number }
   | { type: 'targetRateUp'; value: number }  // 祈り: 被ターゲット率UP
+  | { type: 'conditionalPower'; hpThreshold: number; bonusPower: number }  // HP条件でPower増加
 
 /** 武器データ（マスター） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {

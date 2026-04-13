@@ -1,4 +1,4 @@
-import { GameState, ResultState, EventState, MapState, createInitialGameState } from '../Types/Game'
+import { GameState, ResultState, EventState, MapState, StoreState, ShopOption, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
@@ -32,6 +32,21 @@ import {
   processTurnEndAction,
 } from './BattleActionProcessor'
 
+/** 選択済みショップのスロットを更新するヘルパー */
+function updateShopSlotItem(storeState: StoreState, slotIndex: number, newItem: unknown): StoreState {
+  if (storeState.selectedShopIndex === null) return storeState
+  const idx = storeState.selectedShopIndex
+  const shop = storeState.shopOptions[idx]
+  const newSlots = shop.slots.map((slot, i) => {
+    if (i !== slotIndex) return slot
+    return { ...slot, item: newItem } as typeof slot
+  })
+  const newShop: ShopOption = { ...shop, slots: newSlots }
+  const newOptions: [ShopOption, ShopOption] = [...storeState.shopOptions]
+  newOptions[idx] = newShop
+  return { ...storeState, shopOptions: newOptions }
+}
+
 export type GameAction =
   | { type: 'START_GAME' }
   | { type: 'CONTINUE_GAME'; run: RunState }
@@ -57,6 +72,7 @@ export type GameAction =
   | { type: 'UNDO_SELL_POTION'; potion: PotionData; sellPrice: number }
   | { type: 'TRANSFER_WEAPON'; fromMemberIndex: number; weaponIndex: number; toMemberIndex: number }
   | { type: 'TRANSFER_SPELL'; fromMemberIndex: number; spellIndex: number; toMemberIndex: number }
+  | { type: 'SELECT_SHOP'; shopIndex: number }
   | { type: 'REROLL_STORE' }
   | { type: 'CLOSE_STORE' }
   | { type: 'OPEN_EVENT' }
@@ -229,6 +245,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, phase: 'store', storeState, resultState: null, mapState }
     }
 
+    case 'SELECT_SHOP': {
+      if (!state.storeState) return state
+      return {
+        ...state,
+        storeState: { ...state.storeState, selectedShopIndex: action.shopIndex },
+      }
+    }
+
     case 'BUY_WEAPON': {
       if (!state.run || !state.storeState) return state
 
@@ -246,15 +270,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         weapons: [...explorer.weapons, weaponInstance],
       }
 
-      const newWeaponSlots = [...state.storeState.weaponSlots]
-      newWeaponSlots[slotIndex] = null
-
       const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
 
       return {
         ...state,
         run: { ...state.run, gold: state.run.gold - item.price, party: updatedParty },
-        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
+        storeState: updateShopSlotItem(state.storeState, slotIndex, null),
       }
     }
 
@@ -270,15 +291,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         spells: [...explorer.spells, item],
       }
 
-      const newWeaponSlots = [...state.storeState.weaponSlots]
-      newWeaponSlots[slotIndex] = null
-
       const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
 
       return {
         ...state,
         run: { ...state.run, gold: state.run.gold - item.price, party: updatedParty },
-        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
+        storeState: updateShopSlotItem(state.storeState, slotIndex, null),
       }
     }
 
@@ -287,9 +305,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       const { slotIndex, item } = action
 
-      const newRelicSlots = [...state.storeState.relicSlots]
-      newRelicSlots[slotIndex] = null
-
       return {
         ...state,
         run: {
@@ -297,7 +312,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold - item.price,
           relics: [...state.run.relics, item],
         },
-        storeState: { ...state.storeState, relicSlots: newRelicSlots },
+        storeState: updateShopSlotItem(state.storeState, slotIndex, null),
       }
     }
 
@@ -306,9 +321,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       const { slotIndex, item } = action
 
-      const newPotionSlots = [...state.storeState.potionSlots]
-      newPotionSlots[slotIndex] = null
-
       return {
         ...state,
         run: {
@@ -316,7 +328,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold - item.price,
           potions: [...state.run.potions, item],
         },
-        storeState: { ...state.storeState, potionSlots: newPotionSlots },
+        storeState: updateShopSlotItem(state.storeState, slotIndex, null),
       }
     }
 
@@ -415,14 +427,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...explorer,
         weapons: explorer.weapons.filter((_, i) => i !== weaponIndex),
       }
-      const newWeaponSlots = [...state.storeState.weaponSlots]
-      newWeaponSlots[shopSlotIndex] = item
       const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
 
       return {
         ...state,
         run: { ...state.run, gold: state.run.gold + item.price, party: updatedParty },
-        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
+        storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
       }
     }
 
@@ -436,14 +446,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...explorer,
         spells: explorer.spells.filter((_, i) => i !== spellIndex),
       }
-      const newWeaponSlots = [...state.storeState.weaponSlots]
-      newWeaponSlots[shopSlotIndex] = item
       const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)
 
       return {
         ...state,
         run: { ...state.run, gold: state.run.gold + item.price, party: updatedParty },
-        storeState: { ...state.storeState, weaponSlots: newWeaponSlots },
+        storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
       }
     }
 
@@ -452,9 +460,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const { shopSlotIndex, item, relicIndex } = action
       if (!state.run.relics[relicIndex]) return state
 
-      const newRelicSlots = [...state.storeState.relicSlots]
-      newRelicSlots[shopSlotIndex] = item
-
       return {
         ...state,
         run: {
@@ -462,7 +467,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold + item.price,
           relics: state.run.relics.filter((_, i) => i !== relicIndex),
         },
-        storeState: { ...state.storeState, relicSlots: newRelicSlots },
+        storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
       }
     }
 
@@ -471,9 +476,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const { shopSlotIndex, item, potionIndex } = action
       if (!state.run.potions[potionIndex]) return state
 
-      const newPotionSlots = [...state.storeState.potionSlots]
-      newPotionSlots[shopSlotIndex] = item
-
       return {
         ...state,
         run: {
@@ -481,7 +483,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           gold: state.run.gold + item.price,
           potions: state.run.potions.filter((_, i) => i !== potionIndex),
         },
-        storeState: { ...state.storeState, potionSlots: newPotionSlots },
+        storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
       }
     }
 

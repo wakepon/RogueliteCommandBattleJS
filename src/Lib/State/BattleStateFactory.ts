@@ -1,8 +1,8 @@
 import { BattleState, ActorId, RelicBattleState, CommandSlot, EnemyIntent } from '../Types/Battle'
 import { EnemyInstance, EnemyData } from '../Types/Enemy'
-import { ExplorerState } from '../Types/Explorer'
+import { ExplorerState, Buff } from '../Types/Explorer'
 import { RelicInstance } from '../Types/Relic'
-import { hasRelicEffect } from '../Core/RelicProcessor'
+import { hasRelicEffect, getBattleStartHpReduction } from '../Core/RelicProcessor'
 import { selectEnemyAction } from '../Core/EnemyAI'
 import EnemiesData from '../Data/Enemies.json'
 import StagePatternsData from '../Data/StagePatterns.json'
@@ -124,6 +124,27 @@ function createCommandSlots(party: ExplorerState[]): CommandSlot[] {
     }))
 }
 
+/** 血の契約: 戦闘開始時にHP削減+STRバフを全パーティーメンバーに適用 */
+function applyBloodPact(party: ExplorerState[], relics: RelicInstance[]): ExplorerState[] {
+  const hpReduction = getBattleStartHpReduction(relics)
+  if (!hpReduction) return party
+
+  return party.map(member => {
+    if (member.hp <= 0) return member
+    const reducedHp = Math.ceil(member.hp * hpReduction.rate)
+    const strBuff: Buff = {
+      type: 'str',
+      value: hpReduction.strBonus,
+      duration: 'battle',
+    }
+    return {
+      ...member,
+      hp: reducedHp,
+      battleBuffs: [...member.battleBuffs, strBuff],
+    }
+  })
+}
+
 /** バトル状態を生成 */
 export function createBattleState(
   stage: number,
@@ -131,11 +152,13 @@ export function createBattleState(
   seed: number,
   relics: RelicInstance[] = []
 ): BattleState {
+  // 血の契約: 戦闘開始時HP削減+STRバフ
+  const adjustedParty = applyBloodPact(party, relics)
   const enemies = getEnemiesForStage(stage, seed)
-  const actionQueue = createActionQueue(party, enemies)
+  const actionQueue = createActionQueue(adjustedParty, enemies)
   const turnLimit = getTurnLimitForStage(stage)
-  const commandSlots = createCommandSlots(party)
-  const enemyIntents = generateEnemyIntents(enemies, party)
+  const commandSlots = createCommandSlots(adjustedParty)
+  const enemyIntents = generateEnemyIntents(enemies, adjustedParty)
 
   return {
     turn: 1,

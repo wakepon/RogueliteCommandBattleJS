@@ -152,3 +152,46 @@ export function getWeaponAttackMpRecover(relics: RelicInstance[]): { value: numb
   }
   return null
 }
+
+/** 不死鳥の残り火: 武器破壊時の蓄積increment */
+export function getWeaponBreakIncrement(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'weaponBreakDamageMultiplier') return r.passiveEffect.increment
+  }
+  return 0
+}
+
+/** 鍛冶師の金槌: 武器破壊後のPowerボーナス */
+export function getWeaponBreakAttackBonus(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'weaponBreakNextAttackBonus') return r.passiveEffect.value
+  }
+  return 0
+}
+
+/** 商人の護符: キル時ゴールド */
+export function getGoldPerKill(relics: RelicInstance[]): number {
+  let total = 0
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'goldPerKill') total += r.passiveEffect.value
+  }
+  return total
+}
+
+/** 苦痛のリング: 被ダメ→MP変換率 */
+export function getDamageTakenToMpRate(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'damageTakenToMp') return r.passiveEffect.rate
+  }
+  return 0
+}
+
+/** 血の契約: 戦闘開始時HP削減率とSTRボーナス */
+export function getBattleStartHpReduction(relics: RelicInstance[]): { rate: number; strBonus: number } | null {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'battleStartHpReduction') {
+      return { rate: r.passiveEffect.rate, strBonus: r.passiveEffect.strBonus }
+    }
+  }
+  return null
+}

@@ -60,11 +60,26 @@ export interface ResultState {
   levelUps: LevelUpInfo[] // 戦闘中に発生したレベルアップ情報
 }
 
+/** ショップカテゴリ */
+export type StoreCategory = 'weapon' | 'spell' | 'relic' | 'potion'
+
+/** ショップの1枠 */
+export type ShopSlot =
+  | { category: 'weapon'; item: WeaponData | null }
+  | { category: 'spell'; item: SpellData | null }
+  | { category: 'relic'; item: RelicData | null }
+  | { category: 'potion'; item: PotionData | null }
+
+/** ショップ候補（2カテゴリ×3枠 = 6枠） */
+export interface ShopOption {
+  categories: [StoreCategory, StoreCategory]
+  slots: ShopSlot[]  // 6枠（上段3 + 下段3）
+}
+
 /** ストア状態 */
 export interface StoreState {
-  weaponSlots: (WeaponData | SpellData | null)[]  // 4枠（武器・魔法混合）
-  relicSlots: (RelicData | null)[]                // 2枠
-  potionSlots: (PotionData | null)[]              // 2枠
+  shopOptions: [ShopOption, ShopOption]  // 2択
+  selectedShopIndex: number | null       // 未選択=null, 選択後=0or1
   rerollCost: number
 }
 

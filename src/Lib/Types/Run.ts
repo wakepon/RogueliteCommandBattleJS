@@ -25,6 +25,7 @@ export interface RunState {
   party: ExplorerState[]
   stats: RunStats
   battleLevelUps: LevelUpInfo[]  // 戦闘中のレベルアップ情報（一時保存）
+  weaponBreakMultiplier: number  // 不死鳥の残り火: 武器破壊時の蓄積倍率
 }
 
 // 初期Run生成
@@ -44,5 +45,6 @@ export function createInitialRun(): RunState {
       maxStageReached: 1,
     },
     battleLevelUps: [],
+    weaponBreakMultiplier: 0,
   }
 }

@@ -72,11 +72,20 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     }
     if ('effect' in weapon && weapon.effect) {
       if (weapon.effect.type === 'lifesteal') {
-        lines.push({ label: '吸血', value: `${weapon.effect.value}`, color: 'text-green-300' })
+        lines.push({ label: '吸血', value: `${weapon.effect.value}HP`, color: 'text-green-300' })
       }
       if (weapon.effect.type === 'targetRateUp') {
         lines.push({ label: '被弾率UP', value: `+${weapon.effect.value}%`, color: 'text-red-300' })
       }
+      if (weapon.effect.type === 'conditionalPower') {
+        lines.push({ label: '条件', value: `HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
+      }
+    }
+    if ('hpCost' in weapon && weapon.hpCost) {
+      lines.push({ label: 'HP消費', value: `${weapon.hpCost}/回`, color: 'text-red-400' })
+    }
+    if ('goldCost' in weapon && weapon.goldCost) {
+      lines.push({ label: 'G消費', value: `${weapon.goldCost}G/回`, color: 'text-yellow-400' })
     }
     if ('scaleStat' in weapon && weapon.scaleStat === 'int') {
       lines.push({ label: '依存ステ', value: 'INT', color: 'text-blue-300' })
@@ -107,6 +116,24 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'buff') {
         const statLabel = spell.effect.stat === 'precision' ? '精密' : 'STR'
         lines.push({ label: 'バフ', value: `${statLabel} +${spell.effect.value}`, color: 'text-green-300' })
+      }
+      if (spell.effect.type === 'shield') {
+        lines.push({ label: '効果', value: `シールド${spell.effect.value}付与`, color: 'text-cyan-300' })
+      }
+      if (spell.effect.type === 'hpToMp') {
+        lines.push({ label: '効果', value: `HP${spell.effect.hpCost}→MP${spell.effect.mpGain}`, color: 'text-purple-300' })
+      }
+      if (spell.effect.type === 'goldOnHit') {
+        lines.push({ label: '効果', value: `ヒット時+${spell.effect.value}G`, color: 'text-yellow-300' })
+      }
+      if (spell.effect.type === 'goldDamage') {
+        lines.push({ label: '効果', value: `所持金${Math.floor(spell.effect.rate * 100)}%→×${spell.effect.multiplier}ダメ`, color: 'text-yellow-300' })
+      }
+      if (spell.effect.type === 'repairWeapons') {
+        lines.push({ label: '効果', value: `武器耐久+${spell.effect.value}回復`, color: 'text-green-300' })
+      }
+      if (spell.effect.type === 'weaponPowerBuff') {
+        lines.push({ label: '効果', value: `次の武器攻撃P+${spell.effect.value}`, color: 'text-orange-300' })
       }
     }
     if (spell.targetType === 'enemyAll') {

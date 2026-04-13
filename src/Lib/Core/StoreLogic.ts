@@ -1,4 +1,4 @@
-import { StoreState } from '../Types/Game'
+import { StoreState, StoreCategory, ShopOption, ShopSlot } from '../Types/Game'
 import { WeaponData, ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { SpellData } from '../Types/Spell'
 import { RelicData, RelicInstance } from '../Types/Relic'
@@ -16,7 +16,8 @@ const weaponsData = WeaponsData as Record<string, WeaponData>
 const spellsData = SpellsData as Record<string, SpellData>
 const relicsData = RelicsData as Record<string, RelicData>
 const potionsData = PotionsData as Record<string, PotionData>
-// MAX_WEAPON_COUNT, MAX_SPELL_COUNT は ExplorerState.weaponSlotCount/magicSlotCount に移行
+
+const SLOTS_PER_CATEGORY = 3
 
 /** 簡易的な疑似乱数生成器（シード付き） */
 function seededRandom(seed: number): number {
@@ -39,35 +40,107 @@ function pickRandom<T>(array: T[], count: number, seed: number): T[] {
   return shuffled.slice(0, Math.min(count, shuffled.length))
 }
 
-/** 武器/魔法枠の商品を抽選 */
-export function generateWeaponSlotItems(seed: number): (WeaponData | SpellData)[] {
-  // 耐久値∞の武器（パンチ、魔力弾等）とMP消費0の魔法はショップに並べない
+/** 配列をシード付きでシャッフル */
+function shuffleArray<T>(array: T[], seed: number): T[] {
+  const result = [...array]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom(seed + i * 7) * (i + 1))
+    const temp = result[i]
+    result[i] = result[j]
+    result[j] = temp
+  }
+  return result
+}
+
+/** カテゴリ別アイテム生成: 武器（耐久∞を除外） */
+export function generateWeaponItems(seed: number, count: number): WeaponData[] {
   const allWeapons = Object.values(weaponsData).filter(w => w.maxUses !== null)
+  return pickRandom(allWeapons, count, seed)
+}
+
+/** カテゴリ別アイテム生成: 魔法（MP0を除外） */
+export function generateSpellItems(seed: number, count: number): SpellData[] {
   const allSpells = Object.values(spellsData).filter(s => s.mpCost > 0)
-  const allItems = [...allWeapons, ...allSpells]
-
-  return pickRandom(allItems, getTuningValue('store_weapon_slots', 4), seed)
+  return pickRandom(allSpells, count, seed + 50)
 }
 
-/** レリック枠の商品を抽選 */
-export function generateRelicSlotItems(seed: number): RelicData[] {
+/** カテゴリ別アイテム生成: レリック */
+export function generateRelicItems(seed: number, count: number): RelicData[] {
   const allRelics = Object.values(relicsData)
-  return pickRandom(allRelics, getTuningValue('store_relic_slots', 2), seed + 100)
+  return pickRandom(allRelics, count, seed + 100)
 }
 
-/** ポーション枠の商品を抽選 */
-export function generatePotionSlotItems(seed: number): PotionData[] {
+/** カテゴリ別アイテム生成: ポーション */
+export function generatePotionItems(seed: number, count: number): PotionData[] {
   const allPotions = Object.values(potionsData)
-  return pickRandom(allPotions, getTuningValue('store_potion_slots', 2), seed + 200)
+  return pickRandom(allPotions, count, seed + 200)
 }
 
-/** ストア状態を生成 */
-export function createStoreState(seed: number): StoreState {
+/** カテゴリに応じたShopSlot配列を生成 */
+function generateSlotsForCategory(category: StoreCategory, seed: number, count: number): ShopSlot[] {
+  switch (category) {
+    case 'weapon':
+      return generateWeaponItems(seed, count).map(item => ({ category: 'weapon' as const, item }))
+    case 'spell':
+      return generateSpellItems(seed, count).map(item => ({ category: 'spell' as const, item }))
+    case 'relic':
+      return generateRelicItems(seed, count).map(item => ({ category: 'relic' as const, item }))
+    case 'potion':
+      return generatePotionItems(seed, count).map(item => ({ category: 'potion' as const, item }))
+  }
+}
+
+/** ショップ候補を1つ生成 */
+function generateShopOption(
+  categories: [StoreCategory, StoreCategory],
+  seed: number,
+): ShopOption {
+  const slotsA = generateSlotsForCategory(categories[0], seed, SLOTS_PER_CATEGORY)
+  const slotsB = generateSlotsForCategory(categories[1], seed + 300, SLOTS_PER_CATEGORY)
   return {
-    weaponSlots: generateWeaponSlotItems(seed),
-    relicSlots: generateRelicSlotItems(seed),
-    potionSlots: generatePotionSlotItems(seed),
+    categories,
+    slots: [...slotsA, ...slotsB],
+  }
+}
+
+/** ストア状態を生成（2択ショップ） */
+export function createStoreState(seed: number): StoreState {
+  // 4カテゴリをシャッフルして2+2に分割
+  const allCategories: StoreCategory[] = ['weapon', 'spell', 'relic', 'potion']
+  const shuffled = shuffleArray(allCategories, seed)
+
+  const shopA = generateShopOption(
+    [shuffled[0], shuffled[1]],
+    seed,
+  )
+  const shopB = generateShopOption(
+    [shuffled[2], shuffled[3]],
+    seed + 500,
+  )
+
+  return {
+    shopOptions: [shopA, shopB],
+    selectedShopIndex: null,
     rerollCost: getTuningValue('base_reroll_cost', 3),
+  }
+}
+
+/** 選択済みショップのリロール */
+export function rerollStore(storeState: StoreState, seed: number): StoreState {
+  if (storeState.selectedShopIndex === null) return storeState
+
+  const idx = storeState.selectedShopIndex
+  const shop = storeState.shopOptions[idx]
+  const newShop = generateShopOption(shop.categories, seed)
+  newShop.slots = newShop.slots // 新しいアイテムで置き換え
+
+  const newOptions: [ShopOption, ShopOption] = [...storeState.shopOptions]
+  newOptions[idx] = { ...newShop }
+
+  return {
+    ...storeState,
+    shopOptions: newOptions,
+    rerollCost: storeState.rerollCost + 1,
   }
 }
 
@@ -81,7 +154,6 @@ export function isSellable(item: unknown): item is IPurchasable {
 
 /** 武器の売却価格を計算（使用回数を考慮） */
 export function getSellPrice(weapon: ExplorerWeapon): number {
-  // パンチは売却不可
   if (weapon.id === 'punch') {
     return 0
   }
@@ -89,13 +161,10 @@ export function getSellPrice(weapon: ExplorerWeapon): number {
   const weaponInstance = weapon as WeaponInstance
   const basePrice = weaponInstance.price
 
-  // 無制限使用の場合は半額
   if (weaponInstance.maxUses === null || weaponInstance.currentUses === null) {
     return Math.floor(basePrice / 2)
   }
 
-  // 使用回数に応じて価格を計算
-  // 売却価格 = 購入価格 × (残り使用回数 / 最大使用回数) × 0.5
   const usageRatio = weaponInstance.currentUses / weaponInstance.maxUses
   return Math.floor(basePrice * usageRatio * 0.5)
 }
@@ -105,9 +174,8 @@ export function getSellPriceItem(item: IPurchasable): number {
   return Math.floor(item.price / 2)
 }
 
-/** 武器枠に空きがあるかチェック（無限行動は枠に含まないためlength - 無限行動数で判定） */
+/** 武器枠に空きがあるかチェック */
 export function canBuyWeapon(explorer: ExplorerState): boolean {
-  // 無限行動（パンチ、魔力弾、祈り等）はスロット数に含まない
   const purchasedWeapons = explorer.weapons.filter(w => w.maxUses !== null)
   return purchasedWeapons.length < explorer.weaponSlotCount
 }
@@ -125,16 +193,6 @@ export function canBuyRelic(relics: RelicInstance[]): boolean {
 /** ポーション枠に空きがあるかチェック */
 export function canBuyPotion(potions: PotionInstance[]): boolean {
   return potions.length < getTuningValue('max_potion_count', 2)
-}
-
-/** リロール処理 */
-export function rerollStore(storeState: StoreState, seed: number): StoreState {
-  return {
-    weaponSlots: generateWeaponSlotItems(seed),
-    relicSlots: generateRelicSlotItems(seed),
-    potionSlots: generatePotionSlotItems(seed),
-    rerollCost: storeState.rerollCost + 1,
-  }
 }
 
 /** 武器かどうかを判定 */
@@ -155,4 +213,12 @@ export function isRelicData(item: RelicData | PotionData): item is RelicData {
 /** ポーションかどうかを判定 */
 export function isPotionData(item: RelicData | PotionData): item is PotionData {
   return 'effect' in item && 'commandCategory' in item && item.commandCategory === 'potion'
+}
+
+/** カテゴリの日本語表示名 */
+export const STORE_CATEGORY_LABELS: Record<StoreCategory, string> = {
+  weapon: '武器',
+  spell: '魔法',
+  relic: 'レリック',
+  potion: 'ポーション',
 }

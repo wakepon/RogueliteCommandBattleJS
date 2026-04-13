@@ -56,9 +56,7 @@ export interface TuningConfig {
   readonly gold_reward_boss: number
   readonly interest_cap_default: number
   readonly interest_cap_piggybank: number
-  readonly store_weapon_slots: number
-  readonly store_relic_slots: number
-  readonly store_potion_slots: number
+  readonly store_category_slots: number
   readonly base_reroll_cost: number
   readonly max_relic_count: number
   readonly max_potion_count: number

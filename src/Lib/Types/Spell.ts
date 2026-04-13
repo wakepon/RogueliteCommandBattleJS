@@ -8,6 +8,12 @@ export type SpellEffect =
   | { type: 'heal'; value: number }           // HP回復
   | { type: 'steal' }                         // ゴールドを盗む
   | { type: 'buff'; stat: 'str' | 'precision'; value: number; duration: 'battle' | 'nextAction' }  // バフ
+  | { type: 'shield'; value: number }         // バリア: 被ダメ軽減
+  | { type: 'hpToMp'; hpCost: number; mpGain: number }  // 生命変換: HP→MP
+  | { type: 'goldOnHit'; value: number }      // 金のまじない: ゴールド獲得
+  | { type: 'goldDamage'; rate: number; multiplier: number }  // ゴールドバースト: ゴールド消費→ダメ
+  | { type: 'repairWeapons'; value: number }  // 戦場の鍛冶: 武器耐久回復
+  | { type: 'weaponPowerBuff'; value: number }  // 武器強化: 次の武器攻撃Power+N
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {

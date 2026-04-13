@@ -33,6 +33,7 @@ interface DamageOptions {
   varianceOffset?: number  // ブレのオフセット値（テスト用に固定値を指定）
   relics?: RelicInstance[]
   killStreakActive?: boolean
+  weaponBreakMultiplier?: number  // 不死鳥の残り火: 武器破壊蓄積倍率
 }
 
 /**
@@ -65,7 +66,7 @@ export function calculateWeaponDamage(
   _target: EnemyInstance,
   options: DamageOptions = {}
 ): DamageResult {
-  const { varianceOffset, relics = [], killStreakActive = false } = options
+  const { varianceOffset, relics = [], killStreakActive = false, weaponBreakMultiplier = 0 } = options
   const contributors: DamageContributor[] = []
 
   // 精密バフ: ブレ幅→0、ダメージは最大ブレ値で固定
@@ -82,6 +83,24 @@ export function calculateWeaponDamage(
   // レリックによるステータスボーナス
   const statBonus = getStatBonus(relics, scaleStat)
   const effectiveStat = (scaleStat === 'int' ? attacker.int : attacker.str) + statBonus
+
+  // conditionalPower: HP条件でPower増加（狂戦士の斧）
+  let conditionalPowerBonus = 0
+  if ('effect' in weapon && weapon.effect?.type === 'conditionalPower') {
+    const hpRatio = attacker.hp / attacker.maxHp
+    if (hpRatio <= weapon.effect.hpThreshold) {
+      conditionalPowerBonus = weapon.effect.bonusPower
+      contributors.push({ name: weapon.name, label: `+${conditionalPowerBonus}` })
+    }
+  }
+
+  // weaponPowerBonus バフ: 武器強化による一時的なPower加算
+  const weaponPowerBonusValue = attacker.battleBuffs
+    .filter(b => b.type === 'weaponPowerBonus')
+    .reduce((sum, b) => sum + b.value, 0)
+  if (weaponPowerBonusValue > 0) {
+    contributors.push({ name: '武器強化', label: `+${weaponPowerBonusValue}` })
+  }
 
   // レリックによる武器ダメージボーナス
   const weaponDmgBonus = getWeaponDamageBonus(relics)
@@ -102,8 +121,15 @@ export function calculateWeaponDamage(
     contributors.push({ name: `${statLabel}バフ`, label: `×${buffMultiplier.toFixed(1)}` })
   }
 
-  // 基本ダメージ計算
-  let rawDamage = effectiveStat * (weapon.power + weaponDmgBonus) * buffMultiplier
+  // 基本ダメージ計算（conditionalPower + weaponPowerBonus を power に加算）
+  const effectivePower = weapon.power + weaponDmgBonus + conditionalPowerBonus + weaponPowerBonusValue
+  let rawDamage = effectiveStat * effectivePower * buffMultiplier
+
+  // 不死鳥の残り火: 武器破壊蓄積倍率
+  if (weaponBreakMultiplier > 0) {
+    rawDamage *= (1 + weaponBreakMultiplier)
+    contributors.push({ name: '不死鳥の残り火', label: `×${(1 + weaponBreakMultiplier).toFixed(1)}` })
+  }
 
   // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
   const lowHpMult = getLowHpDamageMultiplier(relics, attacker)

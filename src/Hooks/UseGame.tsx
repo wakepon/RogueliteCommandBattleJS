@@ -35,6 +35,7 @@ interface GameContextType {
   undoSellPotion: (potion: PotionData, sellPrice: number) => void
   transferWeapon: (fromMemberIndex: number, weaponIndex: number, toMemberIndex: number) => void
   transferSpell: (fromMemberIndex: number, spellIndex: number, toMemberIndex: number) => void
+  selectShop: (shopIndex: number) => void
   rerollStore: () => void
   closeStore: () => void
   // イベント関連アクション
@@ -120,6 +121,8 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'TRANSFER_WEAPON', fromMemberIndex, weaponIndex, toMemberIndex }), [])
   const transferSpell = useCallback((fromMemberIndex: number, spellIndex: number, toMemberIndex: number) =>
     dispatch({ type: 'TRANSFER_SPELL', fromMemberIndex, spellIndex, toMemberIndex }), [])
+  const selectShop = useCallback((shopIndex: number) =>
+    dispatch({ type: 'SELECT_SHOP', shopIndex }), [])
   const rerollStore = useCallback(() => dispatch({ type: 'REROLL_STORE' }), [])
   const closeStore = useCallback(() => dispatch({ type: 'CLOSE_STORE' }), [])
   // イベント関連アクション
@@ -187,6 +190,7 @@ export function GameProvider({ children }: GameProviderProps) {
       undoSellPotion,
       transferWeapon,
       transferSpell,
+      selectShop,
       rerollStore,
       closeStore,
       openEvent,
