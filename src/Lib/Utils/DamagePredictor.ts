@@ -56,6 +56,7 @@ export interface DamagePredictOptions {
   killStreakActive?: boolean
   includeConditionalRelics?: boolean
   hasPrecision?: boolean  // 精密バフでブレ幅→0
+  weaponBreakMultiplier?: number  // 不死鳥の残り火: 武器破壊蓄積倍率
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -71,7 +72,7 @@ export function predictWeaponDamage(
   weapon: ExplorerWeapon | WeaponData,
   options: DamagePredictOptions = {}
 ): DamageRange {
-  const { relics = [], killStreakActive = false, includeConditionalRelics = false, hasPrecision = false } = options
+  const { relics = [], killStreakActive = false, includeConditionalRelics = false, hasPrecision = false, weaponBreakMultiplier = 0 } = options
 
   // scaleStat対応（魔力弾はINT依存）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
@@ -80,7 +81,27 @@ export function predictWeaponDamage(
   const effectiveStat = (scaleStat === 'int' ? explorer.int : explorer.str) + statBonus
   const buffMultiplier = calculateBuffMultiplier(explorer, scaleStat)
 
-  let baseDamage = effectiveStat * (weapon.power + weaponDmgBonus) * buffMultiplier
+  // conditionalPower: HP条件でPower増加（猛撃の斧）
+  let conditionalPowerBonus = 0
+  if (includeConditionalRelics && 'effect' in weapon && weapon.effect?.type === 'conditionalPower') {
+    const hpRatio = explorer.hp / explorer.maxHp
+    if (hpRatio <= weapon.effect.hpThreshold) {
+      conditionalPowerBonus = weapon.effect.bonusPower
+    }
+  }
+
+  // weaponPowerBonus バフ: 武器強化による一時的なPower加算
+  const weaponPowerBonusValue = explorer.battleBuffs
+    .filter(b => b.type === 'weaponPowerBonus')
+    .reduce((sum, b) => sum + b.value, 0)
+
+  const effectivePower = weapon.power + weaponDmgBonus + conditionalPowerBonus + weaponPowerBonusValue
+  let baseDamage = effectiveStat * effectivePower * buffMultiplier
+
+  // 不死鳥の残り火: 武器破壊蓄積倍率
+  if (weaponBreakMultiplier > 0) {
+    baseDamage *= (1 + weaponBreakMultiplier)
+  }
 
   // 条件付きレリック倍率（バトル中のみ）
   let relicMultiplier = 1.0
@@ -107,6 +128,9 @@ export function predictWeaponDamage(
     || weaponDmgBonus > 0
     || buffMultiplier > 1.0
     || relicMultiplier > 1.0
+    || conditionalPowerBonus > 0
+    || weaponPowerBonusValue > 0
+    || weaponBreakMultiplier > 0
 
   return { min, max, isBoosted }
 }
@@ -186,7 +210,8 @@ function detectActiveMultipliers(
   explorer: ExplorerState,
   command: BattleCommand,
   killStreakActive: boolean,
-  includeConditionalRelics: boolean
+  includeConditionalRelics: boolean,
+  weaponBreakMultiplier: number = 0
 ): MultiplierEffect[] {
   if (!includeConditionalRelics) return []
 
@@ -213,6 +238,33 @@ function detectActiveMultipliers(
       if (explorer.mp <= threshold) {
         multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
       }
+    }
+    // 不死鳥の残り火: 武器破壊蓄積倍率
+    if (effect.type === 'weaponBreakDamageMultiplier' && weaponBreakMultiplier > 0 && isWeapon(command)) {
+      multipliers.push({ relicName: relic.name, multiplier: 1 + weaponBreakMultiplier })
+    }
+    // 血の契約: 戦闘開始時STRバフ（バフ自体はbattleBuffsに含まれるが、表示用に検出）
+    if (effect.type === 'battleStartHpReduction') {
+      const hasStrBuff = explorer.battleBuffs.some(b => b.type === 'str' && b.duration === 'battle')
+      if (hasStrBuff) {
+        multipliers.push({ relicName: relic.name, multiplier: 1.0 + effect.strBonus * 0.1 })
+      }
+    }
+  }
+
+  // 武器強化バフ（鍛冶師の金槌等）
+  if (isWeapon(command)) {
+    const wpBonus = explorer.battleBuffs.filter(b => b.type === 'weaponPowerBonus').reduce((s, b) => s + b.value, 0)
+    if (wpBonus > 0) {
+      multipliers.push({ relicName: '武器強化', multiplier: 0 }) // 加算なのでmultiplierは目安表示用
+    }
+  }
+
+  // conditionalPower（猛撃の斧）
+  if (isWeapon(command) && 'effect' in command && command.effect?.type === 'conditionalPower') {
+    const hpRatio = explorer.hp / explorer.maxHp
+    if (hpRatio <= command.effect.hpThreshold) {
+      multipliers.push({ relicName: command.name, multiplier: 0 }) // 加算表示用
     }
   }
 
@@ -281,7 +333,8 @@ export function calculateDetailedDamagePreview(
         explorer,
         slot.command,
         options.killStreakActive || false,
-        options.includeConditionalRelics || false
+        options.includeConditionalRelics || false,
+        options.weaponBreakMultiplier || 0
       )
 
       segments.push({
