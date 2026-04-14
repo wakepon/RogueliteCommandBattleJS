@@ -222,6 +222,11 @@ export type PassiveEffectType =
   | { type: 'thornsDamage'; value: number }
   | { type: 'regenPerTurn'; value: number }
   | { type: 'potionEffectMultiplier'; multiplier: number }
+  | { type: 'battleStartHpReduction'; value: number }           // 戦闘開始時にHP減少
+  | { type: 'damageTakenToMp'; value: number }                  // 被ダメージの一部をMP変換
+  | { type: 'goldPerKill'; value: number }                      // 敵撃破時にゴールド獲得
+  | { type: 'weaponBreakDamageMultiplier'; multiplier: number } // 武器破壊時のダメージ倍率
+  | { type: 'weaponBreakNextAttackBonus'; multiplier: number }  // 武器破壊後の次攻撃ボーナス
 
 /** パッシブ効果を持つ */
 export interface IPassiveEffect {
@@ -235,8 +240,9 @@ export interface IPassiveEffect {
 // ===== Lib/Types/Weapon.ts =====
 /** 武器効果（消費ではなく純粋な効果のみ） */
 export type WeaponEffect =
-  | { type: 'lifesteal'; value: number }      // ダメージの一定割合HP回復
-  | { type: 'targetRateUp'; value: number }   // 被弾率アップ効果
+  | { type: 'lifesteal'; value: number }        // ダメージの一定割合HP回復
+  | { type: 'targetRateUp'; value: number }     // 被弾率アップ効果
+  | { type: 'conditionalPower'; condition: string; bonusPower: number }  // 条件付き追加ダメージ
 
 /** 武器データ（マスターデータ、購入可能） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {
@@ -276,6 +282,12 @@ export type SpellEffect =
   | { type: 'heal'; value: number }           // HP回復
   | { type: 'steal' }                         // ゴールドを盗む
   | { type: 'buff'; stat: 'str' | 'precision'; value: number; duration: 'battle' | 'nextAction' }  // バフ
+  | { type: 'shield'; value: number }         // シールド付与（被ダメージ軽減）
+  | { type: 'hpToMp'; value: number }         // HPをMPに変換
+  | { type: 'goldOnHit'; value: number }      // 攻撃ヒット時にゴールド獲得
+  | { type: 'goldDamage' }                    // 所持ゴールドに応じてダメージ増加
+  | { type: 'repairWeapons' }                 // 装備中の武器を修理
+  | { type: 'weaponPowerBuff'; value: number; duration: 'battle' | 'nextAction' }  // 武器ダメージバフ
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {
@@ -445,6 +457,9 @@ interface RunState {
 
   // 戦闘中のレベルアップ情報
   battleLevelUps: LevelUpInfo[]
+
+  // アーキタイプ関連
+  weaponBreakMultiplier?: number  // 武器破壊時のダメージ倍率（武器破壊アーキタイプ用）
 
   // 統計（結果画面表示用）
   stats: RunStats
@@ -632,10 +647,23 @@ export type BattleCommand = ExplorerWeapon | SpellInstance | PotionInstance
 ### StoreState（ストア画面の状態）
 
 ```typescript
+/** ストアカテゴリ */
+export type StoreCategory = 'weapon' | 'spell' | 'relic' | 'potion'
+
+/** ショップスロット（カテゴリ別の商品候補） */
+export interface ShopSlot {
+  category: StoreCategory
+  items: (WeaponData | SpellData | RelicData | PotionData | null)[]
+}
+
+/** 2択ショップの選択肢 */
+export interface ShopOption {
+  slots: ShopSlot[]
+}
+
 interface StoreState {
-  weaponSlots: (WeaponData | SpellData | null)[]  // 4枠。購入済みスロットはnull
-  relicSlots: (RelicData | null)[]                // 2枠。購入済みスロットはnull
-  potionSlots: (PotionData | null)[]              // 2枠。購入済みスロットはnull
+  shopOptions: [ShopOption, ShopOption]  // 2択の選択肢
+  selectedShopIndex: number | null       // 選択済みショップインデックス（nullは未選択）
   rerollCost: number  // 初期値3G、リロールするごとに1G増加
 }
 ```
@@ -716,7 +744,7 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 ### Weapons.json
 
-10種の武器データ（オブジェクト辞書形式）。全武器に `variance` フィールドあり。`magic_bullet`、`prayer` が追加済み。投げナイフは `enemyAll` ターゲット。
+16種の武器データ（オブジェクト辞書形式）。全武器に `variance` フィールドあり。`magic_bullet`、`prayer` が追加済み。投げナイフは `enemyAll` ターゲット。スライス12で7種追加済み。
 
 ```json
 {
@@ -729,7 +757,15 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
   "whirlwind_blade": { "targetType": "enemyAll",    ... },
   "vampiric_blade":  { "targetType": "enemySingle", "effect": { "type": "lifesteal" }, ... },
   "magic_bullet":    { "targetType": "enemySingle", "scaleStat": "int", ... },
-  "prayer":          { "targetType": "allySingle",  "effect": { "type": "targetRateUp" }, ... }
+  "prayer":          { "targetType": "allySingle",  "effect": { "type": "targetRateUp" }, ... },
+  // スライス12追加分（7種）
+  "holy_lance":      { "targetType": "enemySingle", "effect": { "type": "conditionalPower", ... }, ... },
+  "blood_sword":     { "targetType": "enemySingle", "hpCost": ..., ... },
+  "gold_axe":        { "targetType": "enemySingle", "goldCost": ..., ... },
+  "poison_dagger":   { "targetType": "enemySingle", ... },
+  "ice_blade":       { "targetType": "enemySingle", ... },
+  "thunder_spear":   { "targetType": "enemySingle", ... },
+  "cursed_blade":    { "targetType": "enemySingle", "effect": { "type": "conditionalPower", ... }, ... }
 }
 ```
 
@@ -737,17 +773,24 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 ### Spells.json
 
-7種の魔法データ（オブジェクト辞書形式）。全魔法に `variance` フィールドあり。`precision` が追加済み。
+13種の魔法データ（オブジェクト辞書形式）。全魔法に `variance` フィールドあり。`precision` が追加済み。スライス12で6種追加済み。
 
 ```json
 {
-  "fire":      { "targetType": "enemySingle", ... },
-  "firestorm": { "targetType": "enemyAll",    ... },
-  "heal":      { "targetType": "allySingle",  "effect": { "type": "heal" }, ... },
-  "ice_bolt":  { "targetType": "enemySingle", ... },
-  "thunder":   { "targetType": "enemySingle", ... },
-  "blizzard":  { "targetType": "enemyAll",    ... },
-  "precision": { "targetType": "allySingle",  "effect": { "type": "buff", "stat": "precision", "duration": "nextAction" }, ... }
+  "fire":           { "targetType": "enemySingle", ... },
+  "firestorm":      { "targetType": "enemyAll",    ... },
+  "heal":           { "targetType": "allySingle",  "effect": { "type": "heal" }, ... },
+  "ice_bolt":       { "targetType": "enemySingle", ... },
+  "thunder":        { "targetType": "enemySingle", ... },
+  "blizzard":       { "targetType": "enemyAll",    ... },
+  "precision":      { "targetType": "allySingle",  "effect": { "type": "buff", "stat": "precision", "duration": "nextAction" }, ... },
+  // スライス12追加分（6種）
+  "barrier":        { "targetType": "allySingle",  "effect": { "type": "shield" }, ... },
+  "mana_drain":     { "targetType": "allySingle",  "effect": { "type": "hpToMp" }, ... },
+  "gold_rush":      { "targetType": "enemySingle", "effect": { "type": "goldOnHit" }, ... },
+  "coin_throw":     { "targetType": "enemySingle", "effect": { "type": "goldDamage" }, ... },
+  "repair_spell":   { "targetType": "allyAll",     "effect": { "type": "repairWeapons" }, ... },
+  "weapon_enhance": { "targetType": "allySingle",  "effect": { "type": "weaponPowerBuff" }, ... }
 }
 ```
 
@@ -755,7 +798,9 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 ### Relics.json
 
-15種のレリックデータ（オブジェクト辞書形式）。各レリックは `PassiveEffectType` に対応した `passiveEffect` を持つ。効果の詳細値はバランス調整対象のため概要記載。
+19種のレリックデータ（オブジェクト辞書形式）。各レリックは `PassiveEffectType` に対応した `passiveEffect` を持つ。スライス12で6種追加・3種削除済み（計 15 + 6 - 3 = 18 → 最終19種）。効果の詳細値はバランス調整対象のため概要記載。
+
+スライス12追加分（6種）: battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus に対応するレリック群。
 
 ### Potions.json
 
@@ -811,7 +856,7 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 | カテゴリ | アクション |
 |---------|-----------|
 | ゲーム制御 | START_GAME, CONTINUE_GAME, RETURN_TITLE, END_BATTLE |
-| ストア | OPEN_STORE, CLOSE_STORE, BUY_WEAPON, BUY_SPELL, BUY_RELIC, BUY_POTION, SELL_WEAPON, SELL_SPELL, SELL_RELIC, REROLL_STORE |
+| ストア | OPEN_STORE, CLOSE_STORE, SELECT_SHOP, BUY_WEAPON, BUY_SPELL, BUY_RELIC, BUY_POTION, SELL_WEAPON, SELL_SPELL, SELL_RELIC, REROLL_STORE |
 | 購入取り消し | UNDO_BUY_WEAPON, UNDO_BUY_SPELL, UNDO_BUY_RELIC, UNDO_BUY_POTION |
 | 売却取り消し | UNDO_SELL_WEAPON, UNDO_SELL_SPELL, UNDO_SELL_RELIC |
 | ポーション売却 | SELL_POTION, UNDO_SELL_POTION |
@@ -834,11 +879,11 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 ### BattleStateFactory
 
-`createBattleState` と `generateEnemyIntents` の2つの主要関数を含む。AGI順ソート（`sortActorsByAgi`）は廃止済みで、`commandSlots` 配列順により行動順を管理する。
+`createBattleState` と `generateEnemyIntents` の2つの主要関数を含む。AGI順ソート（`sortActorsByAgi`）は廃止済みで、`commandSlots` 配列順により行動順を管理する。`applyBloodPact` は血の契約レリック効果として戦闘開始時に探索者のHPを一定量減少させる処理を担う。
 
 ### BattleActionProcessor
 
-`processExecuteCommand`（コマンド実行処理）、`processEnemyAction`（敵行動処理）、`processTurnEndAction`（ターン終了処理）の3主要処理関数を持つ。
+`processExecuteCommand`（コマンド実行処理）、`processEnemyAction`（敵行動処理）、`processTurnEndAction`（ターン終了処理）の3主要処理関数を持つ。SpellEffectの新効果（shield, hpToMp, goldOnHit, goldDamage, repairWeapons, weaponPowerBuff）および PassiveEffectType の新効果（battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus）に対応した処理を含む。
 
 ## バランス調整システム（Tuning Editor）
 

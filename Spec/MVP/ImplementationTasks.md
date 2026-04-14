@@ -190,6 +190,32 @@
 
 ---
 
+## スライス12: 3アーキタイプ + ショップ2択制
+**動作確認**: 3アーキタイプ（ローHP/金策/武器破壊）のビルドが機能し、ストアで2択からショップを選べる
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|:----------:|
+| 12.1 | StoreState型変更 | weaponSlots/relicSlots/potionSlots を削除し shopOptions[ShopOption, ShopOption] + selectedShopIndex に変更。StoreCategory, ShopSlot, ShopOption 型を追加 | ✅ 完了 |
+| 12.2 | SELECT_SHOP アクション | GameReducer にSELECT_SHOPアクション追加。2択からどちらかのショップを選択する処理 | ✅ 完了 |
+| 12.3 | shield効果処理 | SpellEffect shield に対応する BattleActionProcessor の処理（被ダメージ軽減バフ付与） | ✅ 完了 |
+| 12.4 | hpToMp効果処理 | SpellEffect hpToMp に対応する処理（HPをMPに変換） | ✅ 完了 |
+| 12.5 | goldOnHit効果処理 | SpellEffect goldOnHit に対応する処理（攻撃ヒット時ゴールド獲得） | ✅ 完了 |
+| 12.6 | goldDamage効果処理 | SpellEffect goldDamage に対応する処理（所持ゴールドに応じてダメージ増加） | ✅ 完了 |
+| 12.7 | repairWeapons効果処理 | SpellEffect repairWeapons に対応する処理（装備中武器の耐久回復） | ✅ 完了 |
+| 12.8 | weaponPowerBuff効果処理 | SpellEffect weaponPowerBuff に対応する処理（武器ダメージバフ付与） | ✅ 完了 |
+| 12.9 | battleStartHpReduction処理 | PassiveEffectType battleStartHpReduction に対応する処理（戦闘開始時HP減少、applyBloodPact） | ✅ 完了 |
+| 12.10 | damageTakenToMp処理 | PassiveEffectType damageTakenToMp に対応する処理（被ダメージをMPに変換） | ✅ 完了 |
+| 12.11 | goldPerKill処理 | PassiveEffectType goldPerKill に対応する処理（敵撃破時ゴールド獲得） | ✅ 完了 |
+| 12.12 | weaponBreakDamageMultiplier処理 | PassiveEffectType weaponBreakDamageMultiplier に対応する処理（武器破壊時ダメージ倍率）。RunState.weaponBreakMultiplier を使用 | ✅ 完了 |
+| 12.13 | weaponBreakNextAttackBonus処理 | PassiveEffectType weaponBreakNextAttackBonus に対応する処理（武器破壊後の次攻撃ボーナス） | ✅ 完了 |
+| 12.14 | WeaponEffect conditionalPower追加 | WeaponEffect に conditionalPower を追加し DamageCalculator で対応 | ✅ 完了 |
+| 12.15 | 新武器7種追加 | Weapons.json に holy_lance, blood_sword, gold_axe, poison_dagger, ice_blade, thunder_spear, cursed_blade を追加（計16種） | ✅ 完了 |
+| 12.16 | 新魔法6種追加 | Spells.json に barrier, mana_drain, gold_rush, coin_throw, repair_spell, weapon_enhance を追加（計13種） | ✅ 完了 |
+| 12.17 | 新レリック6種追加・3種削除 | Relics.json に3アーキタイプ対応レリック6種を追加、旧レリック3種を削除（計19種） | ✅ 完了 |
+| 12.18 | 武器修理バグ修正 | repairWeapons効果が正しく全スロットの武器を修理するよう修正 | ✅ 完了 |
+
+---
+
 ## 進捗サマリー
 
 | スライス | 完了タスク | 総タスク | 進捗 |
@@ -205,7 +231,8 @@
 | 9: パーティー制 | 10 | 10 | 100% |
 | 10: 敵パターン拡張 | 6 | 6 | 100% |
 | 11: Tuning Editor | 11 | 11 | 100% |
-| **合計** | **67** | **67** | **100%** |
+| 12: 3アーキタイプ+ショップ2択制 | 18 | 18 | 100% |
+| **合計** | **85** | **85** | **100%** |
 
 ---
 

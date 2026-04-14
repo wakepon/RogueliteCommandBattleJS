@@ -53,15 +53,18 @@
 **シンプル構造**を採用:
 
 ```
-最終ダメージ = (Str/Int + レリックstatBonus) x (power + weaponDamageBonus) x バフ倍率 x レリック倍率 + ブレ補正(±variance)
+最終ダメージ = (Str/Int + レリックstatBonus) x (power + conditionalPower + weaponDamageBonus + weaponPowerBonus) x バフ倍率 x レリック倍率 x weaponBreakMultiplier + ブレ補正(±variance)
 ```
 
 * **UnitStat:** 武器のscaleStatプロパティに従い、`str` または `int` で計算。弱体（weakness）デバフが付与されている場合、最終ダメージが低下する。武器・魔法の両方に適用される。
 * **power:** 武器/魔法に設定された基本威力。パンチはpower=1（STR x 1 = STR分のダメージ）。
+* **conditionalPower:** 条件付きで加算される追加威力（例: 猛撃の斧）。条件不成立時は0。
 * **weaponDamageBonus:** 鋭い砥石など、武器/パンチ攻撃時に加算されるボーナス。
+* **weaponPowerBonus:** 武器強化バフによって付与される威力加算ボーナス。
 * **バフ倍率:** 倍率効果を**加算**。未適用時は1.0。複数のバフ倍率は加算される。
-* **レリック倍率（武器ダメージ）:** lowHpDamageMultiplier（怒りの炎）、killStreakBonus（血染めの手袋、連続撃破時）、lastStrikeDamageMultiplier（研ぎ師の名刺、武器最終使用時）が乗算される。
-* **レリック倍率（魔法ダメージ）:** lowHpDamageMultiplier、lowMpDamageBonus（集中の水晶）が乗算される。
+* **レリック倍率（武器ダメージ）:** lastStrikeDamageMultiplier（研ぎ師の名刺、武器最終使用時）が乗算される。
+* **weaponBreakMultiplier:** 武器破壊時に乗算される倍率（不死鳥の残り火レリックが付与）。
+* **レリック倍率（魔法ダメージ）:** lowMpDamageBonus（集中の水晶）が乗算される。
 
 ### マッスルアップの計算
 * マッスルアップはダメージ倍率として機能する（`1.0 + totalValue * 0.1` の乗算倍率）。
@@ -95,6 +98,8 @@
 | 被ターゲット率UP | 戦闘中持続 |
 | 弱体（weakness） | 持続ターン制（durationが毎ターン減少、0で解除） |
 | 自己防御バフ（selfDefense） | 持続ターン制 |
+| シールド（shield） | 持続ターン制（ダメージ吸収、0で解除） |
+| 武器強化（weaponPowerBonus） | 持続ターン制（weaponPowerBonusに加算） |
 
 ### 精密バフ
 * 次の攻撃のダメージブレを最大値で固定する（varianceを最大値に固定）。
@@ -118,19 +123,22 @@
 | :--- | :--- |
 | 戦士の腕輪 | 常時（ステータス画面に反映） |
 | 魔術師の指輪 | 常時（ステータス画面に反映、INT statBonus） |
-| 俊足のブーツ | 常時（ステータス画面に反映、STR statBonus） |
 | 鋭い砥石 | 武器/パンチ攻撃実行時にダメージ計算に加算（魔法は対象外） |
 | 貯金箱 | 報酬計算時（利子上限を10Gに変更） |
-| 怒りの炎 | 攻撃実行時にHP判定（低HP時にダメージ倍率上昇、lowHpDamageMultiplier） |
 | 壊れかけの鎧 | 最初の被弾を防ぐ（firstHitShield） |
 | 武器お手入れ用油 | 確率で武器使用回数消費を防ぐ（weaponDurabilitySave） |
 | ストレス発散 | 武器攻撃時にMP回復（weaponAttackMpRecover、パンチは対象外） |
-| 血染めの手袋 | 連続撃破時ダメージ倍率上昇（killStreakBonus） |
 | 研ぎ師の名刺 | 武器の最後の一撃でダメージ倍率上昇（lastStrikeDamageMultiplier） |
 | 集中の水晶 | MP低下時に魔法ダメージ倍率上昇（lowMpDamageBonus） |
 | 反撃の棘 | 被弾時に固定ダメージ反射（thornsDamage） |
 | 再生のコケ | 毎ターンHP回復（regenPerTurn） |
 | 錬金術の触媒 | ポーション効果倍率上昇（potionEffectMultiplier） |
+| 血の契約 | 攻撃時にHPを消費してダメージ上昇 |
+| 苦痛のリング | HP低下時に特殊効果発動 |
+| 商人の護符 | ゴールド関連の効果（購入・獲得に影響） |
+| 金の指輪 | ゴールド獲得量増加 |
+| 不死鳥の残り火 | 武器破壊時にダメージ倍率上昇（weaponBreakMultiplier） |
+| 鍛冶師の金槌 | 武器使用回数または耐久に関する強化 |
 
 ### レリックの重複
 * 同じレリックを複数所持可能。
@@ -175,7 +183,7 @@
 戦闘中に以下の状態が管理される:
 
 * **battleMessage:** 敵行動のメッセージ表示。
-* **relicState:** 壊れかけの鎧のシールド状態（firstHitShield）、血染めの手袋の連続撃破状態（killStreakBonus）など、レリックに関連する戦闘内部状態。
+* **relicState:** 壊れかけの鎧のシールド状態（firstHitShield）など、レリックに関連する戦闘内部状態。
 
 ## 報酬処理
 

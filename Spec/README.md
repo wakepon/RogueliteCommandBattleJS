@@ -15,6 +15,25 @@ Spec/
 
 ## 更新履歴
 
+### 2026-04-14: 3アーキタイプ(ローHP/金策/武器破壊) + ショップ2択制の反映
+
+3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。
+
+**Core Game チーム** (4ファイル更新):
+- `Overview/BattleOverview.md` — ダメージ計算式にconditionalPower/weaponPowerBonus/weaponBreakMultiplier追記、新規武器7種・魔法6種の概要追加、シールドバフ2系統明記、バフ一覧にshield/weaponPowerBonus追加
+- `Overview/StoreOverview.md` — レリック15→18種更新（3種削除・6種追加）、効果タイプ一覧更新、ショップ枠を固定8枠→2択選択制(6枠)に変更
+- `MVP/BattleSystem.md` — ダメージ計算式更新、レリック倍率修正(怒りの炎・血染めの手袋削除→不死鳥の残り火追加)、バフテーブル・レリック効果テーブル更新
+- `MVP/StoreItem.md` — 武器7種・魔法6種・レリック6種追加、3種削除、レアリティ修正、商品抽選を2択選択制に修正
+
+**Data & State チーム** (4ファイル更新):
+- `Architecture/SystemDesign.md` — StoreState型を2択ショップ制に変更、ShopOption/ShopSlot型追加、RunState.weaponBreakMultiplier追加、WeaponEffect/SpellEffect/PassiveEffectType拡張、SELECT_SHOPアクション追加、applyBloodPact・新効果処理の概要追記、データ種数更新
+- `MVP/MVPScope.md` — ストア機能を2択ショップ制に更新、3アーキタイプシステム追加
+- `MVP/DevelopmentRoadmap.md` — データ数更新(武器16/魔法13/レリック19)、フェーズ5に3アーキタイプ実装追記
+- `MVP/ImplementationTasks.md` — スライス12(3アーキタイプ+ショップ2択制、18タスク)追加
+
+**UI チーム** (1ファイル更新):
+- `MVP/UIUXDesign.md` — ストア画面を2段階構成(ショップ選択→選択済みショップ)に改訂、selectShopコールバック追記、TooltipCard新効果(conditionalPower/hpCost/goldCost/shield等)追記、ItemDescription新レリック説明追記、goldCostコマンドの選択不可条件を汎用化
+
 ### 2026-04-13: Tuning Editor導入・バランス調整・ポーションD&D修正の反映
 
 3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。

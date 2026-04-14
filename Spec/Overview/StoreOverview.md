@@ -10,8 +10,8 @@
     * 特定行動回数（レベルアップ、吸血、ポーション使用など）に応じた効果。
     * 戦闘後のHP/MP回復、配当（不労所得）。
     * 死亡/復活時に効果発動（強化、回復、敵に大ダメージ）。
-* **MVP実装済みレリック（15種）:** 戦士の腕輪、鋭い砥石、貯金箱、魔術師の指輪、俊足のブーツ、壊れかけの鎧、武器お手入れ用油、ストレス発散、血染めの手袋、研ぎ師の名刺、集中の水晶、反撃の棘、再生のコケ、怒りの炎、錬金術の触媒。
-* **効果タイプ:** statBonus, weaponDamageBonus, interestCap, lowHpDamageMultiplier, firstHitShield, weaponDurabilitySave, weaponAttackMpRecover, killStreakBonus, lastStrikeDamageMultiplier, lowMpDamageBonus, thornsDamage, regenPerTurn, potionEffectMultiplier。
+* **MVP実装済みレリック（18種）:** 戦士の腕輪、鋭い砥石、貯金箱、魔術師の指輪、壊れかけの鎧、武器お手入れ用油、ストレス発散、研ぎ師の名刺、集中の水晶、反撃の棘、再生のコケ、錬金術の触媒、血の契約、苦痛のリング、商人の護符、金の指輪、不死鳥の残り火、鍛冶師の金槌。
+* **効果タイプ:** statBonus, weaponDamageBonus, interestCap, firstHitShield, weaponDurabilitySave, weaponAttackMpRecover, lastStrikeDamageMultiplier, weaponBreakMultiplier, lowMpDamageBonus, thornsDamage, regenPerTurn, potionEffectMultiplier, goldBonus, hpCostDamageBonus。
 ## 3 **武器**
 * 武器は使用回数制限がある
 * キャンプで休憩することで使用回数復活
@@ -24,14 +24,15 @@
     * MPポーション（MP回復）
 * **ターゲット:** targetTypeがallySingle（パーティー制で回復対象を選択）。
 ## 6. **ストアの枠**
-* 武器/魔法枠: 4枠固定
-* レリック枠: 2枠固定
-* ポーション枠: 2枠固定
-* 合計8枠（武器/魔法・レリック・ポーションの3カテゴリ分離）
+* 2択選択制を採用: 4カテゴリを2+2に分割し、各カテゴリ3枠ずつ提示（計6枠）。
+  * 武器/魔法グループ（前半）: 3枠
+  * 武器/魔法グループ（後半）: 3枠
+  * レリックグループ: 3枠（2グループに分割、各グループから選択）
+  * ポーション: 3枠
 * 品揃え変更(リロール): 初期コスト3G、使用ごとに1G増加
 * 商品を購入した枠は売り切れ表示となり、品揃え変更してもその枠に新たな商品は出現しない
 
-> **バランス調整:** 各枠数（武器/魔法4枠、レリック2枠、ポーション2枠）、リロールコスト、レリック上限、ポーション上限はTuning Editorで調整可能である。
+> **バランス調整:** 各枠数、リロールコスト、レリック上限、ポーション上限はTuning Editorで調整可能である。
 ## 7. **初期アイテム**
 * このままだと序盤に何の選択もないまま終わってしまいそう
     * ソウルで解放することで、ダンジョン開始時にランダムな武器/魔法/レリックから1つ選んで獲得できるように
