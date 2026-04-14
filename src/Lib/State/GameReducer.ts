@@ -5,7 +5,7 @@ import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
 import { SpellData } from '../Types/Spell'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
-import { createBattleState } from './BattleStateFactory'
+import { createBattleState, applyBloodPact } from './BattleStateFactory'
 import { battleReducer, BattleAction } from './BattleReducer'
 import { calculateReward } from '../Core/RewardCalculator'
 import {
@@ -771,11 +771,19 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
+      // 血の契約: 戦闘開始時にHP削減+STRバフをRunState.partyにも反映
+      const adjustedParty = applyBloodPact(state.run.party, state.run.relics)
       const battleState = createBattleState(
-        state.run.currentStage, state.run.party, state.run.seed, state.run.relics
+        state.run.currentStage, adjustedParty, state.run.seed, state.run.relics
       )
 
-      return { ...state, phase: 'battle', battleState, mapState: null }
+      return {
+        ...state,
+        phase: 'battle',
+        battleState,
+        mapState: null,
+        run: { ...state.run, party: adjustedParty },
+      }
     }
 
     default:

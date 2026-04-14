@@ -125,7 +125,7 @@ function createCommandSlots(party: ExplorerState[]): CommandSlot[] {
 }
 
 /** 血の契約: 戦闘開始時にHP削減+STRバフを全パーティーメンバーに適用 */
-function applyBloodPact(party: ExplorerState[], relics: RelicInstance[]): ExplorerState[] {
+export function applyBloodPact(party: ExplorerState[], relics: RelicInstance[]): ExplorerState[] {
   const hpReduction = getBattleStartHpReduction(relics)
   if (!hpReduction) return party
 

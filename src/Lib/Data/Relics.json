@@ -76,6 +76,13 @@
     "price": 7,
     "passiveEffect": { "type": "regenPerTurn", "value": 10 }
   },
+  "fury_flame": {
+    "id": "fury_flame",
+    "name": "怒りの炎",
+    "rarity": "Rare",
+    "price": 10,
+    "passiveEffect": { "type": "lowHpDamageMultiplier", "hpThreshold": 0.5, "multiplier": 2.0 }
+  },
   "alchemy_catalyst": {
     "id": "alchemy_catalyst",
     "name": "錬金術の触媒",
