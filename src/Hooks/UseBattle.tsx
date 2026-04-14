@@ -43,7 +43,7 @@ export interface UseBattleResult {
   selectTarget: (targetId: string) => void
   changeActiveExplorer: (index: number) => void
   reorderParty: (fromIndex: number, toIndex: number) => void
-  setCommandSlotDirect: (explorerId: string, command: BattleCommand, targetId: string) => void
+  setCommandSlotDirect: (explorerId: string, command: BattleCommand, targetId: string, weaponIndex?: number) => void
   startExecution: () => void
 
   // 実行アクション
@@ -97,8 +97,8 @@ export function useBattle(): UseBattleResult | null {
     dispatch({ type: 'REORDER_PARTY', fromIndex, toIndex })
   }, [dispatch])
 
-  const setCommandSlotDirect = useCallback((explorerId: string, command: BattleCommand, targetId: string) => {
-    dispatchBattle({ type: 'SET_COMMAND_SLOT_DIRECT', explorerId, command, targetId })
+  const setCommandSlotDirect = useCallback((explorerId: string, command: BattleCommand, targetId: string, weaponIndex?: number) => {
+    dispatchBattle({ type: 'SET_COMMAND_SLOT_DIRECT', explorerId, command, targetId, weaponIndex })
   }, [dispatchBattle])
 
   const startExecution = useCallback(() => {

@@ -80,11 +80,17 @@ function consumeCommandCost(
   explorer: ExplorerState,
   command: BattleCommand,
   gold: number,
-  durabilitySaveChance: number
+  durabilitySaveChance: number,
+  weaponIndex?: number
 ): { updatedExplorer: ExplorerState; updatedGold: number } {
   if (isWeapon(command)) {
-    const updatedWeapons = explorer.weapons.map(w => {
-      if (w.id === command.id) {
+    // weaponIndexが指定されていればそのインデックスの武器を消費（同ID武器の区別）
+    // 指定がなければidで最初にマッチしたものを消費（後方互換）
+    const targetIndex = weaponIndex !== undefined
+      ? weaponIndex
+      : explorer.weapons.findIndex(w => w.id === command.id)
+    const updatedWeapons = explorer.weapons.map((w, i) => {
+      if (i === targetIndex) {
         return consumeWeaponUse(w, durabilitySaveChance)
       }
       return w
@@ -262,10 +268,11 @@ function executeAttackCommand(
     contributors,
   })
 
-  // コスト消費
+  // コスト消費（同ID武器区別のためweaponIndexを渡す）
+  const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
   const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
   let { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
-    battleAction.explorer, selectedCommand, state.run.gold, durabilitySaveChance
+    battleAction.explorer, selectedCommand, state.run.gold, durabilitySaveChance, currentSlot?.weaponIndex
   )
 
   // ゴールドバースト: ゴールド消費
@@ -503,10 +510,11 @@ function executeEnemyAllAttack(
     contributors: allContributors,
   })
 
-  // コスト消費
+  // コスト消費（同ID武器区別のためweaponIndexを渡す）
+  const currentSlotAoe = state.battleState.commandSlots[state.battleState.currentCommandIndex]
   const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
   const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
-    battleAction.explorer, weapon, state.run.gold, durabilitySaveChance
+    battleAction.explorer, weapon, state.run.gold, durabilitySaveChance, currentSlotAoe?.weaponIndex
   )
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)

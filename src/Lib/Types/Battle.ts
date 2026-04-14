@@ -24,6 +24,7 @@ export interface CommandSlot {
   explorerId: string
   command: BattleCommand | null
   targetId: string | null
+  weaponIndex?: number  // 同ID武器の区別用: weapons配列内のインデックス
 }
 
 /** ダメージ寄与者（ポップアップ表示用） */

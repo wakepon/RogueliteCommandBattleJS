@@ -165,13 +165,16 @@ function CharacterPanel({
         {/* コマンド一覧（D&Dドラッグ元） */}
         {isCommandPhase && !isDead && (
           <div className="flex-1 overflow-y-auto space-y-0 mt-0.5">
-            {commands.map((cmd) => {
+            {commands.map((cmd, cmdIdx) => {
               const isAvail = availableCommands.some(ac => ac.id === cmd.id)
+              // 武器のweapons配列内インデックスを計算（spellsはundefined）
+              const weaponIdx = cmdIdx < member.weapons.length ? cmdIdx : undefined
               return (
                 <DraggableCommand
-                  key={cmd.id}
+                  key={`${cmd.id}-${cmdIdx}`}
                   command={cmd}
                   explorerId={member.id}
+                  commandIndex={weaponIdx}
                   disabled={!isCommandPhase}
                   isAvailable={isAvail}
                   attackerStr={member.str}
@@ -493,7 +496,7 @@ export function BattleScreen() {
     const data = event.active.data.current
     if (!data || !('command' in data)) return
 
-    const { command, explorerId: rawExplorerId } = data as { command: BattleCommand; explorerId: string }
+    const { command, explorerId: rawExplorerId, weaponIndex } = data as { command: BattleCommand; explorerId: string; weaponIndex?: number }
     // ポーションは explorerId="shared" で来るので、アクティブエクスプローラーのIDに差し替え
     const explorerId = rawExplorerId === 'shared'
       ? commandSlots[battleState.activeExplorerIndex]?.explorerId ?? rawExplorerId
@@ -510,7 +513,7 @@ export function BattleScreen() {
     }
 
     if (targetId) {
-      setCommandSlotDirect(explorerId, command, targetId)
+      setCommandSlotDirect(explorerId, command, targetId, weaponIndex)
     }
   }, [isCommandPhase, party, setCommandSlotDirect, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex])
 

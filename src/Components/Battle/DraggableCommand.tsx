@@ -6,6 +6,7 @@ import { Tooltip, TooltipCard } from '../Common'
 interface DraggableCommandProps {
   command: BattleCommand
   explorerId: string
+  commandIndex?: number  // 同ID武器区別用: weapons/spells配列内のインデックス
   disabled?: boolean
   isAvailable: boolean
   attackerStr?: number  // ダメージ予測用: キャラのSTR
@@ -31,10 +32,11 @@ function getCommandStyle(command: BattleCommand): { bgColor: string; label: stri
  * ドラッグ可能なコマンドアイテム
  * 武器/魔法を敵や味方にドラッグ&ドロップしてコマンドをセット
  */
-export function DraggableCommand({ command, explorerId, disabled, isAvailable, attackerStr = 0, attackerInt = 0 }: DraggableCommandProps) {
+export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, attackerStr = 0, attackerInt = 0 }: DraggableCommandProps) {
+  const uniqueId = commandIndex !== undefined ? `cmd-${explorerId}-${command.id}-${commandIndex}` : `cmd-${explorerId}-${command.id}`
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `cmd-${explorerId}-${command.id}`,
-    data: { command, explorerId },
+    id: uniqueId,
+    data: { command, explorerId, weaponIndex: commandIndex },
     disabled: disabled || !isAvailable,
   })
 
