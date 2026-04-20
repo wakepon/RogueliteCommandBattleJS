@@ -125,7 +125,7 @@ function CharacterPanel({
               <span className="text-red-400">HP</span>
               <span>{member.hp}/{member.maxHp}</span>
             </div>
-            <ResourceBar current={member.hp} max={member.maxHp} color="red" showText={false} size="sm" />
+            <ResourceBar current={member.hp} max={member.maxHp} color="green" showText={false} size="sm" />
           </div>
 
           {/* MP バー */}

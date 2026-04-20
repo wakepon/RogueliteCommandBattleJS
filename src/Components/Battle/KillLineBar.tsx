@@ -48,6 +48,7 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
     }
   }, [isHovered, popupPos])
 
+  // 死亡時
   if (currentHp <= 0) {
     return (
       <div className="relative">
@@ -61,44 +62,23 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
     )
   }
 
-  const hasPreview = damagePreview && (damagePreview.totalMin > 0 || damagePreview.totalMax > 0)
-
   // maxHPを100%とした割合計算
   const hpRatio = maxHp > 0 ? currentHp / maxHp : 0
 
-  if (!hasPreview) {
-    return (
-      <div
-        ref={triggerRef}
-        className="relative"
-      >
-        <div className="h-3 bg-gray-700 rounded-sm overflow-hidden flex">
-          <div
-            className="h-full bg-green-500 transition-all duration-200"
-            style={{ width: `${hpRatio * 100}%` }}
-          />
-        </div>
-        {/* HP数値 */}
-        <div className="text-[9px] text-gray-300 text-center mt-0.5">
-          {currentHp} / {maxHp}
-        </div>
-      </div>
-    )
-  }
+  const hasPreview = damagePreview && (damagePreview.totalMin > 0 || damagePreview.totalMax > 0)
+  const totalMin = hasPreview ? damagePreview.totalMin : 0
+  const totalMax = hasPreview ? damagePreview.totalMax : 0
 
-  const totalMin = damagePreview.totalMin
-  const totalMax = damagePreview.totalMax
-
-  // maxHPを100%とした各ゾーンの割合
+  // maxHPを100%とした各ゾーンの割合（プレビューなし時は全て0）
   const minDamageRatio = Math.min(totalMin / maxHp, hpRatio)
   const maxDamageRatio = Math.min(totalMax / maxHp, hpRatio)
   const varianceRatio = maxDamageRatio - minDamageRatio
-  const remainingHpRatio = hpRatio - maxDamageRatio  // ダメージ後の残HP
+  const remainingHpRatio = hpRatio - maxDamageRatio
 
-  const isGuaranteedKill = totalMin >= currentHp
-  const isPossibleKill = totalMax >= currentHp
+  const isGuaranteedKill = hasPreview && totalMin >= currentHp
+  const isPossibleKill = hasPreview && totalMax >= currentHp
 
-  const hasSegments = damagePreview.segments.length > 0
+  const hasSegments = hasPreview && damagePreview.segments.length > 0
 
   // セグメントの割合を計算（maxHP基準）
   const segmentRatios = hasSegments
@@ -115,29 +95,29 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
       onMouseEnter={showPopup}
       onMouseLeave={hidePopup}
     >
-      {/* 統合バー: 残HP(緑) + ブレ幅(オレンジ) + 確定ダメ(赤) + 空HP(灰) */}
-      <div className="h-3 bg-gray-700 rounded-sm overflow-hidden flex">
-        {/* 残HP（ダメージ後に残る分） */}
-        {remainingHpRatio > 0 && (
-          <div
-            className="h-full bg-green-500 transition-all duration-200"
-            style={{ width: `${remainingHpRatio * 100}%` }}
-          />
-        )}
-        {/* ブレ幅 */}
-        {varianceRatio > 0 && (
-          <div
-            className="h-full bg-orange-400 transition-all duration-200"
-            style={{ width: `${varianceRatio * 100}%` }}
-          />
-        )}
-        {/* 確定ダメージ */}
-        {minDamageRatio > 0 && (
-          <div
-            className="h-full bg-red-500 transition-all duration-200"
-            style={{ width: `${minDamageRatio * 100}%` }}
-          />
-        )}
+      {/* 統合バー: 緑HPの上にダメージ予測を右端から左へ重ねる */}
+      <div className="relative h-3 bg-gray-700 rounded-sm overflow-hidden">
+        {/* 残HP（緑） - 現在HPの全幅をベースとして表示 */}
+        <div
+          className="absolute left-0 top-0 h-full bg-green-500"
+          style={{ width: `${hpRatio * 100}%` }}
+        />
+        {/* 確定ダメージ（赤） - HP右端から左に向かって伸びる */}
+        <div
+          className="absolute top-0 h-full bg-red-500 transition-all duration-200"
+          style={{
+            right: `${(1 - hpRatio) * 100}%`,
+            width: `${minDamageRatio * 100}%`,
+          }}
+        />
+        {/* ブレ幅（オレンジ） - 確定ダメの左側に伸びる */}
+        <div
+          className="absolute top-0 h-full bg-orange-400 transition-all duration-200"
+          style={{
+            right: `${(1 - hpRatio + minDamageRatio) * 100}%`,
+            width: `${varianceRatio * 100}%`,
+          }}
+        />
       </div>
 
       {/* HP数値 */}

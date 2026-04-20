@@ -270,7 +270,7 @@ function StoreCharacterPanel({
 
       <div className="mb-0.5">
         <div className="flex justify-between text-[9px] text-gray-400"><span className="text-red-400">HP</span><span>{member.hp}/{member.maxHp}</span></div>
-        <ResourceBar current={member.hp} max={member.maxHp} color="red" showText={false} size="sm" />
+        <ResourceBar current={member.hp} max={member.maxHp} color="green" showText={false} size="sm" />
       </div>
       <div className="mb-0.5">
         <div className="flex justify-between text-[9px] text-gray-400"><span className="text-blue-400">MP</span><span>{member.mp}/{member.maxMp}</span></div>
