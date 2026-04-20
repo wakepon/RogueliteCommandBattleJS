@@ -10,6 +10,7 @@ import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Util
 import { BattleCommand, CommandSlot } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
+import { calculateRelicAttackImpacts } from '../../Lib/Utils/RelicImpactCalculator'
 import { Button } from '../Common/Button'
 import { ResourceBar, Tooltip } from '../Common'
 import { EnemyDisplay } from './EnemyDisplay'
@@ -210,11 +211,13 @@ function SharedPanel({
   relics,
   isCommandPhase,
   gold,
+  party,
 }: {
   potions: { id: string; name: string; commandCategory: 'potion' }[]
   relics: RelicInstance[]
   isCommandPhase: boolean
   gold: number
+  party: ExplorerState[]
 }) {
   return (
     <div className="h-full flex flex-col bg-gray-800/50 rounded p-1.5">
@@ -249,7 +252,7 @@ function SharedPanel({
         ) : (
           <div className="space-y-0.5">
             {relics.map((relic) => (
-              <Tooltip key={relic.id} content={<TooltipCard item={relic} />} position="top">
+              <Tooltip key={relic.id} content={<TooltipCard item={relic} attackImpacts={calculateRelicAttackImpacts(relic, party, relics.filter(r => r.id !== relic.id))} />} position="top">
                 <div className="text-[10px] text-gray-300 truncate">
                   {relic.name}
                 </div>
@@ -695,7 +698,7 @@ export function BattleScreen() {
               )
             })}
           </SortableContext>
-          <SharedPanel potions={uniquePotions} relics={run.relics} isCommandPhase={isCommandPhase} gold={gold} />
+          <SharedPanel potions={uniquePotions} relics={run.relics} isCommandPhase={isCommandPhase} gold={gold} party={party} />
         </div>
 
         {/* ===== 実行ボタン（最下段） ===== */}

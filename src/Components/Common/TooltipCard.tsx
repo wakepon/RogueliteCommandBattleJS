@@ -4,6 +4,7 @@ import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { getPassiveEffectDescription } from '../../Lib/Utils/ItemDescription'
+import { MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
 
 type AnyItem = WeaponData | ExplorerWeapon | SpellData | SpellInstance | RelicData | RelicInstance | PotionData | BattleCommand
 
@@ -14,17 +15,23 @@ interface TooltipLine {
 }
 
 /** カード形式のTooltipコンテンツを生成 */
-export function TooltipCard({ item, damageText, durabilityText }: {
+export function TooltipCard({ item, damageText, durabilityText, attackImpacts }: {
   item: AnyItem
   damageText?: string   // "5-9" 形式
   durabilityText?: string  // "3/5" 形式
+  attackImpacts?: MemberAttackImpact[]  // レリック用: 各メンバーの最大攻撃力変化
 }) {
   const name = item.name
   const category = getCategory(item)
   const lines = buildLines(item, damageText, durabilityText)
+  const isRelic = 'passiveEffect' in item
+  const visibleImpacts = attackImpacts?.filter(i => i.status !== 'noWeapon') ?? []
+  // 誰か1人でも攻撃力が変化するレリックのみ「最大攻撃力の変化」セクションを表示
+  // (MP回復・利子上限など攻撃力に影響しないレリックではセクションごと非表示)
+  const hasAnyAttackChange = visibleImpacts.some(i => i.status === 'changed')
 
   return (
-    <div className="min-w-[120px] max-w-[200px]">
+    <div className="min-w-[120px] max-w-[220px]">
       {/* カテゴリ */}
       <div className="text-[9px] text-gray-400">{category}</div>
       {/* 名前 */}
@@ -36,6 +43,25 @@ export function TooltipCard({ item, damageText, durabilityText }: {
           <span className={line.color || 'text-gray-200'}>{line.value}</span>
         </div>
       ))}
+      {/* レリック: 各メンバーの最大攻撃力変化 */}
+      {isRelic && hasAnyAttackChange && (
+        <div className="mt-1.5 pt-1.5 border-t border-gray-600">
+          <div className="text-[9px] text-gray-400 mb-0.5">最大攻撃力の変化</div>
+          {visibleImpacts.map((imp, i) => (
+            <div key={i} className="flex justify-between gap-3 text-[10px]">
+              <span className="text-gray-300">{imp.memberName}</span>
+              {imp.status === 'unchanged' ? (
+                <span className="text-gray-500">変化なし</span>
+              ) : (
+                <span>
+                  <span className="text-gray-200">{imp.before}→{imp.after}</span>
+                  <span className="text-green-400 ml-1">(+{imp.after - imp.before})</span>
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

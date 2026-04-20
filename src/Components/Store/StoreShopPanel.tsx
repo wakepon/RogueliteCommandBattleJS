@@ -17,6 +17,7 @@ import {
   STORE_CATEGORY_LABELS,
 } from '../../Lib/Core/StoreLogic'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
+import { calculateRelicAttackImpacts } from '../../Lib/Utils/RelicImpactCalculator'
 
 interface StoreShopPanelProps {
   explorer: ExplorerState
@@ -216,7 +217,7 @@ export function StoreShopPanel({
               run.relics.map((relic, index) => {
                 const price = getSellPriceItem(relic)
                 return (
-                  <Tooltip key={`owned-relic-${index}`} content={<TooltipCard item={relic} />} position="bottom">
+                  <Tooltip key={`owned-relic-${index}`} content={<TooltipCard item={relic} attackImpacts={calculateRelicAttackImpacts(relic, run.party, run.relics.filter(r => r.id !== relic.id))} />} position="bottom">
                     <div
                       className="border border-gray-500 bg-gray-800 rounded p-1.5 text-xs cursor-pointer hover:bg-gray-700"
                       onClick={() => sellRelic(index)}

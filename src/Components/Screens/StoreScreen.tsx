@@ -14,6 +14,7 @@ import { getSellPrice, getSellPriceItem, isWeaponData, isSpellData, STORE_CATEGO
 import { ShopSlot, ShopOption } from '../../Lib/Types/Game'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
+import { calculateRelicAttackImpacts, MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
 
 // === 型定義 ===
 
@@ -137,16 +138,17 @@ function EmptySlot({ label }: { label: string }) {
 
 // === 商品カード（ダメージ予測付き） ===
 
-function ShopItemCard({ name, price, type, damageInfo, usesInfo, item }: {
+function ShopItemCard({ name, price, type, damageInfo, usesInfo, item, attackImpacts }: {
   name: string; price: number; type: 'weapon' | 'spell' | 'relic' | 'potion'
   damageInfo?: { memberName: string; display: string } | null
   usesInfo?: string | null
   item: WeaponData | SpellData | RelicData | PotionData
+  attackImpacts?: MemberAttackImpact[]
 }) {
   const typeColors = { weapon: 'border-orange-500 bg-orange-900/20', spell: 'border-purple-500 bg-purple-900/20', relic: 'border-yellow-500 bg-yellow-900/20', potion: 'border-teal-500 bg-teal-900/20' }
   const isAoe = 'targetType' in item && item.targetType === 'enemyAll'
   return (
-    <Tooltip content={<TooltipCard item={item} damageText={damageInfo?.display} />} position="bottom">
+    <Tooltip content={<TooltipCard item={item} damageText={damageInfo?.display} attackImpacts={attackImpacts} />} position="bottom">
       <div className={`border rounded p-1.5 text-xs ${typeColors[type]}`}>
         <div className="flex items-center gap-1">
           <span className="text-white font-bold truncate flex-1">{name}</span>
@@ -172,10 +174,12 @@ function ShopSlotRenderer({
   slot,
   slotIndex,
   dmgPreview,
+  attackImpacts,
 }: {
   slot: ShopSlot
   slotIndex: number
   dmgPreview: { memberName: string; display: string } | null
+  attackImpacts?: MemberAttackImpact[]
 }) {
   if (!slot.item) {
     return (
@@ -203,6 +207,7 @@ function ShopSlotRenderer({
         damageInfo={dmgPreview}
         usesInfo={usesInfo}
         item={item}
+        attackImpacts={attackImpacts}
       />
     </DraggableShopItem>
   )
@@ -373,11 +378,13 @@ function StoreSharedPanel({
   relics,
   movedKeys,
   newPurchaseKeys,
+  party,
 }: {
   potions: PotionData[]
   relics: RelicInstance[]
   movedKeys: Set<string>
   newPurchaseKeys: Set<string>
+  party: ExplorerState[]
 }) {
   const potionEmptyCount = Math.max(0, 2 - potions.length)
   const relicEmptyCount = Math.max(0, 5 - relics.length)
@@ -417,7 +424,7 @@ function StoreSharedPanel({
           const isMoved = movedKeys.has(`relic-${r.id}`)
           const isNew = newPurchaseKeys.has(`relic-${r.id}`)
           return (
-            <Tooltip key={`r-${i}`} content={<TooltipCard item={r} />} position="bottom">
+            <Tooltip key={`r-${i}`} content={<TooltipCard item={r} attackImpacts={calculateRelicAttackImpacts(r, party, relics.filter((x: RelicInstance) => x.id !== r.id))} />} position="bottom">
               <DraggableShopItem id={`inv-relic-${i}`}
                 data={{ source: 'inv-relic', relicIndex: i }}>
                 <div className={`relative border rounded p-1.5 text-[10px] border-yellow-500/50 bg-yellow-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
@@ -502,6 +509,17 @@ export function StoreScreen() {
     })
     return previews
   }, [selectedShop, run.party, run.relics, hoverMemberIndex])
+
+  // 商品カード用のレリック攻撃力影響をメモ化（レリックスロット専用）
+  const shopAttackImpacts = useMemo(() => {
+    const impacts: Map<number, MemberAttackImpact[] | undefined> = new Map()
+    if (!selectedShop) return impacts
+    selectedShop.slots.forEach((slot, index) => {
+      if (slot.category !== 'relic' || !slot.item) return
+      impacts.set(index, calculateRelicAttackImpacts(slot.item as RelicData, run.party, run.relics))
+    })
+    return impacts
+  }, [selectedShop, run.party, run.relics])
 
   const addMovedKey = useCallback((key: string) => {
     setMovedKeys(prev => new Set(prev).add(key))
@@ -762,6 +780,7 @@ export function StoreScreen() {
             relics={run.relics}
             movedKeys={movedKeys}
             newPurchaseKeys={newPurchaseKeys}
+            party={run.party}
           />
         </div>
 
@@ -831,6 +850,7 @@ export function StoreScreen() {
                         slot={slot}
                         slotIndex={slotIndex}
                         dmgPreview={shopDamagePreviews.get(slotIndex) ?? null}
+                        attackImpacts={shopAttackImpacts.get(slotIndex)}
                       />
                     )
                   })}
@@ -849,6 +869,7 @@ export function StoreScreen() {
                         slot={slot}
                         slotIndex={slotIndex}
                         dmgPreview={shopDamagePreviews.get(slotIndex) ?? null}
+                        attackImpacts={shopAttackImpacts.get(slotIndex)}
                       />
                     )
                   })}
@@ -905,6 +926,7 @@ export function StoreScreen() {
             relics={run.relics}
             movedKeys={movedKeys}
             newPurchaseKeys={newPurchaseKeys}
+            party={run.party}
           />
         </div>
 
