@@ -47,6 +47,7 @@ export interface PlayerDamagePopup {
   id: string
   targetExplorerId?: string  // ダメージを受けたキャラのID
   damage: number
+  label?: string  // テキストラベル（例: 武器名）
   timestamp: number
 }
 

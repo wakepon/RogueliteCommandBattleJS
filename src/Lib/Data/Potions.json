@@ -3,7 +3,7 @@
     "id": "hp_potion",
     "name": "HPポーション",
     "rarity": "Common",
-    "price": 5,
+    "price": 2,
     "commandCategory": "potion",
     "targetType": "allySingle",
     "effect": { "type": "healHp", "value": 20 }
@@ -12,9 +12,18 @@
     "id": "mp_potion",
     "name": "MPポーション",
     "rarity": "Common",
-    "price": 5,
+    "price": 2,
     "commandCategory": "potion",
     "targetType": "allySingle",
     "effect": { "type": "healMp", "value": 10 }
+  },
+  "repair_potion": {
+    "id": "repair_potion",
+    "name": "修復ポーション",
+    "rarity": "Common",
+    "price": 4,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "repairWeapons", "value": 2 }
   }
 }

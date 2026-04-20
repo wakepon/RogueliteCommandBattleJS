@@ -11,6 +11,7 @@ interface DamagePopupProps {
   onComplete: () => void  // アニメーション完了時のコールバック
   isPlayerDamage?: boolean  // プレイヤーへのダメージかどうか
   contributors?: DamageContributor[]
+  label?: string  // テキストラベル（例: 武器名）
 }
 
 // 敵インデックスから表示位置を計算
@@ -28,7 +29,7 @@ function calculatePosition(targetIndex: number, totalTargets: number): { x: numb
   return { x, y }
 }
 
-export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isPlayerDamage = false, contributors }: DamagePopupProps) {
+export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isPlayerDamage = false, contributors, label }: DamagePopupProps) {
   const { x, y } = calculatePosition(targetIndex, totalTargets)
   const onCompleteRef = useRef(onComplete)
   onCompleteRef.current = onComplete
@@ -61,6 +62,11 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isP
       }}
     >
       <div className="flex flex-col items-center">
+        {label && (
+          <span className="text-[10px] text-gray-200 drop-shadow-md whitespace-nowrap mb-0.5">
+            {label}
+          </span>
+        )}
         <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
           {displayText}
         </span>

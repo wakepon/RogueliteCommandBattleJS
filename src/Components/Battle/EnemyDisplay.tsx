@@ -1,6 +1,6 @@
 import { EnemyInstance } from '../../Lib/Types/Enemy'
 import { EnemyIntent } from '../../Lib/Types/Battle'
-import { ResourceBar, BuffIcon } from '../Common'
+import { BuffIcon } from '../Common'
 import { KillLineBar } from './KillLineBar'
 import { DetailedDamagePreview } from '../../Lib/Utils/DamagePredictor'
 
@@ -110,18 +110,7 @@ export function EnemyDisplay({
         </div>
       )}
 
-      {/* HP バー */}
-      <div className="mb-1">
-        <ResourceBar
-          current={enemy.currentHp}
-          max={enemy.hp}
-          color="red"
-          showText={true}
-          size="sm"
-        />
-      </div>
-
-      {/* キルラインバー（ダメージプレビュー） */}
+      {/* 統合HP + キルラインバー */}
       <div className="mb-2">
         <KillLineBar
           currentHp={enemy.currentHp}

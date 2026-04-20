@@ -1,6 +1,6 @@
 import { BattleState, BattleCommand, CommandSlot, EnemyIntent, DamagePopup, PlayerDamagePopup, LevelUpPopup, RelicBattleState, DamageContributor } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
-import { isSpell, isPotion, isWeapon, LevelUpInfo } from '../Core'
+import { isSpell, isWeapon, LevelUpInfo } from '../Core'
 
 /** バトルアクション型 */
 export type BattleAction =
@@ -55,11 +55,12 @@ function createDamagePopup(targetId: string, damage: number, contributors?: Dama
 }
 
 /** プレイヤーダメージポップアップを作成 */
-export function createPlayerDamagePopup(damage: number, targetExplorerId?: string): PlayerDamagePopup {
+export function createPlayerDamagePopup(damage: number, targetExplorerId?: string, label?: string): PlayerDamagePopup {
   return {
     id: generatePopupId(),
     targetExplorerId,
     damage,
+    label,
     timestamp: Date.now(),
   }
 }
@@ -188,11 +189,6 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       if (!currentSlot?.command || !currentSlot.targetId) return state
 
       const { command, targetId } = currentSlot
-
-      // ポーション: 効果適用はGameReducer側
-      if (isPotion(command)) {
-        return state
-      }
 
       // 味方対象（ヒール/精密/祈りなど）: 効果適用はGameReducer側
       if ((isSpell(command) && command.targetType === 'allySingle') ||

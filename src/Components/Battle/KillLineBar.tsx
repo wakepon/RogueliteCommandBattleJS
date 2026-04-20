@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { DetailedDamagePreview, CommandDamageSegment } from '../../Lib/Utils/DamagePredictor'
+import { DetailedDamagePreview } from '../../Lib/Utils/DamagePredictor'
 
 interface KillLineBarProps {
   currentHp: number
@@ -8,24 +8,14 @@ interface KillLineBarProps {
   damagePreview: DetailedDamagePreview | null
 }
 
-/** セグメントの色パレット（武器系 / 魔法系） */
-const WEAPON_COLORS = ['bg-orange-500', 'bg-amber-500', 'bg-yellow-600']
-const SPELL_COLORS = ['bg-purple-400', 'bg-indigo-400', 'bg-violet-500']
-
-function getSegmentColor(segment: CommandDamageSegment, index: number): string {
-  if (segment.commandCategory === 'weapon') {
-    return WEAPON_COLORS[index % WEAPON_COLORS.length]
-  }
-  return SPELL_COLORS[index % SPELL_COLORS.length]
-}
-
 const POPUP_WIDTH = 280
 
 /**
- * キルラインバー
+ * 統合HPバー + キルラインバー
  *
- * 通常時: シンプルな3ゾーン表示（残HP/ブレ幅/確定ダメ）
- * ホバー時: Portalベースの拡大ポップアップで積み上げ棒グラフを表示
+ * maxHPを100%とした割合表示
+ * 緑=残HP、赤=予測ダメージ（確定分）、オレンジ=ブレ幅
+ * ホバー時: Portalベースの拡大ポップアップ（メンバー区切り線付き）
  */
 export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -60,37 +50,63 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
 
   if (currentHp <= 0) {
     return (
-      <div className="h-3 bg-gray-700 rounded-sm overflow-hidden">
-        <div className="h-full bg-gray-600 w-full" />
+      <div className="relative">
+        <div className="h-3 bg-gray-700 rounded-sm overflow-hidden">
+          <div className="h-full bg-gray-600 w-full" />
+        </div>
+        <div className="text-[9px] text-gray-300 text-center mt-0.5">
+          0 / {maxHp}
+        </div>
       </div>
     )
   }
 
   const hasPreview = damagePreview && (damagePreview.totalMin > 0 || damagePreview.totalMax > 0)
 
+  // maxHPを100%とした割合計算
+  const hpRatio = maxHp > 0 ? currentHp / maxHp : 0
+
   if (!hasPreview) {
-    const hpRatio = currentHp / maxHp
     return (
-      <div className="h-3 bg-gray-700 rounded-sm overflow-hidden">
-        <div
-          className="h-full bg-red-500 transition-all duration-200"
-          style={{ width: `${hpRatio * 100}%` }}
-        />
+      <div
+        ref={triggerRef}
+        className="relative"
+      >
+        <div className="h-3 bg-gray-700 rounded-sm overflow-hidden flex">
+          <div
+            className="h-full bg-green-500 transition-all duration-200"
+            style={{ width: `${hpRatio * 100}%` }}
+          />
+        </div>
+        {/* HP数値 */}
+        <div className="text-[9px] text-gray-300 text-center mt-0.5">
+          {currentHp} / {maxHp}
+        </div>
       </div>
     )
   }
 
   const totalMin = damagePreview.totalMin
   const totalMax = damagePreview.totalMax
-  const minDamageRatio = Math.min(totalMin / currentHp, 1)
-  const maxDamageRatio = Math.min(totalMax / currentHp, 1)
+
+  // maxHPを100%とした各ゾーンの割合
+  const minDamageRatio = Math.min(totalMin / maxHp, hpRatio)
+  const maxDamageRatio = Math.min(totalMax / maxHp, hpRatio)
   const varianceRatio = maxDamageRatio - minDamageRatio
-  const remainingRatio = 1 - maxDamageRatio
+  const remainingHpRatio = hpRatio - maxDamageRatio  // ダメージ後の残HP
 
   const isGuaranteedKill = totalMin >= currentHp
   const isPossibleKill = totalMax >= currentHp
 
   const hasSegments = damagePreview.segments.length > 0
+
+  // セグメントの割合を計算（maxHP基準）
+  const segmentRatios = hasSegments
+    ? damagePreview.segments.map(seg => {
+        const ratio = (seg.damageRange.min / Math.max(totalMin, 1)) * minDamageRatio
+        return Math.max(ratio, 0)
+      })
+    : []
 
   return (
     <div
@@ -99,37 +115,45 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
       onMouseEnter={showPopup}
       onMouseLeave={hidePopup}
     >
-      {/* 通常時: シンプルバー */}
+      {/* 統合バー: 残HP(緑) + ブレ幅(オレンジ) + 確定ダメ(赤) + 空HP(灰) */}
       <div className="h-3 bg-gray-700 rounded-sm overflow-hidden flex">
-        {remainingRatio > 0 && (
+        {/* 残HP（ダメージ後に残る分） */}
+        {remainingHpRatio > 0 && (
           <div
-            className="h-full bg-red-500 transition-all duration-200"
-            style={{ width: `${remainingRatio * 100}%` }}
+            className="h-full bg-green-500 transition-all duration-200"
+            style={{ width: `${remainingHpRatio * 100}%` }}
           />
         )}
+        {/* ブレ幅 */}
         {varianceRatio > 0 && (
           <div
-            className="h-full bg-orange-300/50 transition-all duration-200"
+            className="h-full bg-orange-400 transition-all duration-200"
             style={{ width: `${varianceRatio * 100}%` }}
           />
         )}
+        {/* 確定ダメージ */}
         {minDamageRatio > 0 && (
           <div
-            className={`h-full ${isGuaranteedKill ? 'bg-yellow-400' : 'bg-orange-500'} transition-all duration-200`}
+            className="h-full bg-red-500 transition-all duration-200"
             style={{ width: `${minDamageRatio * 100}%` }}
           />
         )}
       </div>
 
+      {/* HP数値 */}
+      <div className="text-[9px] text-gray-300 text-center mt-0.5">
+        {currentHp} / {maxHp}
+      </div>
+
       {/* 確殺/可能表示 */}
       {isGuaranteedKill && (
-        <div className="absolute -top-0.5 right-0 text-[8px] text-yellow-300 font-bold">KILL</div>
+        <div className="absolute top-0 right-0.5 text-[8px] text-yellow-300 font-bold leading-3">KILL</div>
       )}
       {!isGuaranteedKill && isPossibleKill && (
-        <div className="absolute -top-0.5 right-0 text-[8px] text-orange-300 font-bold">KILL?</div>
+        <div className="absolute top-0 right-0.5 text-[8px] text-orange-300 font-bold leading-3">KILL?</div>
       )}
 
-      {/* ホバー時: 拡大ポップアップ */}
+      {/* ホバー時: 拡大ポップアップ（全体 maxHP基準で統一） */}
       {isHovered && hasSegments && createPortal(
         <div
           ref={popupRef}
@@ -145,41 +169,44 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
             {/* ラベル行 */}
             <div className="flex text-[10px] text-gray-300 mb-1">
               {/* 残HP + ブレ幅分の空白 */}
-              {(remainingRatio + varianceRatio) > 0 && (
-                <div style={{ width: `${(remainingRatio + varianceRatio) * 100}%` }} />
+              {(remainingHpRatio + varianceRatio) > 0 && (
+                <div style={{ width: `${(remainingHpRatio + varianceRatio) * 100}%` }} />
               )}
               {/* セグメントラベル */}
-              {damagePreview.segments.map((seg, i) => {
-                const segRatio = (seg.damageRange.min / Math.max(totalMin, 1)) * minDamageRatio
-                return (
-                  <span
-                    key={i}
-                    className="truncate text-center"
-                    style={{ width: `${segRatio * 100}%` }}
-                  >
-                    {seg.explorerName}:{seg.commandName}
-                  </span>
-                )
-              })}
+              {damagePreview.segments.map((seg, i) => (
+                <span
+                  key={i}
+                  className="truncate text-center"
+                  style={{ width: `${segmentRatios[i] * 100}%` }}
+                >
+                  {seg.explorerName}:{seg.commandName}
+                </span>
+              ))}
             </div>
 
             {/* 積み上げバー */}
             <div className="h-4 bg-gray-700 rounded-sm overflow-hidden flex relative">
-              {remainingRatio > 0 && (
-                <div className="h-full bg-red-500" style={{ width: `${remainingRatio * 100}%` }} />
+              {/* 残HP（緑） */}
+              {remainingHpRatio > 0 && (
+                <div className="h-full bg-green-500" style={{ width: `${remainingHpRatio * 100}%` }} />
               )}
+              {/* ブレ幅（オレンジ） */}
               {varianceRatio > 0 && (
-                <div className="h-full bg-orange-300/50" style={{ width: `${varianceRatio * 100}%` }} />
+                <div className="h-full bg-orange-400" style={{ width: `${varianceRatio * 100}%` }} />
               )}
+              {/* 確定ダメージ: セグメントごとに区切り線 */}
               {damagePreview.segments.map((seg, i) => {
-                const segRatio = (seg.damageRange.min / Math.max(totalMin, 1)) * minDamageRatio
-                if (segRatio <= 0) return null
+                const segWidth = segmentRatios[i] * 100
+                if (segWidth <= 0) return null
                 const hasMultiplier = seg.activeMultipliers.length > 0
                 return (
                   <div
                     key={i}
-                    className={`h-full ${getSegmentColor(seg, i)} ${hasMultiplier ? 'border border-dashed border-yellow-300' : ''}`}
-                    style={{ width: `${segRatio * 100}%` }}
+                    className={`h-full bg-red-500 ${hasMultiplier ? 'border-y border-dashed border-yellow-300' : ''}`}
+                    style={{
+                      width: `${segWidth}%`,
+                      borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.5)' : undefined,
+                    }}
                   />
                 )
               })}
@@ -196,18 +223,17 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
             {damagePreview.segments.some(s => s.activeMultipliers.length > 0) && (
               <div className="flex text-[10px] text-yellow-300 mt-0.5">
                 {/* 残HP + ブレ幅分の空白 */}
-                {(remainingRatio + varianceRatio) > 0 && (
-                  <div style={{ width: `${(remainingRatio + varianceRatio) * 100}%` }} />
+                {(remainingHpRatio + varianceRatio) > 0 && (
+                  <div style={{ width: `${(remainingHpRatio + varianceRatio) * 100}%` }} />
                 )}
                 {/* 各セグメントの倍率ラベル */}
                 {damagePreview.segments.map((seg, i) => {
-                  const segRatio = (seg.damageRange.min / Math.max(totalMin, 1)) * minDamageRatio
                   const label = seg.activeMultipliers.map(m => `${m.relicName} ×${m.multiplier}`).join(' ')
                   return (
                     <span
                       key={i}
                       className="truncate text-center"
-                      style={{ width: `${segRatio * 100}%` }}
+                      style={{ width: `${segmentRatios[i] * 100}%` }}
                     >
                       {label}
                     </span>
@@ -222,4 +248,3 @@ export function KillLineBar({ currentHp, maxHp, damagePreview }: KillLineBarProp
     </div>
   )
 }
-

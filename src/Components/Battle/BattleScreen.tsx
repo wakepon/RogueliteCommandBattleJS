@@ -321,6 +321,7 @@ export function BattleScreen() {
     selectTarget,
     changeActiveExplorer,
     reorderParty,
+    usePotionInstant,
     setCommandSlotDirect,
     startExecution,
     executePartyAction,
@@ -513,9 +514,14 @@ export function BattleScreen() {
     }
 
     if (targetId) {
-      setCommandSlotDirect(explorerId, command, targetId, weaponIndex)
+      // ポーションは即時発動（行動消費なし）
+      if (command.commandCategory === 'potion') {
+        usePotionInstant(command.id, targetId)
+      } else {
+        setCommandSlotDirect(explorerId, command, targetId, weaponIndex)
+      }
     }
-  }, [isCommandPhase, party, setCommandSlotDirect, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex])
+  }, [isCommandPhase, party, setCommandSlotDirect, usePotionInstant, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex])
 
   // コマンドD&DではpointerWithin、パネルソートではpanel-/ally-のみ対象のclosestCenter
   const customCollisionDetection: CollisionDetection = useCallback((args) => {
@@ -689,7 +695,7 @@ export function BattleScreen() {
         )}
 
         {playerDamagePopups.map((popup) => (
-          <DamagePopup key={popup.id} damage={popup.damage} targetIndex={0} totalTargets={1} onComplete={() => removePlayerPopup(popup.id)} isPlayerDamage={true} />
+          <DamagePopup key={popup.id} damage={popup.damage} targetIndex={0} totalTargets={1} onComplete={() => removePlayerPopup(popup.id)} isPlayerDamage={true} label={popup.label} />
         ))}
 
         {isSelectingTarget && selectedCommand && !draggingCommand && (

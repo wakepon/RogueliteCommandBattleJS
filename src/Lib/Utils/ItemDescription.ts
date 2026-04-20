@@ -148,6 +148,9 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
     if (potion.effect.type === 'healMp') {
       return `MP +${potion.effect.value} 回復`
     }
+    if (potion.effect.type === 'repairWeapons') {
+      return `全武器の耐久 +${potion.effect.value} 回復`
+    }
     return ''
   }
 
@@ -253,6 +256,9 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
     }
     if (command.effect.type === 'healMp') {
       return `「ポーション」${command.name} - MP +${command.effect.value} 回復`
+    }
+    if (command.effect.type === 'repairWeapons') {
+      return `「ポーション」${command.name} - 全武器の耐久 +${command.effect.value} 回復`
     }
   }
   return command.name

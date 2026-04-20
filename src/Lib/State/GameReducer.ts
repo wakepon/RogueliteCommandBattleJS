@@ -6,7 +6,7 @@ import { SpellData } from '../Types/Spell'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
 import { createBattleState, applyBloodPact } from './BattleStateFactory'
-import { battleReducer, BattleAction } from './BattleReducer'
+import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
 import { calculateReward } from '../Core/RewardCalculator'
 import {
   createStoreState,
@@ -25,7 +25,7 @@ import {
   getRepairableWeapons,
 } from '../Core/EventLogic'
 import { generateMapNodes } from '../Core/MapGenerator'
-import { getInterestCapBonus } from '../Core/RelicProcessor'
+import { getInterestCapBonus, getPotionEffectMultiplier } from '../Core/RelicProcessor'
 import {
   processExecuteCommand,
   processEnemyAction,
@@ -87,6 +87,7 @@ export type GameAction =
   | { type: 'CLOSE_EVENT' }
   | { type: 'ADVANCE_FROM_MAP' }
   | { type: 'REORDER_PARTY'; fromIndex: number; toIndex: number }
+  | { type: 'USE_POTION_INSTANT'; potionId: string; targetId: string }
 
 /** 次のステージへ進みマップ画面に遷移する共通ヘルパー */
 function advanceToMapPhase(state: GameState, run: RunState): GameState {
@@ -756,6 +757,74 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         run: { ...state.run, party: newParty },
         battleState: newBattleState,
+      }
+    }
+
+    case 'USE_POTION_INSTANT': {
+      if (!state.run || !state.battleState) return state
+      if (state.battleState.phase !== 'command') return state
+
+      const potion = state.run.potions.find(p => p.id === action.potionId)
+      if (!potion) return state
+
+      const target = state.run.party.find(e => e.id === action.targetId)
+      if (!target) return state
+
+      const potionMultiplier = getPotionEffectMultiplier(state.run.relics)
+      const { effect } = potion
+      let updatedTarget = target
+      const popups = [...state.battleState.playerDamagePopups]
+
+      if (effect.type === 'healHp') {
+        const healAmount = Math.floor(effect.value * potionMultiplier)
+        const newHp = Math.min(updatedTarget.hp + healAmount, updatedTarget.maxHp)
+        const actualHeal = newHp - updatedTarget.hp
+        updatedTarget = { ...updatedTarget, hp: newHp }
+        if (actualHeal > 0) {
+          popups.push(createPlayerDamagePopup(-actualHeal, action.targetId))
+        }
+      } else if (effect.type === 'healMp') {
+        const healAmount = Math.floor(effect.value * potionMultiplier)
+        const newMp = Math.min(updatedTarget.mp + healAmount, updatedTarget.maxMp)
+        const actualHeal = newMp - updatedTarget.mp
+        updatedTarget = { ...updatedTarget, mp: newMp }
+        if (actualHeal > 0) {
+          popups.push(createPlayerDamagePopup(-actualHeal, action.targetId))
+        }
+      } else if (effect.type === 'repairWeapons') {
+        // 修理可能な武器がなければポーション消費しない
+        const hasRepairableWeapon = updatedTarget.weapons.some(
+          w => w.currentUses !== null && w.maxUses !== null && w.currentUses < w.maxUses
+        )
+        if (!hasRepairableWeapon) return state
+
+        const repairValue = Math.floor(effect.value * potionMultiplier)
+        updatedTarget = {
+          ...updatedTarget,
+          weapons: updatedTarget.weapons.map(w => {
+            if (w.currentUses === null || w.maxUses === null) return w
+            const newUses = Math.min(w.currentUses + repairValue, w.maxUses)
+            const actualRepair = newUses - w.currentUses
+            if (actualRepair > 0) {
+              popups.push(createPlayerDamagePopup(-actualRepair, action.targetId, w.name))
+            }
+            return { ...w, currentUses: newUses } as typeof w
+          }),
+        }
+      }
+
+      // ポーションを1個消費
+      const potionIndex = state.run.potions.findIndex(p => p.id === action.potionId)
+      const updatedPotions = state.run.potions.filter((_, i) => i !== potionIndex)
+
+      const updatedParty = state.run.party.map(e =>
+        e.id === action.targetId ? updatedTarget : e
+      )
+
+      return {
+        ...state,
+        run: { ...state.run, party: updatedParty, potions: updatedPotions },
+        battleState: { ...state.battleState, playerDamagePopups: popups },
       }
     }
 

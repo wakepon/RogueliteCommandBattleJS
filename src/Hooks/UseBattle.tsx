@@ -43,6 +43,7 @@ export interface UseBattleResult {
   selectTarget: (targetId: string) => void
   changeActiveExplorer: (index: number) => void
   reorderParty: (fromIndex: number, toIndex: number) => void
+  usePotionInstant: (potionId: string, targetId: string) => void
   setCommandSlotDirect: (explorerId: string, command: BattleCommand, targetId: string, weaponIndex?: number) => void
   startExecution: () => void
 
@@ -95,6 +96,10 @@ export function useBattle(): UseBattleResult | null {
 
   const reorderParty = useCallback((fromIndex: number, toIndex: number) => {
     dispatch({ type: 'REORDER_PARTY', fromIndex, toIndex })
+  }, [dispatch])
+
+  const usePotionInstant = useCallback((potionId: string, targetId: string) => {
+    dispatch({ type: 'USE_POTION_INSTANT', potionId, targetId })
   }, [dispatch])
 
   const setCommandSlotDirect = useCallback((explorerId: string, command: BattleCommand, targetId: string, weaponIndex?: number) => {
@@ -259,6 +264,7 @@ export function useBattle(): UseBattleResult | null {
     selectTarget,
     changeActiveExplorer,
     reorderParty,
+    usePotionInstant,
     setCommandSlotDirect,
     startExecution,
 

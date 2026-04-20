@@ -7,6 +7,7 @@ import { ISingleUse } from './Consumable'
 export type PotionEffect =
   | { type: 'healHp'; value: number }
   | { type: 'healMp'; value: number }
+  | { type: 'repairWeapons'; value: number }
 
 /** ポーションデータ */
 export interface PotionData extends IItem, IPurchasable, ICommandable, ITargetable, ISingleUse {

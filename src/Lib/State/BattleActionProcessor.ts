@@ -16,7 +16,7 @@ import {
   applyHealAlly,
   applySummonEnemy,
 } from './EnemyEffectProcessor'
-import { isSpell, isWeapon, isWeaponInstance, isPotion } from '../Core/CommandValidator'
+import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
 import { calculateWeaponDamage, calculateSpellDamage } from '../Core/DamageCalculator'
 import { consumeNextActionBuffs } from '../Core/BuffProcessor'
 import { distributeExpToParty, LevelUpInfo } from '../Core/LevelUpCalculator'
@@ -25,7 +25,6 @@ import {
   getWeaponAttackMpRecover,
   getThornsDamage,
   getRegenPerTurn,
-  getPotionEffectMultiplier,
   hasRelicEffect,
   getWeaponBreakIncrement,
   getWeaponBreakAttackBonus,
@@ -139,53 +138,6 @@ function addLevelUpPopupsToBattle(
     })
   }
   return result
-}
-
-/** ポーションコマンドを実行 */
-function executePotionCommand(
-  state: GameState,
-  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' },
-  relics: RelicInstance[]
-): GameState {
-  if (!state.battleState || !state.run) return state
-
-  const { selectedCommand, selectedTargetId } = state.battleState
-  if (!selectedCommand || !isPotion(selectedCommand) || !selectedTargetId) return state
-
-  const newBattleState = battleReducer(state.battleState, battleAction)
-  const potionMultiplier = getPotionEffectMultiplier(relics)
-
-  // ターゲットに回復を適用（使用者ではなく選択されたメンバー）
-  const targetMember = state.run.party.find(e => e.id === selectedTargetId)
-  if (!targetMember) return state
-
-  let updatedTarget = targetMember
-  const { effect } = selectedCommand
-  if (effect.type === 'healHp') {
-    const healAmount = Math.floor(effect.value * potionMultiplier)
-    updatedTarget = {
-      ...updatedTarget,
-      hp: Math.min(updatedTarget.hp + healAmount, updatedTarget.maxHp),
-    }
-  } else if (effect.type === 'healMp') {
-    const healAmount = Math.floor(effect.value * potionMultiplier)
-    updatedTarget = {
-      ...updatedTarget,
-      mp: Math.min(updatedTarget.mp + healAmount, updatedTarget.maxMp),
-    }
-  }
-
-  const potionIndex = state.run.potions.findIndex(p => p.id === selectedCommand.id)
-  const updatedPotions = state.run.potions.filter((_, i) => i !== potionIndex)
-
-  return {
-    ...state,
-    battleState: newBattleState,
-    run: {
-      ...updatePartyMember(state.run, updatedTarget),
-      potions: updatedPotions,
-    },
-  }
 }
 
 /** 攻撃コマンド（武器/魔法）を実行 */
@@ -746,10 +698,6 @@ export function processExecuteCommand(
   if (!selectedCommand) return state
 
   const relics = state.run.relics
-
-  if (isPotion(selectedCommand)) {
-    return applyRegenAfterAction(executePotionCommand(state, battleAction, relics))
-  }
 
   // 味方対象スペル（ヒール、精密など）
   if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {

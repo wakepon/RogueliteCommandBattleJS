@@ -154,6 +154,9 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     if (potion.effect.type === 'healMp') {
       lines.push({ label: '効果', value: `MP ${potion.effect.value}回復`, color: 'text-blue-300' })
     }
+    if (potion.effect.type === 'repairWeapons') {
+      lines.push({ label: '効果', value: `武器耐久値+${potion.effect.value}`, color: 'text-green-300' })
+    }
     return lines
   }
 
