@@ -1,4 +1,4 @@
-import { BattleState, BattleCommand, CommandSlot, EnemyIntent, DamagePopup, PlayerDamagePopup, LevelUpPopup, RelicBattleState, DamageContributor } from '../Types/Battle'
+import { BattleState, BattleCommand, CommandSlot, EnemyIntent, DamagePopup, PlayerDamagePopup, LevelUpPopup, ExpPopup, RelicBattleState, DamageContributor } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isSpell, isWeapon, LevelUpInfo } from '../Core'
 
@@ -32,6 +32,8 @@ export type BattleAction =
   | { type: 'REMOVE_PLAYER_POPUP'; popupId: string }
   | { type: 'ADD_LEVEL_UP_POPUP'; levelUpInfo: LevelUpInfo }
   | { type: 'REMOVE_LEVEL_UP_POPUP'; popupId: string }
+  | { type: 'ADD_EXP_POPUPS'; expPopups: ExpPopup[] }
+  | { type: 'REMOVE_EXP_POPUP'; popupId: string }
   // 状態更新
   | { type: 'UPDATE_RELIC_STATE'; relicState: Partial<RelicBattleState> }
   | { type: 'UPDATE_ENEMIES'; enemies: BattleState['enemies'] }
@@ -70,6 +72,25 @@ function createLevelUpPopup(levelUpInfo: LevelUpInfo): LevelUpPopup {
   return {
     id: generatePopupId(),
     levelUpInfo,
+    timestamp: Date.now(),
+  }
+}
+
+/** 経験値ポップアップを作成 */
+export function createExpPopup(
+  enemyInstanceId: string,
+  targetExplorerId: string,
+  amount: number,
+  delayMs: number,
+  bonusLabel?: string
+): ExpPopup {
+  return {
+    id: generatePopupId(),
+    enemyInstanceId,
+    targetExplorerId,
+    amount,
+    bonusLabel,
+    delayMs,
     timestamp: Date.now(),
   }
 }
@@ -343,6 +364,20 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       return {
         ...state,
         levelUpPopups: state.levelUpPopups.filter(popup => popup.id !== action.popupId),
+      }
+    }
+
+    case 'ADD_EXP_POPUPS': {
+      return {
+        ...state,
+        expPopups: [...state.expPopups, ...action.expPopups],
+      }
+    }
+
+    case 'REMOVE_EXP_POPUP': {
+      return {
+        ...state,
+        expPopups: state.expPopups.filter(popup => popup.id !== action.popupId),
       }
     }
 

@@ -187,6 +187,7 @@ export function createBattleState(
     damagePopups: [],
     playerDamagePopups: [],
     levelUpPopups: [],
+    expPopups: [],
     battleMessage: null,
     battleMessageId: 0,
 

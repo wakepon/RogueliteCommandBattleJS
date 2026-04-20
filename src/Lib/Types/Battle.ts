@@ -58,6 +58,17 @@ export interface LevelUpPopup {
   timestamp: number
 }
 
+/** 経験値獲得ポップアップ（敵位置からメンバーの経験値バーへ飛ぶエフェクト） */
+export interface ExpPopup {
+  id: string
+  enemyInstanceId: string      // 発射元（敵のDOM位置を参照）
+  targetExplorerId: string     // 到達先（メンバーの経験値バーDOM位置を参照）
+  amount: number               // 付与される経験値量
+  bonusLabel?: string          // 例: "とどめボーナス" / レリック名。未指定なら基本EXP
+  delayMs: number              // ポップアップ生成から発射開始までの遅延
+  timestamp: number
+}
+
 /** 敵行動予告 */
 export interface EnemyIntent {
   enemyInstanceId: string
@@ -102,6 +113,7 @@ export interface BattleState {
   damagePopups: DamagePopup[]
   playerDamagePopups: PlayerDamagePopup[]
   levelUpPopups: LevelUpPopup[]
+  expPopups: ExpPopup[]
   battleMessage: string | null
   battleMessageId: number
 

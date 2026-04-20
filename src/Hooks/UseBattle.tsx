@@ -4,7 +4,7 @@ import { PotionInstance } from '../Lib/Types/Potion'
 import { BattleAction } from '../Lib/State/BattleReducer'
 import { getAvailableCommands, selectEnemyAction, processPartyTurnEnd, calculateTargetRates, selectTargetByRate } from '../Lib/Core'
 import { generateEnemyIntents } from '../Lib/State/BattleStateFactory'
-import { BattleState, BattleCommand, BattlePhase, CommandSlot, PlayerDamagePopup, LevelUpPopup, DamagePopup } from '../Lib/Types/Battle'
+import { BattleState, BattleCommand, BattlePhase, CommandSlot, PlayerDamagePopup, LevelUpPopup, DamagePopup, ExpPopup } from '../Lib/Types/Battle'
 import { ExplorerState } from '../Lib/Types/Explorer'
 import { EnemyInstance } from '../Lib/Types/Enemy'
 
@@ -35,6 +35,7 @@ export interface UseBattleResult {
   damagePopups: DamagePopup[]
   playerDamagePopups: PlayerDamagePopup[]
   levelUpPopups: LevelUpPopup[]
+  expPopups: ExpPopup[]
   potions: PotionInstance[]
 
   // コマンド選択アクション
@@ -59,6 +60,7 @@ export interface UseBattleResult {
   removePopup: (popupId: string) => void
   removePlayerPopup: (popupId: string) => void
   removeLevelUpPopup: (popupId: string) => void
+  removeExpPopup: (popupId: string) => void
 
   // 後方互換
   explorer: ExplorerState
@@ -209,6 +211,10 @@ export function useBattle(): UseBattleResult | null {
     dispatchBattle({ type: 'REMOVE_LEVEL_UP_POPUP', popupId })
   }, [dispatchBattle])
 
+  const removeExpPopup = useCallback((popupId: string) => {
+    dispatchBattle({ type: 'REMOVE_EXP_POPUP', popupId })
+  }, [dispatchBattle])
+
   if (!battleState || !run) return null
 
   const party = run.party
@@ -257,6 +263,7 @@ export function useBattle(): UseBattleResult | null {
     damagePopups: battleState.damagePopups,
     playerDamagePopups: battleState.playerDamagePopups,
     levelUpPopups: battleState.levelUpPopups,
+    expPopups: battleState.expPopups,
     potions,
 
     selectCommand,
@@ -278,6 +285,7 @@ export function useBattle(): UseBattleResult | null {
     removePopup,
     removePlayerPopup,
     removeLevelUpPopup,
+    removeExpPopup,
 
     // 後方互換
     explorer: activeExplorer,

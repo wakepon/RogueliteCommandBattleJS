@@ -21,6 +21,8 @@ import { DroppableTarget } from './DroppableTarget'
 import { TooltipCard } from '../Common/TooltipCard'
 import { NextStagePreview } from './NextStagePreview'
 import { GameOverOverlay } from './GameOverOverlay'
+import { ExpPopupEffect } from './ExpPopupEffect'
+import { PlayerDamagePopupEffect } from './PlayerDamagePopupEffect'
 
 /** ターゲット名を解決 */
 function resolveTargetName(
@@ -123,7 +125,7 @@ function CharacterPanel({
           )}
 
           {/* HP バー */}
-          <div className="mb-0.5">
+          <div id={`hp-bar-${member.id}`} className="mb-0.5">
             <div className="flex justify-between text-[9px] text-gray-400">
               <span className="text-red-400">HP</span>
               <span>{member.hp}/{member.maxHp}</span>
@@ -141,7 +143,7 @@ function CharacterPanel({
           </div>
 
           {/* EXP バー */}
-          <div className="mb-1">
+          <div id={`exp-gauge-${member.id}`} className="mb-1">
             <div className="flex justify-between text-[9px] text-gray-400">
               <span className="text-yellow-400">EXP</span>
               <span>{expProgress}/{requiredKills}</span>
@@ -322,6 +324,7 @@ export function BattleScreen() {
     damagePopups,
     playerDamagePopups,
     levelUpPopups,
+    expPopups,
     potions,
     cancelCommand,
     selectTarget,
@@ -339,6 +342,7 @@ export function BattleScreen() {
     removePopup,
     removePlayerPopup,
     removeLevelUpPopup,
+    removeExpPopup,
     executeCommand,
   } = battle
 
@@ -624,14 +628,16 @@ export function BattleScreen() {
                 : null
 
               return (
-                <DroppableTarget key={enemy.instanceId} id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingPanel}>
-                  <EnemyDisplay enemy={enemy} isCurrentActor={false}
-                    isTargetSelected={isSelected} isTargetHighlighted={isHighlighted}
-                    isDragTarget={isDraggingAttack}
-                    isHovered={isHoveredEnemy}
-                    onSelect={isSelectingTarget && enemy.currentHp > 0 ? () => selectTarget(enemy.instanceId) : undefined}
-                    damagePreview={damagePreview} intent={battleState.enemyIntents.find(i => i.enemyInstanceId === enemy.instanceId)} />
-                </DroppableTarget>
+                <div key={enemy.instanceId} id={`enemy-dom-${enemy.instanceId}`}>
+                  <DroppableTarget id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingPanel}>
+                    <EnemyDisplay enemy={enemy} isCurrentActor={false}
+                      isTargetSelected={isSelected} isTargetHighlighted={isHighlighted}
+                      isDragTarget={isDraggingAttack}
+                      isHovered={isHoveredEnemy}
+                      onSelect={isSelectingTarget && enemy.currentHp > 0 ? () => selectTarget(enemy.instanceId) : undefined}
+                      damagePreview={damagePreview} intent={battleState.enemyIntents.find(i => i.enemyInstanceId === enemy.instanceId)} />
+                  </DroppableTarget>
+                </div>
               )
             })}
           </div>
@@ -702,7 +708,7 @@ export function BattleScreen() {
         )}
 
         {playerDamagePopups.map((popup) => (
-          <DamagePopup key={popup.id} damage={popup.damage} targetIndex={0} totalTargets={1} onComplete={() => removePlayerPopup(popup.id)} isPlayerDamage={true} label={popup.label} />
+          <PlayerDamagePopupEffect key={popup.id} popup={popup} onComplete={() => removePlayerPopup(popup.id)} />
         ))}
 
         {isSelectingTarget && selectedCommand && !draggingCommand && (
@@ -726,6 +732,11 @@ export function BattleScreen() {
             </div>
           )}
         </DragOverlay>
+
+        {/* 経験値獲得エフェクト（敵位置→メンバーの経験値バーへ飛ぶ） */}
+        {expPopups.map(popup => (
+          <ExpPopupEffect key={popup.id} popup={popup} onComplete={() => removeExpPopup(popup.id)} />
+        ))}
 
         {battleState.isGameOver && <GameOverOverlay onReturnTitle={returnToTitle} />}
       </div>

@@ -2,10 +2,10 @@ import { GameState } from '../Types/Game'
 import { RunState } from '../Types/Run'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
-import { BattleCommand, BattleState } from '../Types/Battle'
+import { BattleCommand, BattleState, ExpPopup } from '../Types/Battle'
 import { SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
-import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
+import { battleReducer, BattleAction, createPlayerDamagePopup, createExpPopup } from './BattleReducer'
 import {
   applyDefenseReduction,
   applyChargeToEnemy,
@@ -52,6 +52,50 @@ function countDefeatedEnemies(
     const previousEnemy = previousEnemies[index]
     return enemy.currentHp <= 0 && previousEnemy && previousEnemy.currentHp > 0
   }).length
+}
+
+/** 今回撃破された敵（instanceId配列）を取得 */
+function getDefeatedEnemyIds(
+  previousEnemies: BattleState['enemies'],
+  currentEnemies: BattleState['enemies']
+): string[] {
+  return currentEnemies
+    .filter((enemy, index) => {
+      const previousEnemy = previousEnemies[index]
+      return enemy.currentHp <= 0 && previousEnemy && previousEnemy.currentHp > 0
+    })
+    .map(enemy => enemy.instanceId)
+}
+
+/**
+ * 撃破された敵ごとに、経験値獲得エフェクト用のポップアップ群を生成する
+ * - 基本EXP: 撃破敵 × 全メンバー分、delay=0 で発射
+ * - トドメボーナス: 撃破敵 × トドメを刺したメンバー分、delay=EXP_BONUS_DELAY_MS
+ * - 将来のレリックボーナスはこの関数で追加予定（拡張ポイント）
+ */
+const EXP_BONUS_DELAY_MS = 500   // 基本EXP発射からトドメボーナス発射までの遅延
+function buildExpPopupsForDefeats(
+  defeatedEnemyIds: string[],
+  party: ExplorerState[],
+  killerExplorerId: string
+): ExpPopup[] {
+  if (defeatedEnemyIds.length === 0) return []
+
+  const popups: ExpPopup[] = []
+
+  // 基本EXP: 敵 × 全メンバー
+  for (const enemyId of defeatedEnemyIds) {
+    for (const member of party) {
+      popups.push(createExpPopup(enemyId, member.id, 1, 0))
+    }
+  }
+
+  // トドメボーナス: 敵 × トドメを刺したメンバー（基本EXP発射から0.5s後）
+  for (const enemyId of defeatedEnemyIds) {
+    popups.push(createExpPopup(enemyId, killerExplorerId, 1, EXP_BONUS_DELAY_MS, 'とどめボーナス'))
+  }
+
+  return popups
 }
 
 /** 武器の使用回数を減らす（レリック効果考慮） */
@@ -120,6 +164,18 @@ function consumeCommandCost(
   }
 
   return { updatedExplorer: explorer, updatedGold: gold }
+}
+
+/** 撃破発生時のEXPポップアップをバトルステートに追加 */
+function addExpPopupsToBattle(
+  battleState: BattleState,
+  defeatedEnemyIds: string[],
+  party: ExplorerState[],
+  killerExplorerId: string
+): BattleState {
+  const popups = buildExpPopupsForDefeats(defeatedEnemyIds, party, killerExplorerId)
+  if (popups.length === 0) return battleState
+  return battleReducer(battleState, { type: 'ADD_EXP_POPUPS', expPopups: popups })
 }
 
 /** レベルアップポップアップをバトルステートに追加（全件キューイング） */
@@ -328,6 +384,10 @@ function executeAttackCommand(
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
 
+    // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
+    const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
+    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id)
+
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
     }
@@ -386,9 +446,17 @@ function executeSpellAllAttack(
 
   // スペルの効果を適用（ヒールなど）
   if (spell.effect?.type === 'heal') {
-    finalExplorer = {
-      ...finalExplorer,
-      hp: Math.min(finalExplorer.hp + spell.effect.value, finalExplorer.maxHp),
+    const healedHp = Math.min(finalExplorer.hp + spell.effect.value, finalExplorer.maxHp)
+    const actualHeal = healedHp - finalExplorer.hp
+    finalExplorer = { ...finalExplorer, hp: healedHp }
+    if (actualHeal > 0) {
+      newBattleState = {
+        ...newBattleState,
+        playerDamagePopups: [
+          ...newBattleState.playerDamagePopups,
+          createPlayerDamagePopup(-actualHeal, finalExplorer.id),
+        ],
+      }
     }
   }
 
@@ -413,6 +481,10 @@ function executeSpellAllAttack(
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
+
+    // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
+    const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
+    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id)
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
@@ -523,6 +595,10 @@ function executeEnemyAllAttack(
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
 
+    // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
+    const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
+    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id)
+
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
     }
@@ -549,7 +625,7 @@ function executeAllySpellCommand(
   const { selectedCommand, selectedTargetId } = state.battleState
   if (!selectedCommand || !isSpell(selectedCommand) || !selectedTargetId) return state
 
-  const newBattleState = battleReducer(state.battleState, battleAction)
+  let newBattleState = battleReducer(state.battleState, battleAction)
 
   // MP消費は術者に適用
   const { updatedExplorer: explorerAfterCost } = consumeCommandCost(
@@ -566,9 +642,17 @@ function executeAllySpellCommand(
   let updatedTarget = targetMember
 
   if (selectedCommand.effect?.type === 'heal') {
-    updatedTarget = {
-      ...updatedTarget,
-      hp: Math.min(updatedTarget.hp + selectedCommand.effect.value, updatedTarget.maxHp),
+    const healedHp = Math.min(updatedTarget.hp + selectedCommand.effect.value, updatedTarget.maxHp)
+    const actualHeal = healedHp - updatedTarget.hp
+    updatedTarget = { ...updatedTarget, hp: healedHp }
+    if (actualHeal > 0) {
+      newBattleState = {
+        ...newBattleState,
+        playerDamagePopups: [
+          ...newBattleState.playerDamagePopups,
+          createPlayerDamagePopup(-actualHeal, updatedTarget.id),
+        ],
+      }
     }
   }
 

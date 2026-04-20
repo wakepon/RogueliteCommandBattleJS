@@ -9,9 +9,7 @@ interface DamagePopupProps {
   targetIndex: number  // 敵リスト内のインデックス
   totalTargets: number  // 敵の総数
   onComplete: () => void  // アニメーション完了時のコールバック
-  isPlayerDamage?: boolean  // プレイヤーへのダメージかどうか
   contributors?: DamageContributor[]
-  label?: string  // テキストラベル（例: 武器名）
 }
 
 // 敵インデックスから表示位置を計算
@@ -29,7 +27,7 @@ function calculatePosition(targetIndex: number, totalTargets: number): { x: numb
   return { x, y }
 }
 
-export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isPlayerDamage = false, contributors, label }: DamagePopupProps) {
+export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, contributors }: DamagePopupProps) {
   const { x, y } = calculatePosition(targetIndex, totalTargets)
   const onCompleteRef = useRef(onComplete)
   onCompleteRef.current = onComplete
@@ -43,12 +41,10 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isP
     return () => clearTimeout(timer)
   }, [])
 
-  // 回復（負のdamage）は緑、プレイヤーダメージは黄色、敵へのダメージは赤
+  // 回復（負のdamage）は緑、ダメージは赤
   const isHealing = damage < 0
   const displayText = isHealing ? `+${Math.abs(damage)}` : `-${damage}`
-  const textColorClass = isHealing
-    ? 'text-green-400'
-    : isPlayerDamage ? 'text-yellow-500' : 'text-red-500'
+  const textColorClass = isHealing ? 'text-green-400' : 'text-red-500'
 
   const hasContributors = contributors && contributors.length > 0
 
@@ -62,11 +58,6 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, isP
       }}
     >
       <div className="flex flex-col items-center">
-        {label && (
-          <span className="text-[10px] text-gray-200 drop-shadow-md whitespace-nowrap mb-0.5">
-            {label}
-          </span>
-        )}
         <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
           {displayText}
         </span>
