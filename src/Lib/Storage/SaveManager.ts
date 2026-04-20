@@ -39,9 +39,10 @@ export const SaveManager = {
   /** セーブデータを保存する。プライベートブラウジング等で失敗した場合はfalseを返す */
   save(run: RunState): boolean {
     try {
+      // battleStartSnapshot は非永続（バトル中のみ有効）
       const data: SaveData = {
         version: CURRENT_VERSION,
-        run,
+        run: { ...run, battleStartSnapshot: null },
         savedAt: Date.now(),
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
@@ -75,7 +76,8 @@ export const SaveManager = {
         return null
       }
 
-      return data.run
+      // 古いセーブデータに battleStartSnapshot が無い場合の正規化
+      return { ...data.run, battleStartSnapshot: data.run.battleStartSnapshot ?? null }
     } catch {
       return null
     }

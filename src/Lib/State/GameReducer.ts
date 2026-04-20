@@ -31,6 +31,7 @@ import {
   processEnemyAction,
   processTurnEndAction,
 } from './BattleActionProcessor'
+import { calculateMemberDiffs } from '../Core/BattleResultDiff'
 
 /** 選択済みショップのスロットを更新するヘルパー */
 function updateShopSlotItem(storeState: StoreState, slotIndex: number, newItem: unknown): StoreState {
@@ -117,8 +118,12 @@ function advanceToMapPhase(state: GameState, run: RunState): GameState {
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'START_GAME': {
-      const run = createInitialRun()
-      const battleState = createBattleState(run.currentStage, run.party, run.seed, run.relics)
+      const initialRun = createInitialRun()
+      const battleState = createBattleState(initialRun.currentStage, initialRun.party, initialRun.seed, initialRun.relics)
+      const run: RunState = {
+        ...initialRun,
+        battleStartSnapshot: { party: initialRun.party, gold: initialRun.gold },
+      }
       return { ...state, phase: 'battle', run, battleState }
     }
 
@@ -137,6 +142,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'END_BATTLE': {
       if (!state.battleState || !state.run) return state
+      // 既にゲームオーバーになっている場合は冪等（二重発火防止）
+      if (state.battleState.isGameOver) return state
 
       if (action.result === 'victory') {
         const interestCapBonus = getInterestCapBonus(state.run.relics)
@@ -151,16 +158,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
         const killCount = state.battleState.enemies.length
 
-        const resultState: ResultState = {
-          result: 'victory',
-          goldEarned: reward.total,
-          baseGold: reward.baseGold,
-          interestGold: reward.interestGold,
-          stolenGold: reward.stolenGold,
-          killCount,
-          levelUps: state.run.battleLevelUps,
-        }
-
         // 戦闘不能キャラをHP1で復活 + バフ/デバフをクリア
         const revivedParty = state.run.party.map(member => ({
           ...member,
@@ -169,9 +166,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           battleDebuffs: [],
         }))
 
+        const snapshot = state.run.battleStartSnapshot
+        const endGold = state.run.gold + reward.total
+        const memberDiffs = snapshot
+          ? calculateMemberDiffs(snapshot.party, revivedParty)
+          : []
+        const goldDiff = snapshot ? endGold - snapshot.gold : 0
+
+        const resultState: ResultState = {
+          result: 'victory',
+          goldEarned: reward.total,
+          baseGold: reward.baseGold,
+          interestGold: reward.interestGold,
+          stolenGold: reward.stolenGold,
+          killCount,
+          memberDiffs,
+          goldDiff,
+        }
+
         const newRun: RunState = {
           ...state.run,
-          gold: state.run.gold + reward.total,
+          gold: endGold,
           party: revivedParty,
           stats: {
             ...state.run.stats,
@@ -179,23 +194,23 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             totalGoldEarned: state.run.stats.totalGoldEarned + reward.total,
           },
           battleLevelUps: [],
+          battleStartSnapshot: null,
         }
 
         return { ...state, phase: 'result', run: newRun, battleState: null, resultState }
       }
 
-      // 敗北時
-      const resultState: ResultState = {
-        result: 'defeat',
-        goldEarned: 0,
-        baseGold: 0,
-        interestGold: 0,
-        stolenGold: 0,
-        killCount: 0,
-        levelUps: [],
+      // 敗北時: バトル画面を残したまま isGameOver フラグを立てる
+      const defeatedRun: RunState = {
+        ...state.run,
+        battleStartSnapshot: null,
       }
 
-      return { ...state, phase: 'result', battleState: null, resultState }
+      return {
+        ...state,
+        run: defeatedRun,
+        battleState: { ...state.battleState, isGameOver: true },
+      }
     }
 
     case 'BATTLE_ACTION': {
@@ -851,7 +866,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         phase: 'battle',
         battleState,
         mapState: null,
-        run: { ...state.run, party: adjustedParty },
+        run: {
+          ...state.run,
+          party: adjustedParty,
+          battleStartSnapshot: { party: adjustedParty, gold: state.run.gold },
+        },
       }
     }
 

@@ -13,6 +13,12 @@ export interface RunStats {
   maxStageReached: number
 }
 
+// 戦闘開始時スナップショット（バトル中のみ有効、END_BATTLEでnullに戻す）
+export interface BattleStartSnapshot {
+  party: ExplorerState[]
+  gold: number
+}
+
 // ランの状態
 export interface RunState {
   saveVersion: number
@@ -26,6 +32,7 @@ export interface RunState {
   stats: RunStats
   battleLevelUps: LevelUpInfo[]  // 戦闘中のレベルアップ情報（一時保存）
   weaponBreakMultiplier: number  // 不死鳥の残り火: 武器破壊時の蓄積倍率
+  battleStartSnapshot: BattleStartSnapshot | null  // リザルト画面の変化量表示用
 }
 
 // 初期Run生成
@@ -46,5 +53,6 @@ export function createInitialRun(): RunState {
     },
     battleLevelUps: [],
     weaponBreakMultiplier: 0,
+    battleStartSnapshot: null,
   }
 }

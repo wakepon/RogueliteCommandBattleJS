@@ -1,11 +1,11 @@
 import { RunState } from './Run'
 import { BattleState } from './Battle'
-import { LevelUpInfo } from '../Core/LevelUpCalculator'
 import { WeaponData } from './Weapon'
 import { SpellData } from './Spell'
 import { RelicData } from './Relic'
 import { PotionData } from './Potion'
 import { EnemyType } from './Enemy'
+import { CharacterClass } from './Explorer'
 
 // ゲームフェーズ
 export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result' | 'map'
@@ -49,6 +49,38 @@ export interface EventState {
 // BattleStateをBattle.tsから再エクスポート
 export type { BattleState } from './Battle'
 
+/** メンバー単位の武器耐久差分 */
+export interface WeaponUsesDiff {
+  weaponId: string
+  weaponName: string
+  currentUses: number | null   // null=無制限
+  maxUses: number | null
+  usesDiff: number              // 現値 - 開始値（負が消費）
+  broken: boolean               // currentUses === 0 && maxUses !== null
+}
+
+/** メンバー単位のバトル前後差分 */
+export interface MemberBattleDiff {
+  explorerId: string
+  name: string
+  characterClass: CharacterClass
+  // 現在値
+  hp: number
+  maxHp: number
+  mp: number
+  maxMp: number
+  level: number
+  exp: number
+  expRequired: number
+  weapons: WeaponUsesDiff[]
+  // 差分（負=減った、正=増えた、0=変化なし）
+  hpDiff: number
+  maxHpDiff: number
+  mpDiff: number
+  maxMpDiff: number
+  levelDiff: number
+}
+
 /** 戦闘結果の状態 */
 export interface ResultState {
   result: 'victory' | 'defeat'
@@ -57,7 +89,8 @@ export interface ResultState {
   interestGold: number    // 利子
   stolenGold: number      // 盗んだゴールド
   killCount: number       // 討伐数
-  levelUps: LevelUpInfo[] // 戦闘中に発生したレベルアップ情報
+  memberDiffs: MemberBattleDiff[]  // メンバー別変化量（勝利時のみ有効、敗北時は空配列）
+  goldDiff: number                 // gold総差分（勝利時のみ意味を持つ）
 }
 
 /** ショップカテゴリ */

@@ -108,4 +108,7 @@ export interface BattleState {
   // 後方互換: actionQueue（Phase 2移行期間は維持。TurnIndicator等で使用）
   actionQueue: ActorId[]
   currentActorIndex: number
+
+  // ゲームオーバー状態（敗北時にオーバーレイを表示する）
+  isGameOver?: boolean
 }

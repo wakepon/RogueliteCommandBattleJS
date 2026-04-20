@@ -20,6 +20,7 @@ import { DraggableCommand } from './DraggableCommand'
 import { DroppableTarget } from './DroppableTarget'
 import { TooltipCard } from '../Common/TooltipCard'
 import { NextStagePreview } from './NextStagePreview'
+import { GameOverOverlay } from './GameOverOverlay'
 
 /** ターゲット名を解決 */
 function resolveTargetName(
@@ -47,6 +48,7 @@ const MESSAGE_DISPLAY_MS = 1500
 function CharacterPanel({
   member,
   isCommandPhase,
+  isGameOver,
   availableCommands,
   targetRate,
   previewRate,
@@ -64,6 +66,7 @@ function CharacterPanel({
 }: {
   member: ExplorerState
   isCommandPhase: boolean
+  isGameOver: boolean
   availableCommands: BattleCommand[]
   targetRate: number | undefined
   previewRate: number | undefined
@@ -162,11 +165,16 @@ function CharacterPanel({
           </div>
         )}
 
-        {/* コマンド一覧（D&Dドラッグ元） */}
-        {isCommandPhase && !isDead && (
+        {/* 戦闘不能バッジ（コマンド一覧の上に小さく表示） */}
+        {isDead && (
+          <div className="text-center text-red-400 text-[10px] font-bold mb-0.5">戦闘不能</div>
+        )}
+
+        {/* コマンド一覧（D&Dドラッグ元。戦闘不能時・ゲームオーバー時もグレーアウトして表示、ドラッグは無効） */}
+        {(isCommandPhase || isGameOver) && (
           <div className="flex-1 overflow-y-auto space-y-0 mt-0.5">
             {commands.map((cmd, cmdIdx) => {
-              const isAvail = availableCommands.some(ac => ac.id === cmd.id)
+              const isAvail = !isDead && !isGameOver && availableCommands.some(ac => ac.id === cmd.id)
               // 武器のweapons配列内インデックスを計算（spellsはundefined）
               const weaponIdx = cmdIdx < member.weapons.length ? cmdIdx : undefined
               return (
@@ -175,7 +183,7 @@ function CharacterPanel({
                   command={cmd}
                   explorerId={member.id}
                   commandIndex={weaponIdx}
-                  disabled={!isCommandPhase}
+                  disabled={!isCommandPhase || isDead || isGameOver}
                   isAvailable={isAvail}
                   attackerStr={member.str}
                   attackerInt={member.int}
@@ -184,8 +192,6 @@ function CharacterPanel({
             })}
           </div>
         )}
-
-        {isDead && <div className="text-center text-red-400 text-xs font-bold mt-1">戦闘不能</div>}
 
         {/* 味方ターゲットハイライト */}
         {((isSelectingTarget && selectedTargetId === member.id) || draggingAllyTarget) && !isDead && (
@@ -397,13 +403,13 @@ export function BattleScreen() {
   }, [phase, hasLevelUpPopups]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (hasLevelUpPopups) return
+    if (hasLevelUpPopups || battleState.isGameOver) return
     const result = checkBattleResult(enemies, party)
     if (result === 'ongoing') return
     // HPバーアニメーション(300ms) + 余韻(500ms) を待ってから遷移
     const timer = setTimeout(() => endBattle(result), 800)
     return () => clearTimeout(timer)
-  }, [enemies, party, endBattle, hasLevelUpPopups])
+  }, [enemies, party, endBattle, hasLevelUpPopups, battleState.isGameOver])
 
   const isCommandPhase = phase === 'command'
   // ドラッグ中はクリックベースのターゲット選択を無効化（D&Dで処理するため）
@@ -657,6 +663,7 @@ export function BattleScreen() {
                     <CharacterPanel
                       member={member}
                       isCommandPhase={isCommandPhase}
+                      isGameOver={battleState.isGameOver ?? false}
                       availableCommands={memberAvailCmds}
                       targetRate={rate}
                       previewRate={prevRate}
@@ -719,6 +726,8 @@ export function BattleScreen() {
             </div>
           )}
         </DragOverlay>
+
+        {battleState.isGameOver && <GameOverOverlay onReturnTitle={returnToTitle} />}
       </div>
     </DndContext>
   )
