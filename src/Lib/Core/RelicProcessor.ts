@@ -195,3 +195,51 @@ export function getBattleStartHpReduction(relics: RelicInstance[]): { rate: numb
   }
   return null
 }
+
+/** 闘気の腕輪: 戦闘中レベルアップ時のダメージ倍率 */
+export function getLevelUpDamageBoost(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'levelUpDamageBoost') return r.passiveEffect.multiplier
+  }
+  return 1.0
+}
+
+/** 修羅の証: バトル終了後の全員ボーナスEXPとゴールドペナルティ */
+export function getBattleEndBonusExp(relics: RelicInstance[]): { expValue: number; goldPenalty: number } | null {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'battleEndBonusExp') {
+      return { expValue: r.passiveEffect.expValue, goldPenalty: r.passiveEffect.goldPenalty }
+    }
+  }
+  return null
+}
+
+/** 番狂わせの一撃: パーティ最低レベル時のダメージ倍率 */
+export function getLowestLevelDamageMultiplier(
+  relics: RelicInstance[],
+  attacker: ExplorerState,
+  party: ExplorerState[]
+): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'lowestLevelDamageMultiplier') {
+      const minLevel = Math.min(...party.map(p => p.level))
+      if (attacker.level === minLevel) {
+        return r.passiveEffect.multiplier
+      }
+    }
+  }
+  return 1.0
+}
+
+/** 強い者いじめ: HP最大者の被弾率ボーナス */
+export function getHighHpTargetRateBonus(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'highHpTargetRateBonus') return r.passiveEffect.value
+  }
+  return 0
+}
+
+/** 身代わりの人形: 致死ダメージ耐え効果所持判定 */
+export function hasDeathProtection(relics: RelicInstance[]): boolean {
+  return relics.some(r => r.passiveEffect.type === 'deathProtection')
+}

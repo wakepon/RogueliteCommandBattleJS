@@ -11,6 +11,7 @@ import {
   getKillStreakMultiplier,
   getLastStrikeMultiplier,
   getLowMpDamageMultiplier,
+  getLowestLevelDamageMultiplier,
 } from '../Core/RelicProcessor'
 
 /** ダメージ予測範囲 */
@@ -57,6 +58,7 @@ export interface DamagePredictOptions {
   includeConditionalRelics?: boolean
   hasPrecision?: boolean  // 精密バフでブレ幅→0
   weaponBreakMultiplier?: number  // 不死鳥の残り火: 武器破壊蓄積倍率
+  party?: ExplorerState[]  // 番狂わせの一撃: パーティ全体のレベル比較
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -72,7 +74,7 @@ export function predictWeaponDamage(
   weapon: ExplorerWeapon | WeaponData,
   options: DamagePredictOptions = {}
 ): DamageRange {
-  const { relics = [], killStreakActive = false, includeConditionalRelics = false, hasPrecision = false, weaponBreakMultiplier = 0 } = options
+  const { relics = [], killStreakActive = false, includeConditionalRelics = false, hasPrecision = false, weaponBreakMultiplier = 0, party } = options
 
   // scaleStat対応（魔力弾はINT依存）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
@@ -113,9 +115,19 @@ export function predictWeaponDamage(
     if ('currentUses' in weapon && weapon.currentUses === 1) {
       relicMultiplier *= getLastStrikeMultiplier(relics)
     }
+    // 番狂わせの一撃: パーティ最低レベル時のダメージ倍率
+    if (party && party.length > 0) {
+      relicMultiplier *= getLowestLevelDamageMultiplier(relics, explorer, party)
+    }
   }
 
   baseDamage *= relicMultiplier
+
+  // 闘気の腕輪バフ: 次攻撃ダメージ倍率
+  const levelUpBoostBuff = explorer.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
+  if (levelUpBoostBuff) {
+    baseDamage *= levelUpBoostBuff.value
+  }
 
   const base = Math.floor(baseDamage)
   // 精密バフ: ブレ幅→0、最大ブレ値で固定
@@ -131,6 +143,7 @@ export function predictWeaponDamage(
     || conditionalPowerBonus > 0
     || weaponPowerBonusValue > 0
     || weaponBreakMultiplier > 0
+    || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
   return { min, max, isBoosted }
 }
@@ -141,7 +154,7 @@ export function predictSpellDamage(
   spell: SpellInstance | SpellData,
   options: DamagePredictOptions = {}
 ): DamageRange {
-  const { relics = [], includeConditionalRelics = false, hasPrecision = false } = options
+  const { relics = [], includeConditionalRelics = false, hasPrecision = false, party } = options
 
   const intBonus = getStatBonus(relics, 'int')
   const effectiveInt = explorer.int + intBonus
@@ -154,9 +167,18 @@ export function predictSpellDamage(
   if (includeConditionalRelics) {
     relicMultiplier *= getLowHpDamageMultiplier(relics, explorer)
     relicMultiplier *= getLowMpDamageMultiplier(relics, explorer)
+    if (party && party.length > 0) {
+      relicMultiplier *= getLowestLevelDamageMultiplier(relics, explorer, party)
+    }
   }
 
   baseDamage *= relicMultiplier
+
+  // 闘気の腕輪バフ: 次攻撃ダメージ倍率
+  const levelUpBoostBuff = explorer.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
+  if (levelUpBoostBuff) {
+    baseDamage *= levelUpBoostBuff.value
+  }
 
   const base = Math.floor(baseDamage)
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
@@ -167,6 +189,7 @@ export function predictSpellDamage(
   const isBoosted = intBonus > 0
     || buffMultiplier > 1.0
     || relicMultiplier > 1.0
+    || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
   return { min, max, isBoosted }
 }
@@ -304,7 +327,7 @@ export function calculateDetailedDamagePreview(
     if (!explorer) continue
 
     const precisionFromOrder = willReceivePrecision(allSlots, slot.explorerId, i)
-    const slotOptions = { ...options, hasPrecision: precisionFromOrder }
+    const slotOptions = { ...options, hasPrecision: precisionFromOrder, party }
 
     const targetsThisEnemy = slot.targetId === targetEnemyId
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
@@ -316,10 +339,10 @@ export function calculateDetailedDamagePreview(
     let range: DamageRange | null = null
 
     if (isWeapon(slot.command)) {
-      if (slot.command.targetType === 'allySingle') continue
+      if (slot.command.targetType === 'allySingle' || slot.command.targetType === 'allyAll') continue
       range = predictWeaponDamage(explorer, slot.command, slotOptions)
     } else if (isSpell(slot.command)) {
-      if (slot.command.targetType === 'allySingle') continue
+      if (slot.command.targetType === 'allySingle' || slot.command.targetType === 'allyAll') continue
       range = predictSpellDamage(explorer, slot.command, slotOptions)
     }
 

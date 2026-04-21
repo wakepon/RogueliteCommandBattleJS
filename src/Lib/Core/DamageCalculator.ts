@@ -11,6 +11,7 @@ import {
   getKillStreakMultiplier,
   getLastStrikeMultiplier,
   getLowMpDamageMultiplier,
+  getLowestLevelDamageMultiplier,
 } from './RelicProcessor'
 
 /** ダメージ寄与者（ポップアップ表示用） */
@@ -34,6 +35,7 @@ interface DamageOptions {
   relics?: RelicInstance[]
   killStreakActive?: boolean
   weaponBreakMultiplier?: number  // 不死鳥の残り火: 武器破壊蓄積倍率
+  party?: ExplorerState[]  // 番狂わせの一撃用: パーティ全体のレベル比較
 }
 
 /**
@@ -66,7 +68,7 @@ export function calculateWeaponDamage(
   _target: EnemyInstance,
   options: DamageOptions = {}
 ): DamageResult {
-  const { varianceOffset, relics = [], killStreakActive = false, weaponBreakMultiplier = 0 } = options
+  const { varianceOffset, relics = [], killStreakActive = false, weaponBreakMultiplier = 0, party } = options
   const contributors: DamageContributor[] = []
 
   // 精密バフ: ブレ幅→0、ダメージは最大ブレ値で固定
@@ -159,6 +161,24 @@ export function calculateWeaponDamage(
     }
   }
 
+  // レリック倍率: 番狂わせの一撃（パーティ最低レベル時）
+  if (party && party.length > 0) {
+    const mult = getLowestLevelDamageMultiplier(relics, attacker, party)
+    if (mult > 1.0) {
+      rawDamage *= mult
+      const relic = relics.find(r => r.passiveEffect.type === 'lowestLevelDamageMultiplier')
+      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
+    }
+  }
+
+  // バフ: 闘気の腕輪（レベルアップ直後の次攻撃x2）
+  const levelUpBoostBuff = attacker.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
+  if (levelUpBoostBuff) {
+    rawDamage *= levelUpBoostBuff.value
+    const relic = relics.find(r => r.passiveEffect.type === 'levelUpDamageBoost')
+    contributors.push({ name: relic?.name ?? '闘気の腕輪', label: `×${levelUpBoostBuff.value}` })
+  }
+
   // 弱体デバフによるダメージ低下
   const weaknessDebuff = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
@@ -188,7 +208,7 @@ export function calculateSpellDamage(
   _target: EnemyInstance,
   options: DamageOptions = {}
 ): DamageResult {
-  const { varianceOffset, relics = [] } = options
+  const { varianceOffset, relics = [], party } = options
   const contributors: DamageContributor[] = []
 
   // 精密バフ: ブレ幅→0、ダメージは最大ブレ値で固定
@@ -232,6 +252,24 @@ export function calculateSpellDamage(
   if (lowMpMult > 1.0) {
     const relic = relics.find(r => r.passiveEffect.type === 'lowMpDamageBonus')
     if (relic) contributors.push({ name: relic.name, label: `×${lowMpMult}` })
+  }
+
+  // レリック倍率: 番狂わせの一撃（パーティ最低レベル時）
+  if (party && party.length > 0) {
+    const mult = getLowestLevelDamageMultiplier(relics, attacker, party)
+    if (mult > 1.0) {
+      rawDamage *= mult
+      const relic = relics.find(r => r.passiveEffect.type === 'lowestLevelDamageMultiplier')
+      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
+    }
+  }
+
+  // バフ: 闘気の腕輪（レベルアップ直後の次攻撃x2）
+  const levelUpBoostBuff = attacker.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
+  if (levelUpBoostBuff) {
+    rawDamage *= levelUpBoostBuff.value
+    const relic = relics.find(r => r.passiveEffect.type === 'levelUpDamageBoost')
+    contributors.push({ name: relic?.name ?? '闘気の腕輪', label: `×${levelUpBoostBuff.value}` })
   }
 
   // 弱体デバフによるダメージ低下

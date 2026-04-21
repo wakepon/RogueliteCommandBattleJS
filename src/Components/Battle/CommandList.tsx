@@ -17,6 +17,7 @@ interface CommandListProps {
   explorer?: ExplorerState
   relics?: RelicInstance[]
   killStreakActive?: boolean
+  party?: ExplorerState[]
 }
 
 // コマンドが使用可能かどうかを判定
@@ -67,9 +68,10 @@ export function CommandList({
   explorer,
   relics = [],
   killStreakActive = false,
+  party,
 }: CommandListProps) {
   const damageContext: DamageContext | undefined = explorer
-    ? { explorer, relics, killStreakActive, includeConditionalRelics: true }
+    ? { explorer, relics, killStreakActive, includeConditionalRelics: true, party }
     : undefined
   // カーソル位置
   const [cursorIndex, setCursorIndex] = useState(0)
@@ -161,7 +163,7 @@ export function CommandList({
           let damageDisplay: string | null = null
           let isBoosted = false
           if (explorer) {
-            const opts = { relics, killStreakActive, includeConditionalRelics: true }
+            const opts = { relics, killStreakActive, includeConditionalRelics: true, party }
             if (isWeapon(command)) {
               const range = predictWeaponDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)

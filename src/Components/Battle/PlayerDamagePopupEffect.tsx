@@ -40,6 +40,9 @@ export function PlayerDamagePopupEffect({ popup, onComplete }: PlayerDamagePopup
   if (!pos) return null
 
   const isHealing = popup.damage < 0
+  const isLabelOnly = popup.damage === 0
+  // damage=0かつlabelなしは想定外（空ポップアップを残さない）
+  if (isLabelOnly && !popup.label) return null
   const displayText = isHealing ? `+${Math.abs(popup.damage)}` : `-${popup.damage}`
   const textColorClass = isHealing ? 'text-green-400' : 'text-red-500'
 
@@ -54,13 +57,15 @@ export function PlayerDamagePopupEffect({ popup, onComplete }: PlayerDamagePopup
     >
       <div className="flex flex-col items-center">
         {popup.label && (
-          <span className="text-[10px] text-gray-200 drop-shadow-md whitespace-nowrap mb-0.5">
+          <span className={`drop-shadow-md whitespace-nowrap ${isLabelOnly ? 'text-base font-bold text-yellow-300' : 'text-[10px] text-gray-200 mb-0.5'}`}>
             {popup.label}
           </span>
         )}
-        <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
-          {displayText}
-        </span>
+        {!isLabelOnly && (
+          <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
+            {displayText}
+          </span>
+        )}
       </div>
     </div>
   )

@@ -30,6 +30,8 @@ import {
   getWeaponBreakAttackBonus,
   getGoldPerKill,
   getDamageTakenToMpRate,
+  getLevelUpDamageBoost,
+  hasDeathProtection,
 } from '../Core/RelicProcessor'
 import { processShieldDamageReduction } from '../Core/BuffProcessor'
 
@@ -77,7 +79,11 @@ const EXP_BONUS_DELAY_MS = 500   // 基本EXP発射からトドメボーナス�
 function buildExpPopupsForDefeats(
   defeatedEnemyIds: string[],
   party: ExplorerState[],
-  killerExplorerId: string
+  killerExplorerId: string,
+  options?: {
+    extraBonusToAll?: number    // 教育の魔弾などで全員に追加付与されるEXP
+    extraKillerBonus?: number   // 導きバフなどでキラーに追加付与されるEXP
+  }
 ): ExpPopup[] {
   if (defeatedEnemyIds.length === 0) return []
 
@@ -95,7 +101,120 @@ function buildExpPopupsForDefeats(
     popups.push(createExpPopup(enemyId, killerExplorerId, 1, EXP_BONUS_DELAY_MS, 'とどめボーナス'))
   }
 
+  // 教育の魔弾ボーナス: 敵 × 全メンバー（とどめボーナスからさらに0.5s後）
+  if (options?.extraBonusToAll && options.extraBonusToAll > 0) {
+    for (const enemyId of defeatedEnemyIds) {
+      for (const member of party) {
+        popups.push(createExpPopup(enemyId, member.id, options.extraBonusToAll, EXP_BONUS_DELAY_MS * 2, '魔弾ボーナス'))
+      }
+    }
+  }
+
+  // 導きバフボーナス: 敵 × キラーのみ（同上の遅延）
+  if (options?.extraKillerBonus && options.extraKillerBonus > 0) {
+    for (const enemyId of defeatedEnemyIds) {
+      popups.push(createExpPopup(enemyId, killerExplorerId, options.extraKillerBonus, EXP_BONUS_DELAY_MS * 2, '導き'))
+    }
+  }
+
   return popups
+}
+
+/**
+ * 身代わりの人形: 致死ダメージを受けた生存メンバーをHP1で復活させ、レリックを消滅させる。
+ * AoEで複数致死の場合は全員を復活させる（レリック消滅は1回のみ）。
+ * 復活時に毒デバフも解除（復活直後に再死亡するのを防ぐ）。
+ * battleState にレリック名ラベル付きポップアップを追加する。
+ */
+function applyDeathProtection(
+  run: RunState,
+  battleState: BattleState,
+  beforeParty: ExplorerState[]
+): { run: RunState; battleState: BattleState } {
+  if (!hasDeathProtection(run.relics)) return { run, battleState }
+
+  const beforeHpById = new Map(beforeParty.map(p => [p.id, p.hp]))
+  const downedMembers = run.party.filter(
+    m => m.hp <= 0 && (beforeHpById.get(m.id) ?? 0) > 0
+  )
+  if (downedMembers.length === 0) return { run, battleState }
+
+  const relic = run.relics.find(r => r.passiveEffect.type === 'deathProtection')
+  const label = relic?.name ?? '身代わりの人形'
+
+  let updatedRun = run
+  const popups = [...battleState.playerDamagePopups]
+  for (const m of downedMembers) {
+    // HP1で復活 + 毒デバフ解除（復活直後の即死ループ防止）
+    updatedRun = updatePartyMember(updatedRun, {
+      ...m,
+      hp: 1,
+      battleDebuffs: m.battleDebuffs.filter(d => d.type !== 'poison'),
+    })
+    popups.push(createPlayerDamagePopup(0, m.id, label))
+  }
+  return {
+    run: {
+      ...updatedRun,
+      relics: updatedRun.relics.filter(r => r.passiveEffect.type !== 'deathProtection'),
+    },
+    battleState: { ...battleState, playerDamagePopups: popups },
+  }
+}
+
+/**
+ * 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフを付与
+ * 戦闘中レベルアップ発生時に呼ぶ。複数回レベルアップは1回分のみ付与。
+ */
+function applyLevelUpDamageBoost(
+  run: RunState,
+  levelUps: LevelUpInfo[],
+  relics: RelicInstance[]
+): RunState {
+  if (levelUps.length === 0) return run
+  const multiplier = getLevelUpDamageBoost(relics)
+  if (multiplier <= 1.0) return run
+
+  // 同じキャラが複数回レベルアップしても1バフのみ付与
+  const levelUpExplorerIds = new Set(levelUps.map(l => l.explorerId))
+  let updatedRun = run
+  for (const explorerId of levelUpExplorerIds) {
+    const member = updatedRun.party.find(e => e.id === explorerId)
+    if (!member) continue
+    // 既に同バフがあれば重複付与しない（同ターン複数撃破で連続レベルアップした場合）
+    if (member.battleBuffs.some(b => b.type === 'levelUpDamageBoost')) continue
+    const boostBuff: Buff = {
+      type: 'levelUpDamageBoost',
+      value: multiplier,
+      duration: 'nextAction',
+    }
+    const updatedMember: ExplorerState = {
+      ...member,
+      battleBuffs: [...member.battleBuffs, boostBuff],
+    }
+    updatedRun = updatePartyMember(updatedRun, updatedMember)
+  }
+  return updatedRun
+}
+
+/**
+ * 導きバフを消費して追加キラーボーナスEXPを返す（攻撃者から'guidance'バフを除去）
+ *
+ * 設計: 複数付与時は1回の撃破で1個ずつ消費する（findIndexで最初の1つのみ除去）。
+ */
+function consumeGuidanceBuff(
+  explorer: ExplorerState
+): { updatedExplorer: ExplorerState; extraKillerBonus: number } {
+  const guidanceIndex = explorer.battleBuffs.findIndex(b => b.type === 'guidance')
+  if (guidanceIndex < 0) {
+    return { updatedExplorer: explorer, extraKillerBonus: 0 }
+  }
+  const extraKillerBonus = explorer.battleBuffs[guidanceIndex].value
+  const updatedExplorer: ExplorerState = {
+    ...explorer,
+    battleBuffs: explorer.battleBuffs.filter((_, i) => i !== guidanceIndex),
+  }
+  return { updatedExplorer, extraKillerBonus }
 }
 
 /** 武器の使用回数を減らす（レリック効果考慮） */
@@ -171,9 +290,10 @@ function addExpPopupsToBattle(
   battleState: BattleState,
   defeatedEnemyIds: string[],
   party: ExplorerState[],
-  killerExplorerId: string
+  killerExplorerId: string,
+  options?: { extraBonusToAll?: number; extraKillerBonus?: number }
 ): BattleState {
-  const popups = buildExpPopupsForDefeats(defeatedEnemyIds, party, killerExplorerId)
+  const popups = buildExpPopupsForDefeats(defeatedEnemyIds, party, killerExplorerId, options)
   if (popups.length === 0) return battleState
   return battleReducer(battleState, { type: 'ADD_EXP_POPUPS', expPopups: popups })
 }
@@ -237,12 +357,14 @@ function executeAttackCommand(
       relics,
       killStreakActive: state.battleState.relicState.killStreakActive,
       weaponBreakMultiplier: state.run.weaponBreakMultiplier ?? 0,
+      party: state.run.party,
     })
     calculatedDamage = result.damage
     contributors = result.contributors
   } else if (isSpell(selectedCommand)) {
     const result = calculateSpellDamage(battleAction.explorer, selectedCommand, targetEnemy, {
       relics,
+      party: state.run.party,
     })
     calculatedDamage = result.damage
     contributors = result.contributors
@@ -299,6 +421,27 @@ function executeAttackCommand(
     finalExplorer = {
       ...finalExplorer,
       hp: Math.min(finalExplorer.hp + lifestealValue, finalExplorer.maxHp),
+    }
+  }
+
+  // 魂喰いの剣: トドメを刺したら耐久を消費しない（巻き戻し）
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'killPreserveDurability' && defeatedCount > 0) {
+    const targetIndex = currentSlot?.weaponIndex !== undefined
+      ? currentSlot.weaponIndex
+      : finalExplorer.weapons.findIndex(w => w.id === selectedCommand.id)
+    if (targetIndex >= 0) {
+      const beforeWeapon = battleAction.explorer.weapons[targetIndex]
+      finalExplorer = {
+        ...finalExplorer,
+        weapons: finalExplorer.weapons.map((w, i) => {
+          if (i !== targetIndex) return w
+          // 消費前の耐久に巻き戻す
+          if (beforeWeapon && 'currentUses' in beforeWeapon) {
+            return { ...w, currentUses: beforeWeapon.currentUses } as typeof w
+          }
+          return w
+        }),
+      }
     }
   }
 
@@ -377,19 +520,37 @@ function executeAttackCommand(
       updatedRun = { ...updatedRun, gold: updatedRun.gold + goldPerKill * defeatedCount }
     }
 
+    // 教育の魔弾: トドメで全員にボーナスEXP
+    let extraBonusToAll = 0
+    if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'killBonusExpToAll') {
+      extraBonusToAll = defeatedCount
+    }
+
+    // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
+    const guidance = consumeGuidanceBuff(finalExplorer)
+    finalExplorer = guidance.updatedExplorer
+    // バフが除去された場合は常にpartyへ同期（冪等・将来value=0仕様にも耐える）
+    updatedRun = updatePartyMember(updatedRun, finalExplorer)
+
     // パーティー全員にEXP配分（止めキャラにボーナス）
     const { updatedParty, allLevelUps } = distributeExpToParty(
-      updatedRun.party, finalExplorer.id, defeatedCount
+      updatedRun.party, finalExplorer.id, defeatedCount,
+      { extraBonusToAll, extraKillerBonus: guidance.extraKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
 
     // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
     const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
-    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id)
+    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
+      extraBonusToAll,
+      extraKillerBonus: guidance.extraKillerBonus,
+    })
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
+      // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
+      updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
     }
   }
 
@@ -411,6 +572,7 @@ function executeSpellAllAttack(
   spell: SpellData
 ): GameState {
   if (!state.battleState || !state.run) return state
+  const partySnapshot = state.run.party
 
   // 生存中の全敵に対してダメージ計算
   const aliveEnemies = state.battleState.enemies.filter(e => e.currentHp > 0)
@@ -421,6 +583,7 @@ function executeSpellAllAttack(
   const calculatedDamages = aliveEnemies.map((enemy, i) => {
     const result = calculateSpellDamage(battleAction.explorer, spell, enemy, {
       relics,
+      party: partySnapshot,
     })
     if (i === 0) allContributors = result.contributors
     // defenseバフによる軽減
@@ -475,19 +638,30 @@ function executeSpellAllAttack(
   }
 
   if (defeatedCount > 0) {
+    // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
+    const guidance = consumeGuidanceBuff(finalExplorer)
+    finalExplorer = guidance.updatedExplorer
+    // バフが除去された場合は常にpartyへ同期（冪等・将来value=0仕様にも耐える）
+    updatedRun = updatePartyMember(updatedRun, finalExplorer)
+
     // パーティー全員にEXP配分（止めキャラにボーナス）
     const { updatedParty, allLevelUps } = distributeExpToParty(
-      updatedRun.party, finalExplorer.id, defeatedCount
+      updatedRun.party, finalExplorer.id, defeatedCount,
+      { extraKillerBonus: guidance.extraKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
 
     // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
     const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
-    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id)
+    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
+      extraKillerBonus: guidance.extraKillerBonus,
+    })
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
+      // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
+      updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
     }
   }
 
@@ -509,6 +683,7 @@ function executeEnemyAllAttack(
   weapon: WeaponInstance
 ): GameState {
   if (!state.battleState || !state.run) return state
+  const partySnapshot = state.run.party
 
   // 生存中の全敵に対してダメージ計算
   const aliveEnemies = state.battleState.enemies.filter(e => e.currentHp > 0)
@@ -520,6 +695,7 @@ function executeEnemyAllAttack(
     const result = calculateWeaponDamage(battleAction.explorer, weapon, enemy, {
       relics,
       killStreakActive: state.battleState!.relicState.killStreakActive,
+      party: partySnapshot,
     })
     if (i === 0) allContributors = result.contributors
     // defenseバフによる軽減
@@ -588,19 +764,30 @@ function executeEnemyAllAttack(
   }
 
   if (defeatedCount > 0) {
+    // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
+    const guidance = consumeGuidanceBuff(finalExplorer)
+    finalExplorer = guidance.updatedExplorer
+    // バフが除去された場合は常にpartyへ同期（冪等・将来value=0仕様にも耐える）
+    updatedRun = updatePartyMember(updatedRun, finalExplorer)
+
     // パーティー全員にEXP配分（止めキャラにボーナス）
     const { updatedParty, allLevelUps } = distributeExpToParty(
-      updatedRun.party, finalExplorer.id, defeatedCount
+      updatedRun.party, finalExplorer.id, defeatedCount,
+      { extraKillerBonus: guidance.extraKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
 
     // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
     const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
-    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id)
+    newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
+      extraKillerBonus: guidance.extraKillerBonus,
+    })
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
+      // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
+      updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
     }
   }
 
@@ -704,6 +891,19 @@ function executeAllySpellCommand(
     }
   }
 
+  // 師弟の絆: 導きバフ付与（次のトドメで+1ボーナスEXP）
+  if (selectedCommand.effect?.type === 'guidanceBuff') {
+    const guidanceBuff: Buff = {
+      type: 'guidance',
+      value: 1,
+      duration: 'battle',
+    }
+    updatedTarget = {
+      ...updatedTarget,
+      battleBuffs: [...updatedTarget.battleBuffs, guidanceBuff],
+    }
+  }
+
   // 戦場の鍛冶（武器耐久回復）
   if (selectedCommand.effect?.type === 'repairWeapons') {
     const repairValue = selectedCommand.effect.value
@@ -723,6 +923,55 @@ function executeAllySpellCommand(
   }
 
   // ゴールドバースト（所持金消費→ダメージ）は敵単体対象なのでここでは処理しない
+
+  return {
+    ...state,
+    battleState: newBattleState,
+    run: updatedRun,
+  }
+}
+
+/** 味方全体対象スペル（癒しの風など）を実行 */
+function executeAllyAllSpellCommand(
+  state: GameState,
+  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' }
+): GameState {
+  if (!state.battleState || !state.run) return state
+
+  const { selectedCommand } = state.battleState
+  if (!selectedCommand || !isSpell(selectedCommand)) return state
+
+  let newBattleState = battleReducer(state.battleState, battleAction)
+
+  // MP消費は術者に適用
+  const { updatedExplorer: explorerAfterCost } = consumeCommandCost(
+    battleAction.explorer, selectedCommand, state.run.gold, 0
+  )
+
+  let updatedRun = updatePartyMember(state.run, explorerAfterCost)
+
+  // ヒール: 生存中の全メンバーにHP回復を適用
+  if (selectedCommand.effect?.type === 'heal') {
+    const healValue = selectedCommand.effect.value
+    const popups = [...newBattleState.playerDamagePopups]
+
+    for (const member of updatedRun.party) {
+      // 戦闘不能メンバーはスキップ（全体ヒールで蘇生させない設計）
+      if (member.hp <= 0) continue
+      const healedHp = Math.min(member.hp + healValue, member.maxHp)
+      const actualHeal = healedHp - member.hp
+      if (actualHeal > 0) {
+        const updatedMember: ExplorerState = { ...member, hp: healedHp }
+        updatedRun = updatePartyMember(updatedRun, updatedMember)
+        popups.push(createPlayerDamagePopup(-actualHeal, member.id))
+      }
+    }
+
+    newBattleState = {
+      ...newBattleState,
+      playerDamagePopups: popups,
+    }
+  }
 
   return {
     ...state,
@@ -764,6 +1013,46 @@ function executeAllyWeaponCommand(
     }
   }
 
+  // 守護の盾: 対象キャラにシールドバフ付与（武器耐久消費あり）
+  if (isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'shield') {
+    const targetMember = state.run.party.find(e => e.id === selectedTargetId)
+    if (targetMember) {
+      const shieldBuff: Buff = {
+        type: 'shield',
+        value: selectedCommand.effect.value,
+        duration: 1,
+      }
+      const updatedTarget = {
+        ...targetMember,
+        battleBuffs: [...targetMember.battleBuffs, shieldBuff],
+      }
+
+      // 攻撃者（武器の使用者）のコスト消費（耐久+hpCost+goldCost）
+      const durabilitySaveChance = getWeaponDurabilitySaveChance(state.run.relics)
+      const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
+      const { updatedExplorer: updatedAttacker } = consumeCommandCost(
+        battleAction.explorer, selectedCommand, state.run.gold, durabilitySaveChance, currentSlot?.weaponIndex
+      )
+
+      // 術者とターゲットが同じ場合は1回、異なる場合は2回updatePartyMember（祈りパターンと統一）
+      const isSelfTarget = battleAction.explorer.id === targetMember.id
+      const mergedTarget: ExplorerState = isSelfTarget
+        ? { ...updatedTarget, weapons: updatedAttacker.weapons, hp: updatedAttacker.hp }
+        : updatedTarget
+
+      let updatedRun = updatePartyMember(state.run, mergedTarget)
+      if (!isSelfTarget) {
+        updatedRun = updatePartyMember(updatedRun, updatedAttacker)
+      }
+
+      return {
+        ...state,
+        battleState: newBattleState,
+        run: updatedRun,
+      }
+    }
+  }
+
   return {
     ...state,
     battleState: newBattleState,
@@ -786,6 +1075,11 @@ export function processExecuteCommand(
   // 味方対象スペル（ヒール、精密など）
   if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {
     return applyRegenAfterAction(executeAllySpellCommand(state, battleAction, relics))
+  }
+
+  // 味方全体対象スペル（癒しの風など）
+  if (isSpell(selectedCommand) && selectedCommand.targetType === 'allyAll') {
+    return applyRegenAfterAction(executeAllyAllSpellCommand(state, battleAction))
   }
 
   // 味方対象武器（祈りなど）— 攻撃ではなくサポート行動
@@ -1032,6 +1326,13 @@ export function processEnemyAction(
     }
   }
 
+  // 身代わりの人形: 致死メンバーをHP1で耐え、レリック消滅（AoEで複数致死なら全員復活）
+  if (state.run) {
+    const result = applyDeathProtection(newRun, newBattleState, state.run.party)
+    newRun = result.run
+    newBattleState = result.battleState
+  }
+
   return {
     ...state,
     battleState: newBattleState,
@@ -1069,12 +1370,19 @@ export function processTurnEndAction(
     enemies: updatedEnemies,
   })
 
+  // 毒ダメージ適用後のrunを構築し、身代わりの人形で致死回避判定
+  const beforeParty = state.run.party
+  let newRun = {
+    ...state.run,
+    party: battleAction.updatedParty,
+  }
+  const result = applyDeathProtection(newRun, newBattleState, beforeParty)
+  newRun = result.run
+  newBattleState = result.battleState
+
   return {
     ...state,
     battleState: newBattleState,
-    run: {
-      ...state.run,
-      party: battleAction.updatedParty,
-    },
+    run: newRun,
   }
 }

@@ -182,5 +182,44 @@
       "value": 1,
       "duration": "nextAction"
     }
+  },
+  "master_bond": {
+    "id": "master_bond",
+    "name": "師弟の絆",
+    "rarity": "Uncommon",
+    "price": 5,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 3,
+    "power": 0,
+    "variance": 0,
+    "effect": { "type": "guidanceBuff" }
+  },
+  "education_bullet": {
+    "id": "education_bullet",
+    "name": "教育の魔弾",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 5,
+    "power": 3,
+    "variance": 4,
+    "effect": { "type": "killBonusExpToAll" }
+  },
+  "healing_wind": {
+    "id": "healing_wind",
+    "name": "癒しの風",
+    "rarity": "Common",
+    "price": 7,
+    "commandCategory": "spell",
+    "targetType": "allyAll",
+    "mpCost": 7,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "heal",
+      "value": 15
+    }
   }
 }

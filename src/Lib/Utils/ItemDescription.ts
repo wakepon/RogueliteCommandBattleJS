@@ -16,6 +16,7 @@ export interface DamageContext {
   relics: RelicInstance[]
   killStreakActive?: boolean
   includeConditionalRelics?: boolean
+  party?: ExplorerState[]  // 番狂わせの一撃用: パーティ全体のレベル比較
 }
 
 /** DamageContextからDamagePredictOptionsへ変換 */
@@ -24,6 +25,7 @@ function toPredictOptions(context: DamageContext): DamagePredictOptions {
     relics: context.relics,
     killStreakActive: context.killStreakActive,
     includeConditionalRelics: context.includeConditionalRelics,
+    party: context.party,
   }
 }
 
@@ -68,6 +70,16 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
       return `武器破壊ごとにダメージ+${Math.floor(effect.increment * 100)}%蓄積`
     case 'weaponBreakNextAttackBonus':
       return `武器破壊後、次の武器攻撃Power+${effect.value}`
+    case 'levelUpDamageBoost':
+      return `戦闘中レベルアップ時、そのキャラの次の行動ダメージ×${effect.multiplier}`
+    case 'battleEndBonusExp':
+      return `戦闘後に全員経験値+${effect.expValue}、獲得G-${effect.goldPenalty}`
+    case 'lowestLevelDamageMultiplier':
+      return `パーティで最もレベルが低いキャラのダメージ×${effect.multiplier}`
+    case 'highHpTargetRateBonus':
+      return `最もHPが多いキャラの被弾率+${effect.value}%`
+    case 'deathProtection':
+      return '致死ダメージでHP1で耐える（1ランに1回消滅）'
   }
 }
 
@@ -92,6 +104,12 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       }
       if (weapon.effect.type === 'conditionalPower') {
         desc += ` | HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`
+      }
+      if (weapon.effect.type === 'shield') {
+        desc += ` | シールド${weapon.effect.value}付与`
+      }
+      if (weapon.effect.type === 'killPreserveDurability') {
+        desc += ' | トドメ時に耐久消費なし'
       }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
@@ -134,6 +152,10 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 武器耐久+${spell.effect.value}回復`
       } else if (spell.effect.type === 'weaponPowerBuff') {
         desc += ` | 次の武器攻撃Power+${spell.effect.value}`
+      } else if (spell.effect.type === 'guidanceBuff') {
+        desc += ' | 導き付与(次トドメで+1EXP)'
+      } else if (spell.effect.type === 'killBonusExpToAll') {
+        desc += ' | トドメ時に全員へボーナスEXP'
       }
     }
     return desc
@@ -246,6 +268,10 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ` 耐久+${command.effect.value}`
       } else if (command.effect.type === 'weaponPowerBuff') {
         desc += ` 次武器P+${command.effect.value}`
+      } else if (command.effect.type === 'guidanceBuff') {
+        desc += ' 導き付与'
+      } else if (command.effect.type === 'killBonusExpToAll') {
+        desc += ' 全員EXP+'
       }
     }
     return desc

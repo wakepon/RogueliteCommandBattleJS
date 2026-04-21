@@ -3,6 +3,7 @@ import { getTuningValue } from '../Tuning/TuningStore'
 
 /** レベルアップ時の情報 */
 export interface LevelUpInfo {
+  explorerId: string
   previousLevel: number
   newLevel: number
   hpRecovered: number
@@ -99,6 +100,7 @@ export function applyLevelUp(explorer: ExplorerState): {
   }
 
   const levelUpInfo: LevelUpInfo = {
+    explorerId: explorer.id,
     previousLevel,
     newLevel,
     characterName: explorer.name,
@@ -156,7 +158,11 @@ export function addExpAndProcessLevelUp(
 export function distributeExpToParty(
   party: ExplorerState[],
   killerExplorerId: string,
-  defeatedCount: number
+  defeatedCount: number,
+  options?: {
+    extraBonusToAll?: number        // 全員に追加EXP（教育の魔弾）
+    extraKillerBonus?: number       // キラーに追加EXP（導きバフ）
+  }
 ): {
   updatedParty: ExplorerState[]
   allLevelUps: LevelUpInfo[]
@@ -166,12 +172,14 @@ export function distributeExpToParty(
   }
 
   const allLevelUps: LevelUpInfo[] = []
+  const extraBonusToAll = options?.extraBonusToAll ?? 0
+  const extraKillerBonus = options?.extraKillerBonus ?? 0
 
   const updatedParty = party.map(member => {
-    // 全員にdefeatedCount分のEXP
-    const baseExp = defeatedCount
-    // 止めを刺したキャラにはさらに+defeatedCount
-    const bonusExp = member.id === killerExplorerId ? defeatedCount : 0
+    // 全員にdefeatedCount分のEXP + 追加ボーナス
+    const baseExp = defeatedCount + extraBonusToAll
+    // 止めを刺したキャラにはさらに+defeatedCount + 追加キラーボーナス
+    const bonusExp = member.id === killerExplorerId ? defeatedCount + extraKillerBonus : 0
     const totalExp = baseExp + bonusExp
 
     const { updatedExplorer, levelUps } = addExpAndProcessLevelUp(member, totalExp)

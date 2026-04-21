@@ -189,6 +189,30 @@
     "variance": 7,
     "maxUses": 2
   },
+  "soul_eater_sword": {
+    "id": "soul_eater_sword",
+    "name": "魂喰いの剣",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 6,
+    "variance": 5,
+    "maxUses": 1,
+    "effect": { "type": "killPreserveDurability" }
+  },
+  "guardian_shield": {
+    "id": "guardian_shield",
+    "name": "守護の盾",
+    "rarity": "Uncommon",
+    "price": 8,
+    "commandCategory": "weapon",
+    "targetType": "allySingle",
+    "power": 0,
+    "variance": 0,
+    "maxUses": 5,
+    "effect": { "type": "shield", "value": 20 }
+  },
   "prayer": {
     "id": "prayer",
     "name": "祈り",

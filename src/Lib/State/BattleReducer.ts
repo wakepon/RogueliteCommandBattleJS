@@ -212,7 +212,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       const { command, targetId } = currentSlot
 
       // 味方対象（ヒール/精密/祈りなど）: 効果適用はGameReducer側
-      if ((isSpell(command) && command.targetType === 'allySingle') ||
+      if ((isSpell(command) && (command.targetType === 'allySingle' || command.targetType === 'allyAll')) ||
           (isWeapon(command) && command.targetType === 'allySingle')) {
         return state
       }
