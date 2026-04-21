@@ -170,10 +170,10 @@
     "id": "precision",
     "name": "精密",
     "rarity": "Common",
-    "price": 6,
+    "price": 4,
     "commandCategory": "spell",
     "targetType": "allySingle",
-    "mpCost": 3,
+    "mpCost": 2,
     "power": 0,
     "variance": 0,
     "effect": {
