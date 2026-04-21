@@ -106,6 +106,12 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (weapon.effect.type === 'conditionalPower') {
         lines.push({ label: '条件', value: `HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
       }
+      if (weapon.effect.type === 'shield') {
+        lines.push({ label: '効果', value: `シールド${weapon.effect.value}付与`, color: 'text-cyan-300' })
+      }
+      if (weapon.effect.type === 'killPreserveDurability') {
+        lines.push({ label: '効果', value: 'トドメ時に耐久消費なし', color: 'text-yellow-300' })
+      }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       lines.push({ label: 'HP消費', value: `${weapon.hpCost}/回`, color: 'text-red-400' })
@@ -161,12 +167,21 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'weaponPowerBuff') {
         lines.push({ label: '効果', value: `次の武器攻撃P+${spell.effect.value}`, color: 'text-orange-300' })
       }
+      if (spell.effect.type === 'guidanceBuff') {
+        lines.push({ label: '効果', value: '導き付与(次トドメで+1EXP)', color: 'text-yellow-300' })
+      }
+      if (spell.effect.type === 'killBonusExpToAll') {
+        lines.push({ label: '効果', value: 'トドメ時全員にボーナスEXP', color: 'text-yellow-300' })
+      }
     }
     if (spell.targetType === 'enemyAll') {
       lines.push({ label: '対象', value: '全体攻撃', color: 'text-red-300' })
     }
     if (spell.targetType === 'allySingle') {
       lines.push({ label: '対象', value: '味方単体', color: 'text-green-300' })
+    }
+    if (spell.targetType === 'allyAll') {
+      lines.push({ label: '対象', value: '味方全体', color: 'text-green-300' })
     }
     return lines
   }

@@ -9,6 +9,8 @@ export type WeaponEffect =
   | { type: 'lifesteal'; value: number }
   | { type: 'targetRateUp'; value: number }  // 祈り: 被ターゲット率UP
   | { type: 'conditionalPower'; hpThreshold: number; bonusPower: number }  // HP条件でPower増加
+  | { type: 'shield'; value: number }  // 守護の盾: 対象に被ダメ軽減シールド付与
+  | { type: 'killPreserveDurability' }  // 魂喰いの剣: トドメを刺すと耐久を消費しない
 
 /** 武器データ（マスター） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {

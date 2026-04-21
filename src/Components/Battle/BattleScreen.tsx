@@ -422,7 +422,7 @@ export function BattleScreen() {
   // ドラッグ中はクリックベースのターゲット選択を無効化（D&Dで処理するため）
   const isSelectingTarget = selectedCommand !== null && isCommandPhase && !draggingCommand
   const uniquePotions = potions.filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
-  const targetRates = calculateTargetRates(party)
+  const targetRates = calculateTargetRates(party, run.relics)
 
   // 祈りコマンドによる被弾率プレビュー
   const previewParty = party.map(member => {
@@ -438,7 +438,7 @@ export function BattleScreen() {
       battleBuffs: [...member.battleBuffs, { type: 'targetRateUp' as const, value: effect.value, duration: 1 as const }],
     }
   })
-  const previewTargetRates = calculateTargetRates(previewParty)
+  const previewTargetRates = calculateTargetRates(previewParty, run.relics)
 
   // === D&D ハンドラ ===
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -517,7 +517,7 @@ export function BattleScreen() {
       : rawExplorerId
 
     const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll'
-    const isAllyTargetCmd = command.targetType === 'allySingle'
+    const isAllyTargetCmd = command.targetType === 'allySingle' || command.targetType === 'allyAll'
 
     let targetId: string | null = null
     if (overId.startsWith('enemy-') && isEnemyTarget) {
@@ -600,7 +600,7 @@ export function BattleScreen() {
 
           <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
             {enemies.map((enemy) => {
-              const isAllyTarget = selectedCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allySingle'
+              const isAllyTarget = selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll' || draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'
               const { isSelected, isHighlighted } = isSelectingTarget && selectedCommand && !isAllyTarget
                 ? getTargetSelectionState(enemy, selectedTargetId, selectedCommand.targetType)
                 : { isSelected: false, isHighlighted: false }
@@ -632,7 +632,7 @@ export function BattleScreen() {
 
               return (
                 <div key={enemy.instanceId} id={`enemy-dom-${enemy.instanceId}`}>
-                  <DroppableTarget id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingPanel}>
+                  <DroppableTarget id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll' || draggingPanel}>
                     <EnemyDisplay enemy={enemy} isCurrentActor={false}
                       isTargetSelected={isSelected} isTargetHighlighted={isHighlighted}
                       isDragTarget={isDraggingAttack}
@@ -678,10 +678,10 @@ export function BattleScreen() {
                       previewRate={prevRate}
                       isSelectingTarget={isSelectingTarget}
                       selectedTargetId={selectedTargetId}
-                      draggingAllyTarget={draggingCommand?.targetType === 'allySingle'}
+                      draggingAllyTarget={draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'}
                       draggingEnemyTarget={draggingCommand !== null && (draggingCommand.targetType === 'enemySingle' || draggingCommand.targetType === 'enemyAll')}
                       onAllyClick={() => {
-                        if (isSelectingTarget && selectedCommand?.targetType === 'allySingle') {
+                        if (isSelectingTarget && (selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll')) {
                           selectTarget(member.id)
                           setTimeout(() => executeCommand(), 0)
                         }

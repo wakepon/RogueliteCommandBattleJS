@@ -16,12 +16,13 @@ interface DraggableCommandProps {
 /** コマンドカテゴリに応じたアイコン */
 function getCommandStyle(command: BattleCommand): { bgColor: string; label: string } {
   if (isWeapon(command)) {
-    // 祈り（味方対象武器）
+    // 祈り/守護の盾（味方対象武器）
     if (command.targetType === 'allySingle') return { bgColor: 'bg-green-600', label: '祈' }
     return { bgColor: 'bg-orange-600', label: '剣' }
   }
   if (isSpell(command)) {
     if (command.targetType === 'allySingle') return { bgColor: 'bg-green-600', label: '回' }
+    if (command.targetType === 'allyAll') return { bgColor: 'bg-green-600', label: '癒' }
     return { bgColor: 'bg-purple-600', label: '魔' }
   }
   if (isPotion(command)) return { bgColor: 'bg-teal-600', label: '薬' }

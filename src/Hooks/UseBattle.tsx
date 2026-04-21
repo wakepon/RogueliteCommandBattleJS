@@ -134,7 +134,7 @@ export function useBattle(): UseBattleResult | null {
     if (!enemy) return
 
     // 前衛/後衛の被ターゲット率に基づいてターゲット選択
-    const targetRates = calculateTargetRates(run.party)
+    const targetRates = calculateTargetRates(run.party, run.relics)
     const targetId = selectTargetByRate(targetRates)
     if (!targetId) return
     const targetMember = run.party.find(m => m.id === targetId)

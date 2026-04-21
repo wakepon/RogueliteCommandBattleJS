@@ -21,6 +21,12 @@ export type PassiveEffectType =
   | { type: 'goldPerKill'; value: number }  // 商人の護符: キル時ゴールド
   | { type: 'weaponBreakDamageMultiplier'; increment: number }  // 不死鳥の残り火: 武器破壊時倍率蓄積
   | { type: 'weaponBreakNextAttackBonus'; value: number }  // 鍛冶師の金槌: 武器破壊後Power加算
+  // EXP・防御系
+  | { type: 'levelUpDamageBoost'; multiplier: number }  // 闘気の腕輪: 戦闘中レベルアップ時、次攻撃ダメージ倍率
+  | { type: 'battleEndBonusExp'; expValue: number; goldPenalty: number }  // 修羅の証: 戦闘後全員+EXP、ゴールド-N
+  | { type: 'lowestLevelDamageMultiplier'; multiplier: number }  // 番狂わせの一撃: パーティ最低レベル者のダメージ倍率
+  | { type: 'highHpTargetRateBonus'; value: number }  // 強い者いじめ: HP最大者の被弾率+N%
+  | { type: 'deathProtection' }  // 身代わりの人形: 致死ダメージでHP1耐え、1ラン1回消滅
 
 /** パッシブ効果を持つアイテム */
 export interface IPassiveEffect {

@@ -25,7 +25,8 @@ import {
   getRepairableWeapons,
 } from '../Core/EventLogic'
 import { generateMapNodes } from '../Core/MapGenerator'
-import { getInterestCapBonus, getPotionEffectMultiplier } from '../Core/RelicProcessor'
+import { getInterestCapBonus, getPotionEffectMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
+import { addExpAndProcessLevelUp } from '../Core/LevelUpCalculator'
 import {
   processExecuteCommand,
   processEnemyAction,
@@ -159,15 +160,30 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         const killCount = state.battleState.enemies.length
 
         // 戦闘不能キャラをHP1で復活 + バフ/デバフをクリア
-        const revivedParty = state.run.party.map(member => ({
+        let revivedParty: ExplorerState[] = state.run.party.map(member => ({
           ...member,
           hp: member.hp <= 0 ? 1 : member.hp,
           battleBuffs: [],
           battleDebuffs: [],
         }))
 
+        // 修羅の証: 戦闘後に全員にボーナスEXP、ゴールドペナルティ
+        // レベルアップはrevivedPartyに反映され、memberDiffs経由でリザルト画面に表示される
+        const shuraBonus = getBattleEndBonusExp(state.run.relics)
+        let rewardTotal = reward.total
+        if (shuraBonus) {
+          rewardTotal = Math.max(0, rewardTotal - shuraBonus.goldPenalty)
+          revivedParty = revivedParty.map(member => {
+            const { updatedExplorer } = addExpAndProcessLevelUp(member, shuraBonus.expValue)
+            return {
+              ...updatedExplorer,
+              killCount: updatedExplorer.killCount + shuraBonus.expValue,
+            }
+          })
+        }
+
         const snapshot = state.run.battleStartSnapshot
-        const endGold = state.run.gold + reward.total
+        const endGold = state.run.gold + rewardTotal
         const memberDiffs = snapshot
           ? calculateMemberDiffs(snapshot.party, revivedParty)
           : []
@@ -175,7 +191,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
         const resultState: ResultState = {
           result: 'victory',
-          goldEarned: reward.total,
+          goldEarned: rewardTotal,
           baseGold: reward.baseGold,
           interestGold: reward.interestGold,
           stolenGold: reward.stolenGold,
@@ -191,7 +207,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           stats: {
             ...state.run.stats,
             totalKillCount: state.run.stats.totalKillCount + killCount,
-            totalGoldEarned: state.run.stats.totalGoldEarned + reward.total,
+            totalGoldEarned: state.run.stats.totalGoldEarned + rewardTotal,
           },
           battleLevelUps: [],
           battleStartSnapshot: null,
