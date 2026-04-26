@@ -47,6 +47,41 @@
   animation: avatar-heal 700ms ease-in-out;
 }
 
+/* リザルト: カード出現 */
+@keyframes card-fade {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-card-fade {
+  animation: card-fade 350ms ease-out both;
+}
+
+/* リザルト: 小項目フェードイン */
+@keyframes item-fade {
+  0%   { opacity: 0; transform: translateX(-6px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.animate-item-fade {
+  animation: item-fade 250ms ease-out both;
+}
+
+/* リザルト: レベルアップ振動（500ms） */
+@keyframes result-shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-6px); }
+  20% { transform: translateX(6px); }
+  30% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  50% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+  70% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  90% { transform: translateX(-2px); }
+}
+.animate-result-shake {
+  animation: result-shake 500ms ease-in-out;
+}
+
 /* メンバーパネル: 被弾時の振動 */
 @keyframes panel-shake {
   0%, 100% { transform: translateX(0); }

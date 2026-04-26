@@ -1,28 +1,80 @@
-import { MemberBattleDiff } from '../../Lib/Types/Game'
+import { MemberBattleDiff, MemberAnimationPhase } from '../../Lib/Types/Game'
 import { ResourceBar } from '../Common'
 import { DiffLabel } from './DiffLabel'
 
 interface ResultMemberPanelProps {
   diff: MemberBattleDiff
+  /** アニメーションフェーズ。'pending' は未表示扱いで何も描画しない */
+  phase: MemberAnimationPhase
 }
+
+const RESOURCE_TRANSITION_MS = 800
 
 /**
  * リザルト画面のメンバーパネル
- * HP / MP / レベル / 経験値 / 武器耐久 を現在値＋変化量で表示
+ * phase に応じて戦闘前値→戦闘後値へ伸縮、レベルアップ振動などのアニメを実行
  */
-export function ResultMemberPanel({ diff }: ResultMemberPanelProps) {
+export function ResultMemberPanel({ diff, phase }: ResultMemberPanelProps) {
+  if (phase === 'pending') return null
+
   const leveledUp = diff.levelDiff > 0
-  const prevLevel = diff.level - diff.levelDiff
-  // 武器耐久を表示する対象（無制限武器 maxUses=null は除外）
+
+  // resourcesAnimate に達するまでは before 値を表示。それ以降は after 値（伸縮で見せる）
+  const showAfterResources = phase !== 'enter'
+
+  // レベル表示は levelUpdated 以降で新値、それより前は before 値
+  const showNewLevel = phase === 'levelUpdated' || phase === 'maxStatsRevealed' || phase === 'done'
+  const displayLevel = showNewLevel ? diff.level : diff.levelBefore
+
+  // maxHP/maxMP の差分ラベルは maxStatsRevealed 以降のみ表示
+  const showMaxDiff = phase === 'maxStatsRevealed' || phase === 'done'
+
+  // HP/MP の現在値・最大値（before/after）
+  const hpCurrent = showAfterResources ? diff.hp : diff.hpBefore
+  const mpCurrent = showAfterResources ? diff.mp : diff.mpBefore
+  // maxHp は maxStatsRevealed 以降で新最大値、その前は旧最大値（バー伸縮はそれに合わせる）
+  const hpMax = showMaxDiff ? diff.maxHp : diff.maxHpBefore
+  const mpMax = showMaxDiff ? diff.maxMp : diff.maxMpBefore
+
+  // EXP: レベルアップ前は before の expRequired を分母に、レベル更新後は新 expRequired を分母に
+  let expCurrent: number
+  let expMax: number
+  if (!showAfterResources) {
+    // enter: 戦闘前
+    expCurrent = diff.expBefore
+    expMax = diff.expRequiredBefore
+  } else if (!showNewLevel) {
+    // resourcesAnimate / shaking: レベル前枠でバー満タンへ（レベルアップ時）or 普通の after 値（非レベルアップ）
+    if (leveledUp) {
+      expCurrent = diff.expRequiredBefore
+      expMax = diff.expRequiredBefore
+    } else {
+      expCurrent = diff.exp
+      expMax = diff.expRequired
+    }
+  } else {
+    // levelUpdated 以降: 新レベルでの実値
+    expCurrent = diff.exp
+    expMax = diff.expRequired
+  }
+
+  // 武器耐久値: showAfterResources で after に切り替え
   const durableWeapons = diff.weapons.filter(w => w.maxUses !== null)
 
+  // 振動クラス: shaking のみ
+  const shakeClass = phase === 'shaking' ? 'animate-result-shake' : ''
+  // 大カードの出現アニメ: enter フェーズのみ
+  const enterAnimClass = phase === 'enter' ? 'animate-card-fade' : ''
+
   return (
-    <div className="bg-black/30 rounded-lg p-4 text-white">
+    <div className={`bg-black/30 rounded-lg p-4 text-white ${enterAnimClass} ${shakeClass}`}>
       {/* 名前とレベル */}
       <div className="flex justify-between items-center mb-2">
         <span className="text-white font-bold">{diff.name}</span>
         <span className="text-yellow-400 text-sm">
-          {leveledUp ? `Lv.${prevLevel} → Lv.${diff.level}` : `Lv.${diff.level}`}
+          {leveledUp && showNewLevel
+            ? `Lv.${diff.levelBefore} → Lv.${diff.level}`
+            : `Lv.${displayLevel}`}
         </span>
       </div>
 
@@ -32,20 +84,21 @@ export function ResultMemberPanel({ diff }: ResultMemberPanelProps) {
           <span>HP</span>
           <span className="flex items-center gap-1">
             <span>
-              {diff.hp} / {diff.maxHp}
+              {hpCurrent} / {hpMax}
             </span>
-            <DiffLabel value={diff.hpDiff} />
-            {diff.maxHpDiff !== 0 && (
+            {showAfterResources && <DiffLabel value={diff.hpDiff} />}
+            {showMaxDiff && diff.maxHpDiff !== 0 && (
               <DiffLabel value={diff.maxHpDiff} prefix="(max " suffix=")" />
             )}
           </span>
         </div>
         <ResourceBar
-          current={diff.hp}
-          max={diff.maxHp}
+          current={hpCurrent}
+          max={hpMax}
           color="green"
           showText={false}
           size="sm"
+          transitionMs={RESOURCE_TRANSITION_MS}
         />
       </div>
 
@@ -55,58 +108,63 @@ export function ResultMemberPanel({ diff }: ResultMemberPanelProps) {
           <span>MP</span>
           <span className="flex items-center gap-1">
             <span>
-              {diff.mp} / {diff.maxMp}
+              {mpCurrent} / {mpMax}
             </span>
-            <DiffLabel value={diff.mpDiff} />
-            {diff.maxMpDiff !== 0 && (
+            {showAfterResources && <DiffLabel value={diff.mpDiff} />}
+            {showMaxDiff && diff.maxMpDiff !== 0 && (
               <DiffLabel value={diff.maxMpDiff} prefix="(max " suffix=")" />
             )}
           </span>
         </div>
         <ResourceBar
-          current={diff.mp}
-          max={diff.maxMp}
+          current={mpCurrent}
+          max={mpMax}
           color="blue"
           showText={false}
           size="sm"
+          transitionMs={RESOURCE_TRANSITION_MS}
         />
       </div>
 
-      {/* EXP（現在値のみ、差分は表示しない） */}
+      {/* EXP */}
       <div className="mb-2">
         <div className="flex justify-between text-xs text-gray-400 mb-0.5">
           <span>EXP</span>
           <span>
-            {diff.exp} / {diff.expRequired}
+            {expCurrent} / {expMax}
           </span>
         </div>
         <ResourceBar
-          current={diff.exp}
-          max={diff.expRequired}
+          current={expCurrent}
+          max={expMax}
           color="yellow"
           showText={false}
           size="sm"
+          transitionMs={RESOURCE_TRANSITION_MS}
         />
       </div>
 
       {/* 武器耐久値リスト */}
       {durableWeapons.length > 0 && (
         <div className="mt-2 pt-2 border-t border-gray-700 space-y-0.5">
-          {durableWeapons.map((w, i) => (
-            <div
-              key={`${w.weaponId}-${i}`}
-              className="flex justify-between items-center text-xs"
-            >
-              <span className="text-gray-300">{w.weaponName}</span>
-              <span className="flex items-center gap-1">
-                <span className={w.broken ? 'text-red-400 font-bold' : 'text-white'}>
-                  {w.currentUses}
+          {durableWeapons.map((w, i) => {
+            const displayUses = showAfterResources ? w.currentUses : w.usesBefore
+            return (
+              <div
+                key={`${w.weaponId}-${i}`}
+                className="flex justify-between items-center text-xs"
+              >
+                <span className="text-gray-300">{w.weaponName}</span>
+                <span className="flex items-center gap-1">
+                  <span className={w.broken && showAfterResources ? 'text-red-400 font-bold' : 'text-white'}>
+                    {displayUses}
+                  </span>
+                  <span className="text-gray-500">/ {w.maxUses}</span>
+                  {showAfterResources && <DiffLabel value={w.usesDiff} />}
                 </span>
-                <span className="text-gray-500">/ {w.maxUses}</span>
-                <DiffLabel value={w.usesDiff} />
-              </span>
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

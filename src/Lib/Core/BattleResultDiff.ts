@@ -29,6 +29,7 @@ export function calculateMemberDiffs(
         weaponName: w.name,
         currentUses: w.currentUses,
         maxUses: w.maxUses,
+        usesBefore: startUses,
         usesDiff,
         broken: w.maxUses !== null && w.currentUses === 0,
       }
@@ -51,6 +52,13 @@ export function calculateMemberDiffs(
       mpDiff: current.mp - snap.mp,
       maxMpDiff: current.maxMp - snap.maxMp,
       levelDiff: current.level - snap.level,
+      hpBefore: snap.hp,
+      maxHpBefore: snap.maxHp,
+      mpBefore: snap.mp,
+      maxMpBefore: snap.maxMp,
+      levelBefore: snap.level,
+      expBefore: snap.exp,
+      expRequiredBefore: getRequiredKillsForNextLevel(snap.level),
     }
   })
 }

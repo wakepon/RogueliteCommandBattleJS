@@ -55,6 +55,7 @@ export interface WeaponUsesDiff {
   weaponName: string
   currentUses: number | null   // null=無制限
   maxUses: number | null
+  usesBefore: number | null    // 戦闘開始時のcurrentUses
   usesDiff: number              // 現値 - 開始値（負が消費）
   broken: boolean               // currentUses === 0 && maxUses !== null
 }
@@ -64,7 +65,7 @@ export interface MemberBattleDiff {
   explorerId: string
   name: string
   characterClass: CharacterClass
-  // 現在値
+  // 現在値（戦闘終了時）
   hp: number
   maxHp: number
   mp: number
@@ -79,7 +80,31 @@ export interface MemberBattleDiff {
   mpDiff: number
   maxMpDiff: number
   levelDiff: number
+  // 戦闘開始時の値（リザルトアニメで before→after を描画するため）
+  hpBefore: number
+  maxHpBefore: number
+  mpBefore: number
+  maxMpBefore: number
+  levelBefore: number
+  expBefore: number
+  expRequiredBefore: number
 }
+
+/** リザルト画面の追加報酬エントリ（魔法/レリック効果による加減算、将来拡張用） */
+export interface ResultBonusEntry {
+  source: string   // 例: '金のまじない', '修羅の証'
+  value: number    // 正=加算、負=減算
+}
+
+/** リザルト画面のメンバーアニメーションフェーズ */
+export type MemberAnimationPhase =
+  | 'pending'           // まだ表示されていない
+  | 'enter'             // 大カードのフェードイン中（数値はbefore）
+  | 'resourcesAnimate'  // HP/MP/EXP/武器耐久をafterへ伸縮中
+  | 'shaking'           // レベルアップ振動中
+  | 'levelUpdated'      // レベル数値を新値に更新済み
+  | 'maxStatsRevealed'  // maxHP/maxMPの差分を表示済み
+  | 'done'              // 完了
 
 /** 戦闘結果の状態 */
 export interface ResultState {
@@ -88,6 +113,7 @@ export interface ResultState {
   baseGold: number        // 敵種別報酬
   interestGold: number    // 利子
   stolenGold: number      // 盗んだゴールド
+  bonusEntries: ResultBonusEntry[]  // 魔法/レリック効果による追加報酬（将来拡張、現状は空配列）
   killCount: number       // 討伐数
   memberDiffs: MemberBattleDiff[]  // メンバー別変化量（勝利時のみ有効、敗北時は空配列）
   goldDiff: number                 // gold総差分（勝利時のみ意味を持つ）

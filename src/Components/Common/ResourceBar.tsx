@@ -4,6 +4,8 @@ interface ResourceBarProps {
   color: 'red' | 'blue' | 'green' | 'yellow'
   showText?: boolean
   size?: 'sm' | 'md' | 'lg'
+  /** width transition duration (ms). 既定 300ms */
+  transitionMs?: number
 }
 
 const colorClasses: Record<ResourceBarProps['color'], string> = {
@@ -25,6 +27,7 @@ export function ResourceBar({
   color,
   showText = true,
   size = 'md',
+  transitionMs = 300,
 }: ResourceBarProps) {
   const percentage = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0
 
@@ -32,8 +35,8 @@ export function ResourceBar({
     <div className="w-full">
       <div className={`w-full bg-gray-700 rounded ${sizeClasses[size]} overflow-hidden`}>
         <div
-          className={`${colorClasses[color]} ${sizeClasses[size]} transition-all duration-300`}
-          style={{ width: `${percentage}%` }}
+          className={`${colorClasses[color]} ${sizeClasses[size]} transition-all`}
+          style={{ width: `${percentage}%`, transitionDuration: `${transitionMs}ms` }}
         />
       </div>
       {showText && (

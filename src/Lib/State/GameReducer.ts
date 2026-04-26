@@ -195,6 +195,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           baseGold: reward.baseGold,
           interestGold: reward.interestGold,
           stolenGold: reward.stolenGold,
+          bonusEntries: [],
           killCount,
           memberDiffs,
           goldDiff,
