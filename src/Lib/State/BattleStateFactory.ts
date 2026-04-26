@@ -67,16 +67,17 @@ function getTurnLimitForStage(stage: number): number {
 }
 
 // パーティー→敵の固定順でアクションキューを生成（AGI不要）
-// Phase 1: party[0]のみ操作可能。Phase 2で全パーティーメンバーに拡張予定
-function createActionQueue(
+// Phase 2: 生存メンバー全員を party 配列順で行動させる
+export function createActionQueue(
   party: ExplorerState[],
   enemies: EnemyInstance[]
 ): ActorId[] {
-  // Phase 1: 先頭メンバーのみ
-  const explorerActors: ActorId[] = party.slice(0, 1).map(e => ({
-    type: 'explorer' as const,
-    id: e.id,
-  }))
+  const explorerActors: ActorId[] = party
+    .filter(e => e.hp > 0)
+    .map(e => ({
+      type: 'explorer' as const,
+      id: e.id,
+    }))
 
   const enemyActors: ActorId[] = enemies.map(e => ({
     type: 'enemy' as const,

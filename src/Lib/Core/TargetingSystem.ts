@@ -2,6 +2,7 @@ import { ExplorerState } from '../Types/Explorer'
 import { RelicInstance } from '../Types/Relic'
 import { getTuningValue } from '../Tuning/TuningStore'
 import { getHighHpTargetRateBonus } from './RelicProcessor'
+import { getFrontMemberId } from './PositionUtils'
 
 /** 各キャラの被ターゲット率 */
 export interface TargetRate {
@@ -13,6 +14,8 @@ export interface TargetRate {
  * 前衛/後衛に基づく基本被ターゲット率を計算
  *
  * ルール:
+ * - 前衛 = party 配列先頭の生存者（getFrontMemberId）
+ *   先頭が死体なら前衛なし扱い ⇒ 生存者全員が後衛重みで按分
  * - 前衛は後衛の2倍の確率で狙われる
  * - 戦闘不能キャラは対象外
  * - 祈りバフ: 対象の被ターゲット率+25%、残りを按分減少
@@ -27,9 +30,10 @@ export function calculateTargetRates(
   // 基本ウェイト: 前衛/後衛（Tuning対応）
   const frontWeight = getTuningValue('front_position_weight', 2)
   const backWeight = getTuningValue('back_position_weight', 1)
+  const frontId = getFrontMemberId(party)
   const weights = alive.map(m => ({
     explorerId: m.id,
-    weight: m.position === 'front' ? frontWeight : backWeight,
+    weight: m.id === frontId ? frontWeight : backWeight,
   }))
 
   // 祈りバフによる補正

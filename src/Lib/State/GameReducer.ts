@@ -5,7 +5,7 @@ import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
 import { SpellData } from '../Types/Spell'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
-import { createBattleState, applyBloodPact } from './BattleStateFactory'
+import { createBattleState, applyBloodPact, createActionQueue } from './BattleStateFactory'
 import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
 import { calculateReward } from '../Core/RewardCalculator'
 import {
@@ -776,10 +776,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             const newActiveIndex = activeSlot
               ? newSlots.findIndex(s => s.explorerId === activeSlot.explorerId)
               : 0
+            // actionQueue も整合のため再生成（生存メンバー順 + 敵配列順）
+            const newActionQueue = createActionQueue(newParty, state.battleState!.enemies)
             return {
               ...state.battleState!,
               commandSlots: newSlots,
               activeExplorerIndex: Math.max(0, newActiveIndex),
+              actionQueue: newActionQueue,
             }
           })()
         : state.battleState

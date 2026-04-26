@@ -5,7 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
-import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon } from '../../Lib/Core'
+import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon, isFrontMember } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand, CommandSlot } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
@@ -86,8 +86,9 @@ function CharacterPanel({
   dragHandleProps?: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }
 }) {
   const isDead = member.hp <= 0
-  const positionLabel = member.position === 'front' ? '前衛' : '後衛'
-  const positionColor = member.position === 'front' ? 'text-orange-400' : 'text-cyan-400'
+  const isFront = isFrontMember(allParty, member.id)
+  const positionLabel = isFront ? '前衛' : '後衛'
+  const positionColor = isFront ? 'text-orange-400' : 'text-cyan-400'
   const commands = [...member.weapons, ...member.spells]
 
   // EXP/レベルアップ進捗
@@ -104,7 +105,7 @@ function CharacterPanel({
         <div
           {...(dragHandleProps?.listeners ?? {})}
           {...(dragHandleProps?.attributes ?? {})}
-          className={`select-none ${isCommandPhase && !isDead ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          className={`select-none ${isCommandPhase ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
           {/* ヘッダー: 行動順番号 + 名前 + レベル */}
           <div className="flex justify-between items-center mb-1">
@@ -270,13 +271,11 @@ function SharedPanel({
 function SortableCharacterPanel({
   member,
   isCommandPhase,
-  isDead,
   children,
 }: {
   member: ExplorerState
   orderIndex: number
   isCommandPhase: boolean
-  isDead: boolean
   children: (dragHandleProps: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }) => React.ReactNode
 }) {
   const {
@@ -288,7 +287,7 @@ function SortableCharacterPanel({
     isDragging,
   } = useSortable({
     id: `panel-${member.id}`,
-    disabled: !isCommandPhase || isDead,
+    disabled: !isCommandPhase,
   })
 
   const style = {
@@ -666,7 +665,6 @@ export function BattleScreen() {
                   member={member}
                   orderIndex={index}
                   isCommandPhase={isCommandPhase}
-                  isDead={member.hp <= 0}
                 >
                   {(dragHandleProps) => (
                     <CharacterPanel

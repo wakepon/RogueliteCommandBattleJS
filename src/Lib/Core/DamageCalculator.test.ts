@@ -11,7 +11,6 @@ function createMockExplorer(overrides: Partial<ExplorerState> = {}): ExplorerSta
     id: 'test-explorer',
     name: 'Test Explorer',
     characterClass: 'warrior',
-    position: 'front',
     hp: 50,
     maxHp: 50,
     mp: 20,

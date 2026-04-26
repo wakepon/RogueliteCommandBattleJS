@@ -11,9 +11,6 @@ const spellsData = SpellsData as Record<string, SpellData>
 // キャラクタークラス
 export type CharacterClass = 'warrior' | 'mage' | 'cleric'
 
-// 前衛/後衛
-export type Position = 'front' | 'back'
-
 // バトル中のバフ
 export interface Buff {
   type: string
@@ -27,11 +24,11 @@ export type Debuff =
   | { type: 'weakness'; value: number; duration: number }
 
 // Explorer（プレイヤーキャラクター）の状態
+// 前衛/後衛は party 配列順から派生（getFrontMemberId 参照）
 export interface ExplorerState {
   id: string
   name: string
   characterClass: CharacterClass
-  position: Position
   hp: number
   maxHp: number
   mp: number
@@ -86,7 +83,6 @@ export function createSpellInstance(spellId: string): SpellInstance {
 interface ClassTemplate {
   name: string
   characterClass: CharacterClass
-  position: Position
   hp: number
   mp: number
   str: number
@@ -103,7 +99,6 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
     warrior: {
       name: '戦士',
       characterClass: 'warrior',
-      position: 'front',
       hp: getTuningValue('warrior_hp', 60),
       mp: getTuningValue('warrior_mp', 5),
       str: getTuningValue('warrior_str', 7),
@@ -116,7 +111,6 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
     mage: {
       name: '魔法使い',
       characterClass: 'mage',
-      position: 'back',
       hp: getTuningValue('mage_hp', 30),
       mp: getTuningValue('mage_mp', 25),
       str: getTuningValue('mage_str', 3),
@@ -129,7 +123,6 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
     cleric: {
       name: '僧侶',
       characterClass: 'cleric',
-      position: 'back',
       hp: getTuningValue('cleric_hp', 40),
       mp: getTuningValue('cleric_mp', 15),
       str: getTuningValue('cleric_str', 4),
@@ -149,7 +142,6 @@ function createExplorerByClass(characterClass: CharacterClass, index: number): E
     id: `explorer-${index}`,
     name: template.name,
     characterClass: template.characterClass,
-    position: template.position,
     hp: template.hp,
     maxHp: template.hp,
     mp: template.mp,
