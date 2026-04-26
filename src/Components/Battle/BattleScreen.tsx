@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, DragOverlay, pointerWithin, closestCenter, CollisionDetection } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
@@ -24,6 +24,7 @@ import { NextStagePreview } from './NextStagePreview'
 import { GameOverOverlay } from './GameOverOverlay'
 import { ExpPopupEffect } from './ExpPopupEffect'
 import { PlayerDamagePopupEffect } from './PlayerDamagePopupEffect'
+import { PartyAvatars, AvatarActingType, CLASS_ICONS } from './PartyAvatars'
 
 /** ターゲット名を解決 */
 function resolveTargetName(
@@ -66,6 +67,8 @@ function CharacterPanel({
   draggingPanel,
   orderIndex,
   dragHandleProps,
+  acting,
+  shaking,
 }: {
   member: ExplorerState
   isCommandPhase: boolean
@@ -84,6 +87,10 @@ function CharacterPanel({
   draggingPanel: boolean
   orderIndex: number
   dragHandleProps?: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }
+  /** 行動中ならアニメ種別。攻撃/ヒール時にパネル全体を浮かせる */
+  acting: AvatarActingType | null
+  /** 被弾時の振動フラグ */
+  shaking: boolean
 }) {
   const isDead = member.hp <= 0
   const isFront = isFrontMember(allParty, member.id)
@@ -95,10 +102,12 @@ function CharacterPanel({
   const requiredKills = getRequiredKillsForNextLevel(member.level)
   const expProgress = requiredKills > 0 ? member.exp : 0
 
+  const animClass = acting ? 'animate-panel-rise' : shaking ? 'animate-panel-shake' : ''
+
   return (
     <DroppableTarget id={`ally-${member.id}`} disabled={!isCommandPhase || draggingEnemyTarget || draggingPanel}>
       <div
-        className={`relative h-full flex flex-col rounded p-1.5 ${isDead ? 'opacity-40 bg-gray-800' : 'bg-gray-800/50'}`}
+        className={`relative h-full flex flex-col rounded p-1.5 ${isDead ? 'opacity-40 bg-gray-800' : 'bg-gray-800/50'} ${animClass}`}
         onClick={onAllyClick}
       >
         {/* ドラッグ領域: 名前〜EXPバー */}
@@ -107,10 +116,11 @@ function CharacterPanel({
           {...(dragHandleProps?.attributes ?? {})}
           className={`select-none ${isCommandPhase ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
-          {/* ヘッダー: 行動順番号 + 名前 + レベル */}
+          {/* ヘッダー: 行動順番号 + クラスアイコン + 名前 + レベル */}
           <div className="flex justify-between items-center mb-1">
             <div className="flex items-center gap-1">
               <span className="text-yellow-400 font-bold text-[10px]">{ORDER_BADGES[orderIndex] ?? `${orderIndex + 1}`}</span>
+              <span className="text-sm leading-none">{CLASS_ICONS[member.characterClass]}</span>
               <span className="text-white font-bold text-xs">{member.name}</span>
             </div>
             <span className="text-yellow-400 text-[10px]">Lv.{member.level}</span>
@@ -365,6 +375,10 @@ export function BattleScreen() {
   const [draggingExplorerId, setDraggingExplorerId] = useState<string | null>(null)
   const [draggingPanel, setDraggingPanel] = useState(false)
   const [hoverEnemyId, setHoverEnemyId] = useState<string | null>(null)
+  // 行動アニメ: { explorerId, type } を保持。執行直前にセットし、進行後にクリア
+  const [acting, setActing] = useState<{ explorerId: string; type: AvatarActingType } | null>(null)
+  // 被弾振動: 振動中のメンバーID集合
+  const [shakingIds, setShakingIds] = useState<Set<string>>(new Set())
 
   // === フェーズ自動処理 ===
   // レベルアップポップアップ表示中はフェーズ進行を一時停止
@@ -373,9 +387,18 @@ export function BattleScreen() {
   useEffect(() => {
     if (phase !== 'partyAction' || hasLevelUpPopups) return
     const timers: ReturnType<typeof setTimeout>[] = []
+    // 行動者のアニメ種別を判定（攻撃 or 味方対象）
+    const slot = commandSlots[battleState.currentCommandIndex]
+    if (slot?.command && slot.explorerId) {
+      const isEnemyTarget = slot.command.targetType === 'enemySingle' || slot.command.targetType === 'enemyAll' || slot.command.targetType === 'enemyRandom'
+      setActing({ explorerId: slot.explorerId, type: isEnemyTarget ? 'attack' : 'heal' })
+    }
     const t1 = setTimeout(() => {
       executePartyAction()
-      const t2 = setTimeout(() => advancePartyAction(), ACTION_DELAY_MS / 2)
+      const t2 = setTimeout(() => {
+        advancePartyAction()
+        setActing(null)
+      }, ACTION_DELAY_MS / 2)
       timers.push(t2)
     }, ACTION_DELAY_MS)
     timers.push(t1)
@@ -417,6 +440,31 @@ export function BattleScreen() {
     return () => clearTimeout(timer)
   }, [enemies, party, endBattle, hasLevelUpPopups, battleState.isGameOver])
 
+  // 被弾振動: 新しい playerDamagePopup が追加されたタイミングで対象メンバーを振動
+  const prevDamagePopupIdsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const newPopups = playerDamagePopups.filter(p => !prevDamagePopupIdsRef.current.has(p.id))
+    prevDamagePopupIdsRef.current = new Set(playerDamagePopups.map(p => p.id))
+    if (newPopups.length === 0) return
+    const targetIds = newPopups
+      .map(p => p.targetExplorerId)
+      .filter((id): id is string => !!id)
+    if (targetIds.length === 0) return
+    setShakingIds(prev => {
+      const next = new Set(prev)
+      targetIds.forEach(id => next.add(id))
+      return next
+    })
+    const timer = setTimeout(() => {
+      setShakingIds(prev => {
+        const next = new Set(prev)
+        targetIds.forEach(id => next.delete(id))
+        return next
+      })
+    }, 450)
+    return () => clearTimeout(timer)
+  }, [playerDamagePopups])
+
   const isCommandPhase = phase === 'command'
   // ドラッグ中はクリックベースのターゲット選択を無効化（D&Dで処理するため）
   const isSelectingTarget = selectedCommand !== null && isCommandPhase && !draggingCommand
@@ -443,8 +491,8 @@ export function BattleScreen() {
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const activeId = event.active.id as string
 
-    // パネル並び替え
-    if (activeId.startsWith('panel-')) {
+    // パネル並び替え（メンバーパネル または 丸アイコン）
+    if (activeId.startsWith('panel-') || activeId.startsWith('avatar-')) {
       setDraggingPanel(true)
       return
     }
@@ -486,16 +534,23 @@ export function BattleScreen() {
     const activeId = event.active.id as string
     const overId = event.over.id as string
 
-    // パネル並び替え（ally- ドロップゾーンが内側にあるため両方のプレフィックスを認識）
-    if (activeId.startsWith('panel-')) {
+    // パネル並び替え（メンバーパネル または 丸アイコン）
+    if (activeId.startsWith('panel-') || activeId.startsWith('avatar-')) {
+      // ドロップ先IDから対象メンバーIDを抽出（avatar- > ally-avatar- > panel- > ally- の順で判定）
       let targetMemberId: string | null = null
-      if (overId.startsWith('panel-')) {
+      if (overId.startsWith('avatar-')) {
+        targetMemberId = overId.replace('avatar-', '')
+      } else if (overId.startsWith('ally-avatar-')) {
+        targetMemberId = overId.replace('ally-avatar-', '')
+      } else if (overId.startsWith('panel-')) {
         targetMemberId = overId.replace('panel-', '')
       } else if (overId.startsWith('ally-')) {
         targetMemberId = overId.replace('ally-', '')
       }
       if (targetMemberId) {
-        const fromExplorerId = activeId.replace('panel-', '')
+        const fromExplorerId = activeId.startsWith('panel-')
+          ? activeId.replace('panel-', '')
+          : activeId.replace('avatar-', '')
         const fromIndex = party.findIndex(m => m.id === fromExplorerId)
         const toIndex = party.findIndex(m => m.id === targetMemberId)
         if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
@@ -521,6 +576,8 @@ export function BattleScreen() {
     let targetId: string | null = null
     if (overId.startsWith('enemy-') && isEnemyTarget) {
       targetId = overId.replace('enemy-', '')
+    } else if (overId.startsWith('ally-avatar-') && isAllyTargetCmd) {
+      targetId = overId.replace('ally-avatar-', '')
     } else if (overId.startsWith('ally-') && isAllyTargetCmd) {
       targetId = overId.replace('ally-', '')
     }
@@ -541,12 +598,16 @@ export function BattleScreen() {
       return pointerWithin(args)
     }
     if (draggingPanel) {
-      // パネルドラッグ中は panel- と ally- のみを衝突対象にする
+      // パネル/丸アイコンドラッグ中は並び替え用 ID のみ衝突対象
       const filtered = {
         ...args,
         droppableContainers: args.droppableContainers.filter(c => {
           const id = String(c.id)
-          return id.startsWith('panel-') || id.startsWith('ally-')
+          return (
+            id.startsWith('panel-') ||
+            id.startsWith('avatar-') ||
+            id.startsWith('ally-')
+          )
         }),
       }
       return closestCenter(filtered)
@@ -597,6 +658,7 @@ export function BattleScreen() {
             </div>
           )}
 
+          <div className="flex-1 flex items-center gap-3 pr-60">
           <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
             {enemies.map((enemy) => {
               const isAllyTarget = selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll' || draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'
@@ -644,6 +706,23 @@ export function BattleScreen() {
             })}
           </div>
 
+          <PartyAvatars
+            party={party}
+            isCommandPhase={isCommandPhase}
+            draggingAllyTarget={draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'}
+            draggingPanel={draggingPanel}
+            acting={acting}
+            selectedTargetId={selectedTargetId}
+            isSelectingAlly={isSelectingTarget && (selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll')}
+            onAllyClick={(memberId) => {
+              if (isSelectingTarget && (selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll')) {
+                selectTarget(memberId)
+                setTimeout(() => executeCommand(), 0)
+              }
+            }}
+          />
+          </div>
+
           {damagePopups.map((popup) => {
             const targetIndex = enemies.findIndex(e => e.instanceId === popup.targetId)
             if (targetIndex === -1) return null
@@ -651,8 +730,9 @@ export function BattleScreen() {
           })}
         </div>
 
-        {/* ===== キャラ欄4等分（3キャラ + 共有枠）D&Dソート可能 ===== */}
+        {/* ===== キャラ欄4等分（共有枠 + 3キャラ）D&Dソート可能 ===== */}
         <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
+          <SharedPanel potions={uniquePotions} relics={run.relics} isCommandPhase={isCommandPhase} gold={gold} party={party} />
           <SortableContext items={panelIds} strategy={horizontalListSortingStrategy}>
             {party.map((member, index) => {
               const memberAvailCmds = getAvailableCommands(member, gold, potions)
@@ -690,13 +770,14 @@ export function BattleScreen() {
                       draggingPanel={draggingPanel}
                       orderIndex={index}
                       dragHandleProps={dragHandleProps}
+                      acting={acting?.explorerId === member.id ? acting.type : null}
+                      shaking={shakingIds.has(member.id)}
                     />
                   )}
                 </SortableCharacterPanel>
               )
             })}
           </SortableContext>
-          <SharedPanel potions={uniquePotions} relics={run.relics} isCommandPhase={isCommandPhase} gold={gold} party={party} />
         </div>
 
         {/* ===== 実行ボタン（最下段） ===== */}

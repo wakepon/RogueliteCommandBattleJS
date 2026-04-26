@@ -9,3 +9,57 @@
 .animate-slow-blink {
   animation: slow-blink 2s ease-in-out infinite;
 }
+
+/* ===== バトル中のアクション/被弾アニメーション ===== */
+
+/* メンバーパネル: 行動開始時に少し上に上がる */
+@keyframes panel-rise {
+  0% { transform: translateY(0); }
+  20% { transform: translateY(-8px); }
+  80% { transform: translateY(-8px); }
+  100% { transform: translateY(0); }
+}
+.animate-panel-rise {
+  animation: panel-rise 750ms ease-in-out;
+}
+
+/* 丸アイコン: 攻撃時、敵側（左）へ少し移動して戻る */
+@keyframes avatar-attack {
+  0% { transform: translateX(0); }
+  30% { transform: translateX(-22px); }
+  60% { transform: translateX(-22px); }
+  100% { transform: translateX(0); }
+}
+.animate-avatar-attack {
+  animation: avatar-attack 600ms ease-in-out;
+}
+
+/* 丸アイコン: ヒール時、上に上がりながら左右に揺れる */
+@keyframes avatar-heal {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-3px, -10px) rotate(-6deg); }
+  40% { transform: translate(3px, -12px) rotate(6deg); }
+  60% { transform: translate(-3px, -10px) rotate(-6deg); }
+  80% { transform: translate(3px, -8px) rotate(4deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+.animate-avatar-heal {
+  animation: avatar-heal 700ms ease-in-out;
+}
+
+/* メンバーパネル: 被弾時の振動 */
+@keyframes panel-shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-5px); }
+  20% { transform: translateX(5px); }
+  30% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  50% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+  70% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+  90% { transform: translateX(-1px); }
+}
+.animate-panel-shake {
+  animation: panel-shake 450ms ease-in-out;
+}
