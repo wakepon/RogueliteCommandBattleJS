@@ -24,7 +24,7 @@ import { NextStagePreview } from './NextStagePreview'
 import { GameOverOverlay } from './GameOverOverlay'
 import { ExpPopupEffect } from './ExpPopupEffect'
 import { PlayerDamagePopupEffect } from './PlayerDamagePopupEffect'
-import { PartyAvatars, AvatarActingType, CLASS_ICONS } from './PartyAvatars'
+import { PartyAvatars, AvatarActingType, CLASS_ICONS, AvatarVisual } from './PartyAvatars'
 
 /** ターゲット名を解決 */
 function resolveTargetName(
@@ -107,7 +107,7 @@ function CharacterPanel({
   return (
     <DroppableTarget id={`ally-${member.id}`} disabled={!isCommandPhase || draggingEnemyTarget || draggingPanel}>
       <div
-        className={`relative h-full flex flex-col rounded p-1.5 ${isDead ? 'opacity-40 bg-gray-800' : 'bg-gray-800/50'} ${animClass}`}
+        className={`relative h-full flex flex-col rounded-lg border border-gray-500 p-1.5 ${isDead ? 'opacity-40 bg-gray-800' : 'bg-gray-800/50'} ${animClass}`}
         onClick={onAllyClick}
       >
         {/* ドラッグ領域: 名前〜EXPバー */}
@@ -379,6 +379,8 @@ export function BattleScreen() {
   const [acting, setActing] = useState<{ explorerId: string; type: AvatarActingType } | null>(null)
   // 被弾振動: 振動中のメンバーID集合
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set())
+  // 丸アイコンドラッグ中のメンバーID（DragOverlay 用）
+  const [draggingAvatarId, setDraggingAvatarId] = useState<string | null>(null)
 
   // === フェーズ自動処理 ===
   // レベルアップポップアップ表示中はフェーズ進行を一時停止
@@ -494,6 +496,9 @@ export function BattleScreen() {
     // パネル並び替え（メンバーパネル または 丸アイコン）
     if (activeId.startsWith('panel-') || activeId.startsWith('avatar-')) {
       setDraggingPanel(true)
+      if (activeId.startsWith('avatar-')) {
+        setDraggingAvatarId(activeId.replace('avatar-', ''))
+      }
       return
     }
 
@@ -524,6 +529,7 @@ export function BattleScreen() {
     setDraggingCommand(null)
     setDraggingExplorerId(null)
     setDraggingPanel(false)
+    setDraggingAvatarId(null)
     setHoverEnemyId(null)
 
     if (!event.over || !isCommandPhase) {
@@ -622,6 +628,7 @@ export function BattleScreen() {
     setDraggingCommand(null)
     setDraggingExplorerId(null)
     setDraggingPanel(false)
+    setDraggingAvatarId(null)
     setHoverEnemyId(null)
   }, [cancelCommand, draggingCommand])
 
@@ -808,7 +815,11 @@ export function BattleScreen() {
               {draggingCommand.name}
             </div>
           )}
-          {draggingPanel && (
+          {draggingAvatarId && (() => {
+            const m = party.find(p => p.id === draggingAvatarId)
+            return m ? <AvatarVisual member={m} party={party} scale={0.7} /> : null
+          })()}
+          {draggingPanel && !draggingAvatarId && (
             <div className="bg-gray-700 border border-yellow-400 rounded px-4 py-2 text-xs text-white shadow-lg">
               ≡ 移動中
             </div>

@@ -15,6 +15,62 @@ export const CLASS_ICONS: Record<CharacterClass, string> = {
 /** 行動アニメーション種別 */
 export type AvatarActingType = 'attack' | 'heal'
 
+interface AvatarVisualProps {
+  member: ExplorerState
+  party: ExplorerState[]
+  /** 選択中ハイライト */
+  isSelected?: boolean
+  /** ドロップターゲット候補ハイライト */
+  isDropTarget?: boolean
+  /** 行動アニメ種別 */
+  actingType?: AvatarActingType | null
+  /** 任意のスケール (e.g. 0.7) */
+  scale?: number
+}
+
+/**
+ * 丸アイコンの「見た目だけ」のコンポーネント。
+ * SortableAvatar / DragOverlay 双方で再利用される。
+ */
+export function AvatarVisual({
+  member,
+  party,
+  isSelected = false,
+  isDropTarget = false,
+  actingType = null,
+  scale,
+}: AvatarVisualProps) {
+  const isDead = member.hp <= 0
+  const icon = CLASS_ICONS[member.characterClass]
+  const isFront = isFrontMember(party, member.id)
+  const actingClass = actingType
+    ? actingType === 'attack'
+      ? 'animate-avatar-attack'
+      : 'animate-avatar-heal'
+    : ''
+
+  const style: React.CSSProperties | undefined = scale
+    ? { transform: `scale(${scale})` }
+    : undefined
+
+  return (
+    <div
+      style={style}
+      className={`relative w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl
+        ${isDead ? 'bg-gray-800 border-gray-600 opacity-40' : 'bg-gray-700 border-gray-400'}
+        ${isFront && !isDead ? 'ring-2 ring-orange-400/60' : ''}
+        ${isSelected ? 'ring-2 ring-lime-400' : ''}
+        ${isDropTarget && !isDead ? 'ring-2 ring-yellow-300/70' : ''}
+        ${actingClass}`}
+    >
+      <span className="leading-none select-none">{icon}</span>
+      {isDead && (
+        <span className="absolute -top-1 -right-1 text-[10px] text-red-400 font-bold">×</span>
+      )}
+    </div>
+  )
+}
+
 interface PartyAvatarsProps {
   party: ExplorerState[]
   isCommandPhase: boolean
@@ -68,14 +124,7 @@ function SortableAvatar({
   })
 
   const isDead = member.hp <= 0
-  const icon = CLASS_ICONS[member.characterClass]
-  const isFront = isFrontMember(party, member.id)
   const isActing = acting?.explorerId === member.id
-  const actingClass = isActing
-    ? acting!.type === 'attack'
-      ? 'animate-avatar-attack'
-      : 'animate-avatar-heal'
-    : ''
   const isSelected = isSelectingAlly && selectedTargetId === member.id
 
   const sortStyle: React.CSSProperties = {
@@ -85,10 +134,13 @@ function SortableAvatar({
     transition,
   }
 
+  // ドラッグ中はドラッグオーバーレイで表示するので、元の位置は invisible にする
+  const containerVisibilityClass = isDragging ? 'opacity-0' : ''
+
   return (
     <div
       ref={setNodeRef}
-      className={`absolute z-[1] ${isDragging ? 'opacity-50 z-10' : ''}`}
+      className={`absolute z-[1] ${containerVisibilityClass}`}
       style={sortStyle}
     >
       <Tooltip
@@ -96,8 +148,8 @@ function SortableAvatar({
           <div>
             <div className="font-bold">
               {member.name}{' '}
-              <span className={isFront ? 'text-orange-400' : 'text-cyan-400'}>
-                {isFront ? '前衛' : '後衛'}
+              <span className={isFrontMember(party, member.id) ? 'text-orange-400' : 'text-cyan-400'}>
+                {isFrontMember(party, member.id) ? '前衛' : '後衛'}
               </span>
             </div>
             <div className="text-gray-300">
@@ -118,20 +170,16 @@ function SortableAvatar({
             disabled={!onAllyClick || !isSelectingAlly}
             {...listeners}
             {...attributes}
-            className={`relative w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl
-              ${isDead ? 'bg-gray-800 border-gray-600 opacity-40' : 'bg-gray-700 border-gray-400'}
-              ${isFront && !isDead ? 'ring-2 ring-orange-400/60' : ''}
-              ${isSelected ? 'ring-2 ring-lime-400' : ''}
-              ${draggingAllyTarget && !isDead ? 'ring-2 ring-yellow-300/70' : ''}
-              ${onAllyClick && isSelectingAlly && !isDead ? 'cursor-pointer hover:brightness-125' : isCommandPhase ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}
-              ${actingClass}
-              transition-shadow`}
+            className={`block ${onAllyClick && isSelectingAlly && !isDead ? 'cursor-pointer hover:brightness-125' : isCommandPhase ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
             aria-label={member.name}
           >
-            <span className="leading-none select-none">{icon}</span>
-            {isDead && (
-              <span className="absolute -top-1 -right-1 text-[10px] text-red-400 font-bold">×</span>
-            )}
+            <AvatarVisual
+              member={member}
+              party={party}
+              isSelected={isSelected}
+              isDropTarget={draggingAllyTarget}
+              actingType={isActing ? acting!.type : null}
+            />
           </button>
         </DroppableTarget>
       </Tooltip>
