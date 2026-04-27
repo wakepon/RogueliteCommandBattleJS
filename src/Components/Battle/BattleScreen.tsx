@@ -201,7 +201,7 @@ function CharacterPanel({
 
         {/* コマンド一覧（D&Dドラッグ元。戦闘不能時・ゲームオーバー時もグレーアウトして表示、ドラッグは無効） */}
         {(isCommandPhase || isGameOver) && (
-          <div className="flex-1 overflow-y-auto space-y-0 mt-0.5">
+          <div className="flex-1 overflow-y-auto space-y-1 mt-0.5">
             {commands.map((cmd, cmdIdx) => {
               const isAvail = !isDead && !isGameOver && availableCommands.some(ac => ac.id === cmd.id)
               // 武器のweapons配列内インデックスを計算（spellsはundefined）

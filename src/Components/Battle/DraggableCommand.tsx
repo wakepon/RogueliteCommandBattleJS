@@ -80,11 +80,12 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
       {...listeners}
       {...attributes}
       className={`
-        flex items-center gap-1.5 px-2 py-1 rounded text-base
-        ${isDragging ? 'opacity-50 ring-2 ring-yellow-400' : ''}
-        ${!isAvailable || disabled
-          ? 'text-gray-500 cursor-not-allowed opacity-50'
-          : 'text-white cursor-grab hover:bg-gray-700 active:cursor-grabbing'
+        flex items-center gap-1.5 px-2 py-1 rounded text-base border
+        ${isDragging
+          ? 'opacity-50 ring-2 ring-yellow-400 border-yellow-400'
+          : !isAvailable || disabled
+            ? 'border-gray-700 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-50'
+            : 'border-gray-500 bg-gray-700/40 text-white cursor-grab hover:bg-gray-700 hover:border-gray-400 active:cursor-grabbing'
         }
         transition-colors select-none
       `}
