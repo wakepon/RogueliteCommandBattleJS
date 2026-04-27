@@ -7,7 +7,7 @@ import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon, isFrontMember } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
-import { BattleCommand, CommandSlot } from '../../Lib/Types/Battle'
+import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { calculateRelicAttackImpacts } from '../../Lib/Utils/RelicImpactCalculator'
@@ -70,6 +70,7 @@ function CharacterPanel({
   acting,
   shaking,
   levelingUp,
+  displayedExp,
 }: {
   member: ExplorerState
   isCommandPhase: boolean
@@ -94,6 +95,8 @@ function CharacterPanel({
   shaking: boolean
   /** レベルアップ縦伸縮中フラグ（最優先） */
   levelingUp: boolean
+  /** EXPバー表示用の進捗値（経験値ポップアップ未到達分は除外）。max は requiredKills */
+  displayedExp: number
 }) {
   const isDead = member.hp <= 0
   const isFront = isFrontMember(allParty, member.id)
@@ -102,7 +105,7 @@ function CharacterPanel({
 
   // EXP/レベルアップ進捗
   const requiredKills = getRequiredKillsForNextLevel(member.level)
-  const expProgress = requiredKills > 0 ? member.exp : 0
+  const expProgress = requiredKills > 0 ? displayedExp : 0
 
   const animClass = levelingUp
     ? 'animate-levelup-stretch'
@@ -162,13 +165,13 @@ function CharacterPanel({
             <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" />
           </div>
 
-          {/* EXP バー（必要敵数で区画分割表示） */}
+          {/* EXP バー（必要敵数で区画分割表示。経験値到達時に1セグずつ点灯） */}
           <div id={`exp-gauge-${member.id}`} className="mb-1">
             <div className="flex justify-between text-[9px] text-gray-400">
               <span className="text-yellow-400">EXP</span>
               <span>{expProgress}/{requiredKills}</span>
             </div>
-            <SegmentedBar current={expProgress} max={requiredKills} color="yellow" size="sm" />
+            <SegmentedBar current={expProgress} max={requiredKills} color="yellow" size="sm" animateExpansion />
           </div>
         </div>
 
@@ -413,6 +416,8 @@ export function BattleScreen() {
   const [levelingUpIds, setLevelingUpIds] = useState<Set<string>>(new Set())
   // 丸アイコンドラッグ中のメンバーID（DragOverlay 用）
   const [draggingAvatarId, setDraggingAvatarId] = useState<string | null>(null)
+  // 経験値ポップアップ「未到達」分の合計（メンバーID別）。到達するまで EXP バーに反映しない
+  const [pendingExpByMember, setPendingExpByMember] = useState<Record<string, number>>({})
 
   // === フェーズ自動処理 ===
   // レベルアップ演出はフローティングポップアップとして並走するため、フェーズ進行は止めない
@@ -474,6 +479,35 @@ export function BattleScreen() {
     const timer = setTimeout(() => endBattle(result), delay)
     return () => clearTimeout(timer)
   }, [enemies, party, endBattle, battleState.isGameOver, levelUpPopups.length])
+
+  // 経験値ポップアップ追加検知: 新しい popup の amount を pendingExpByMember に積む
+  // （popup がメンバーに到達するまで EXP バーに反映させない）
+  const prevExpPopupIdsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const newPopups = expPopups.filter(p => !prevExpPopupIdsRef.current.has(p.id))
+    prevExpPopupIdsRef.current = new Set(expPopups.map(p => p.id))
+    if (newPopups.length === 0) return
+    setPendingExpByMember(prev => {
+      const next = { ...prev }
+      for (const p of newPopups) {
+        next[p.targetExplorerId] = (next[p.targetExplorerId] ?? 0) + p.amount
+      }
+      return next
+    })
+  }, [expPopups])
+
+  // 経験値ポップアップ完了ハンドラ: メンバーに到達したタイミングで pending を減らし、EXPバーが伸びる
+  const handleExpPopupComplete = useCallback((popup: ExpPopup) => {
+    setPendingExpByMember(prev => {
+      const cur = prev[popup.targetExplorerId] ?? 0
+      const remaining = Math.max(0, cur - popup.amount)
+      const next = { ...prev }
+      if (remaining === 0) delete next[popup.targetExplorerId]
+      else next[popup.targetExplorerId] = remaining
+      return next
+    })
+    removeExpPopup(popup.id)
+  }, [removeExpPopup])
 
   // レベルアップ縦伸縮: 新しい levelUpPopup が追加されたタイミングで対象カードをストレッチ
   const prevLevelUpPopupIdsRef = useRef<Set<string>>(new Set())
@@ -845,6 +879,7 @@ export function BattleScreen() {
                       acting={acting?.explorerId === member.id ? acting.type : null}
                       shaking={shakingIds.has(member.id)}
                       levelingUp={levelingUpIds.has(member.id)}
+                      displayedExp={Math.max(0, member.exp - (pendingExpByMember[member.id] ?? 0))}
                     />
                   )}
                 </SortableCharacterPanel>
@@ -900,7 +935,7 @@ export function BattleScreen() {
 
         {/* 経験値獲得エフェクト（敵位置→メンバーの経験値バーへ飛ぶ） */}
         {expPopups.map(popup => (
-          <ExpPopupEffect key={popup.id} popup={popup} onComplete={() => removeExpPopup(popup.id)} />
+          <ExpPopupEffect key={popup.id} popup={popup} onComplete={() => handleExpPopupComplete(popup)} />
         ))}
 
         {battleState.isGameOver && <GameOverOverlay onReturnTitle={returnToTitle} />}
