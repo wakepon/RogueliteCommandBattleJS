@@ -49,6 +49,7 @@ src/
 │   │   ├── MapGenerator.ts       # マップ生成
 │   │   ├── RelicProcessor.ts     # レリック効果処理
 │   │   ├── TargetingSystem.ts    # 前衛/後衛ターゲット率計算
+│   │   ├── PositionUtils.ts      # getFrontMemberId / isFrontMember（前衛判定ユーティリティ）
 │   │   └── index.ts
 │   ├── State/              # 状態遷移
 │   │   ├── GameReducer.ts        # ゲーム全体の状態遷移
@@ -116,90 +117,27 @@ vite-plugins/               # Viteカスタムプラグイン
 
 ## インターフェース設計
 
-### 基本インターフェース
+### 基本・コマンド・消耗系インターフェース
 
 ```typescript
-// ===== Lib/Types/Item.ts =====
-/** レアリティ */
+// Item.ts
 export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Unique'
+export interface IItem { id: string; name: string; rarity: Rarity }
 
-/** アイテム基本情報 */
-export interface IItem {
-  id: string
-  name: string
-  rarity: Rarity
-}
-```
+// Purchasable.ts  （IPurchasableを持つ→売却可能、持たない→売却不可）
+export interface IPurchasable { price: number }
 
-```typescript
-// ===== Lib/Types/Purchasable.ts =====
-/** 購入・売却可能 */
-export interface IPurchasable {
-  price: number
-}
-
-/**
- * 売却可否判定
- * - IPurchasableを持つ → 売却可能
- * - IPurchasableを持たない → 売却不可
- */
-```
-
-### コマンド系インターフェース
-
-```typescript
-// ===== Lib/Types/Command.ts =====
-/** コマンドカテゴリ */
+// Command.ts
 export type CommandCategory = 'weapon' | 'spell' | 'potion'
+export interface ICommandable { commandCategory: CommandCategory }
+export type TargetType = 'enemySingle' | 'allySingle' | 'enemyAll' | 'allyAll' | 'enemyRandom'
+export interface ITargetable { targetType: TargetType; minTargetCount?: number; maxTargetCount?: number }
 
-/** 戦闘コマンドとして選択可能 */
-export interface ICommandable {
-  commandCategory: CommandCategory
-}
-
-/** ターゲットタイプ */
-export type TargetType =
-  | 'enemySingle'    // 敵単体
-  | 'allySingle'     // 味方単体
-  | 'enemyAll'       // 敵全体
-  | 'allyAll'        // 味方全体
-  | 'enemyRandom'    // 敵にランダム回数
-
-/** ターゲット選択 */
-export interface ITargetable {
-  targetType: TargetType
-  /** enemyRandomの場合の最小回数 */
-  minTargetCount?: number
-  /** enemyRandomの場合の最大回数 */
-  maxTargetCount?: number
-}
-```
-
-### 消耗系インターフェース
-
-```typescript
-// ===== Lib/Types/Consumable.ts =====
-/** 使用回数制限あり（武器） */
-export interface IUseLimited {
-  maxUses: number | null  // nullは無限使用
-}
-
-/** MP消費あり（魔法） */
-export interface IMpCost {
-  mpCost: number
-}
-
-/** ゴールド消費あり（黄金の斧など） */
-export interface IGoldCost {
-  goldCost: number
-}
-
-/** HP消費あり（呪われた槍など） */
-export interface IHpCost {
-  hpCost: number
-}
-
-/** 使い切り（ポーション） */
+// Consumable.ts
+export interface IUseLimited { maxUses: number | null }  // null=無限使用
+export interface IMpCost { mpCost: number }
+export interface IGoldCost { goldCost: number }
+export interface IHpCost { hpCost: number }
 export interface ISingleUse {}
 ```
 
@@ -222,11 +160,16 @@ export type PassiveEffectType =
   | { type: 'thornsDamage'; value: number }
   | { type: 'regenPerTurn'; value: number }
   | { type: 'potionEffectMultiplier'; multiplier: number }
-  | { type: 'battleStartHpReduction'; value: number }           // 戦闘開始時にHP減少
-  | { type: 'damageTakenToMp'; value: number }                  // 被ダメージの一部をMP変換
-  | { type: 'goldPerKill'; value: number }                      // 敵撃破時にゴールド獲得
-  | { type: 'weaponBreakDamageMultiplier'; multiplier: number } // 武器破壊時のダメージ倍率
-  | { type: 'weaponBreakNextAttackBonus'; multiplier: number }  // 武器破壊後の次攻撃ボーナス
+  | { type: 'battleStartHpReduction'; rate: number; strBonus: number }      // 戦闘開始時にHP減少＋STRボーナス
+  | { type: 'damageTakenToMp'; rate: number }                               // 被ダメージの一部をMP変換
+  | { type: 'goldPerKill'; value: number }                                  // 敵撃破時にゴールド獲得
+  | { type: 'weaponBreakDamageMultiplier'; increment: number }              // 武器破壊時のダメージ倍率
+  | { type: 'weaponBreakNextAttackBonus'; value: number }                   // 武器破壊後の次攻撃ボーナス
+  | { type: 'levelUpDamageBoost' }                                          // レベルアップ時の次攻撃ダメージ倍率
+  | { type: 'battleEndBonusExp' }                                           // 戦闘後全員ボーナスEXP＋ゴールドペナルティ（修羅の証）
+  | { type: 'lowestLevelDamageMultiplier' }                                 // 最低レベル者のダメージ倍率
+  | { type: 'highHpTargetRateBonus' }                                       // HP最大者の被弾率上昇
+  | { type: 'deathProtection' }                                             // 致死ダメージでHP1耐え（1ラン1回消滅）
 
 /** パッシブ効果を持つ */
 export interface IPassiveEffect {
@@ -240,9 +183,11 @@ export interface IPassiveEffect {
 // ===== Lib/Types/Weapon.ts =====
 /** 武器効果（消費ではなく純粋な効果のみ） */
 export type WeaponEffect =
-  | { type: 'lifesteal'; value: number }        // ダメージの一定割合HP回復
-  | { type: 'targetRateUp'; value: number }     // 被弾率アップ効果
-  | { type: 'conditionalPower'; condition: string; bonusPower: number }  // 条件付き追加ダメージ
+  | { type: 'lifesteal'; value: number }                                       // ダメージの一定割合HP回復
+  | { type: 'targetRateUp'; value: number }                                    // 被弾率アップ効果
+  | { type: 'conditionalPower'; hpThreshold: number; bonusPower: number }      // 条件付き追加ダメージ
+  | { type: 'shield'; value: number }                                          // 守護の盾：被ダメ軽減シールド
+  | { type: 'killPreserveDurability' }                                         // 魂喰いの剣：トドメで耐久消費なし
 
 /** 武器データ（マスターデータ、購入可能） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {
@@ -263,13 +208,16 @@ export interface WeaponInstance extends WeaponData {
 /** パンチ（購入不可、無限使用の特殊武器） */
 export interface PunchInstance extends ICommandable, ITargetable {
   id: 'punch'
+  name: string
   commandCategory: 'weapon'
   targetType: 'enemySingle'
   maxUses: null      // 無限
   currentUses: null  // 無限
+  power: number      // Tuning対応
+  variance: number   // Tuning対応
 }
 
-// PUNCH定数として実装済み（IPurchasableを持たないため売却不可）
+// createPunch() 関数で生成（TuningStoreからpower/varianceを参照）。IPurchasableを持たないため売却不可
 
 /** 探索者が持てる武器（購入した武器 + パンチ） */
 export type ExplorerWeapon = WeaponInstance | PunchInstance
@@ -279,15 +227,19 @@ export type ExplorerWeapon = WeaponInstance | PunchInstance
 // ===== Lib/Types/Spell.ts =====
 /** 魔法効果 */
 export type SpellEffect =
-  | { type: 'heal'; value: number }           // HP回復
-  | { type: 'steal' }                         // ゴールドを盗む
-  | { type: 'buff'; stat: 'str' | 'precision'; value: number; duration: 'battle' | 'nextAction' }  // バフ
-  | { type: 'shield'; value: number }         // シールド付与（被ダメージ軽減）
-  | { type: 'hpToMp'; value: number }         // HPをMPに変換
-  | { type: 'goldOnHit'; value: number }      // 攻撃ヒット時にゴールド獲得
-  | { type: 'goldDamage' }                    // 所持ゴールドに応じてダメージ増加
-  | { type: 'repairWeapons' }                 // 装備中の武器を修理
-  | { type: 'weaponPowerBuff'; value: number; duration: 'battle' | 'nextAction' }  // 武器ダメージバフ
+  | { type: 'heal'; value: number }                                                               // HP回復
+  | { type: 'steal' }                                                                             // ゴールドを盗む
+  | { type: 'buff'; stat: 'str' | 'precision'; value: number; duration: 'battle' | 'nextAction' } // バフ（'int'は対象外）
+  | { type: 'shield'; value: number }                                                             // シールド付与（被ダメージ軽減）
+  | { type: 'hpToMp'; hpCost: number; mpGain: number }                                           // HPをMPに変換
+  | { type: 'goldOnHit'; value: number }                                                          // 攻撃ヒット時にゴールド獲得
+  | { type: 'goldDamage'; rate: number; multiplier: number }                                      // 所持ゴールドに応じてダメージ増加
+  | { type: 'repairWeapons'; value: number }                                                      // 装備中の武器を修理
+  | { type: 'weaponPowerBuff'; value: number }                                                    // 武器ダメージバフ（durationなし）
+  | { type: 'guidanceBuff' }                                                                      // 次のトドメで+1ボーナスEXP
+  | { type: 'killBonusExpToAll' }                                                                 // トドメ時に全員へボーナスEXP
+
+/** SpellData.effect は null 許容 */
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {
@@ -303,56 +255,25 @@ export type SpellInstance = SpellData
 ```
 
 ```typescript
-// ===== Lib/Types/Relic.ts =====
-/** レリックデータ */
+// Relic.ts
 export interface RelicData extends IItem, IPurchasable, IPassiveEffect {}
-
-/** レリックインスタンス（状態を持たないためデータと同一） */
 export type RelicInstance = RelicData
-```
 
-```typescript
-// ===== Lib/Types/Potion.ts =====
-/** ポーション効果 */
+// Potion.ts
 export type PotionEffect =
   | { type: 'healHp'; value: number }
   | { type: 'healMp'; value: number }
-
-/** ポーションデータ */
+  | { type: 'repairWeapons'; value: number }   // 修復ポーション：装備武器の耐久回復
 export interface PotionData extends IItem, IPurchasable, ICommandable, ITargetable, ISingleUse {
-  commandCategory: 'potion'
-  targetType: 'allySingle'  // ポーションは味方単体対象
-  effect: PotionEffect
+  commandCategory: 'potion'; targetType: 'allySingle'; effect: PotionEffect
 }
-
-/** ポーションインスタンス（状態を持たないためデータと同一） */
 export type PotionInstance = PotionData
-```
 
-```typescript
-// ===== Lib/Types/Enemy.ts =====
-/** 敵タイプ */
+// Enemy.ts
 export type EnemyType = 'normal' | 'elite' | 'boss'
-
-/** 敵データ（マスターデータ） */
-export interface EnemyData {
-  id: string
-  name: string
-  type: EnemyType
-  hp: number
-  attack: number
-  agi: number
-  gold: number
-  behavior: string
-}
-
-/** 敵インスタンス（戦闘中の状態） */
+export interface EnemyData { id: string; name: string; type: EnemyType; hp: number; attack: number; agi: number; gold: number; behavior: string }
 export interface EnemyInstance extends EnemyData {
-  instanceId: string        // 同じ敵が複数いる場合の識別用
-  currentHp: number
-  battleBuffs: Buff[]
-  battleDebuffs: Debuff[]
-  hasSummoned?: boolean     // 召喚済みフラグ
+  instanceId: string; currentHp: number; battleBuffs: Buff[]; battleDebuffs: Debuff[]; hasSummoned?: boolean
 }
 ```
 
@@ -430,6 +351,29 @@ interface GameState {
   eventState: EventState | null
   mapState: MapState | null
 }
+
+/** 武器使用回数差分（リザルト画面表示用） */
+export interface WeaponUsesDiff { weaponId: string; usesBefore: number | null; usesAfter: number | null }
+
+/** メンバー戦闘前後差分（リザルト画面の逐次アニメ用） */
+export interface MemberBattleDiff {
+  explorerId: string
+  hpBefore: number; maxHpBefore: number; mpBefore: number; maxMpBefore: number
+  levelBefore: number; expBefore: number; expRequiredBefore: number
+  hpAfter: number; maxHpAfter: number; mpAfter: number; maxMpAfter: number
+  levelAfter: number; expAfter: number; expRequiredAfter: number
+  weaponUsesDiff: WeaponUsesDiff[]
+}
+
+/** リザルト画面の追加報酬エントリ */
+export interface ResultBonusEntry { source: string; value: number }
+
+/** メンバーカードのアニメーションフェーズ */
+export type MemberAnimationPhase =
+  'pending' | 'enter' | 'resourcesAnimate' | 'shaking' | 'levelUpdated' | 'maxStatsRevealed' | 'done'
+
+/** リザルト状態 */
+export interface ResultState { bonusEntries: ResultBonusEntry[] }  // 現状は空配列
 ```
 
 ### RunState（1回のゲームプレイの状態）
@@ -437,39 +381,20 @@ interface GameState {
 ```typescript
 // ===== Lib/Types/Run.ts =====
 interface RunState {
-  // セーブデータバージョン
   saveVersion: number       // SAVE_VERSION = 2（パーティー制導入）
-
-  // Run識別・再現性
-  seed: number              // ランダムシード（リプレイ・デバッグ用）
-  startedAt: number         // 開始時刻（timestamp）
-
-  // 進行状況
+  seed: number; startedAt: number
   currentStage: number      // 現在のステージ (1-7)
-
-  // パーティー共有リソース
-  gold: number              // 所持ゴールド
-  relics: RelicInstance[]   // 所持レリック
-  potions: PotionInstance[] // 所持ポーション（最大2枠）
-
-  // パーティー（3人: warrior, mage, cleric）
-  party: ExplorerState[]
-
-  // 戦闘中のレベルアップ情報
+  gold: number; relics: RelicInstance[]; potions: PotionInstance[]  // 最大2枠
+  party: ExplorerState[]    // 3人: warrior, mage, cleric
   battleLevelUps: LevelUpInfo[]
-
-  // アーキタイプ関連
-  weaponBreakMultiplier?: number  // 武器破壊時のダメージ倍率（武器破壊アーキタイプ用）
-
-  // 統計（結果画面表示用）
+  weaponBreakMultiplier: number   // 武器破壊時のダメージ倍率（必須）
+  battleStartSnapshot: BattleStartSnapshot | null  // 戦闘中のみ有効。END_BATTLE で null
   stats: RunStats
 }
 
-interface RunStats {
-  totalKillCount: number    // パーティー全体の累計討伐数
-  totalGoldEarned: number   // 累計獲得ゴールド
-  maxStageReached: number   // 最高到達ステージ
-}
+/** 戦闘前スナップショット（リザルト画面の差分表示に使用。SaveManager では非永続化） */
+interface BattleStartSnapshot { party: ExplorerState[]; gold: number }
+interface RunStats { totalKillCount: number; totalGoldEarned: number; maxStageReached: number }
 ```
 
 ### ExplorerState（探索者の状態）
@@ -482,8 +407,7 @@ interface RunStats {
 /** キャラクタークラス */
 export type CharacterClass = 'warrior' | 'mage' | 'cleric'
 
-/** パーティー内ポジション */
-export type Position = 'front' | 'back'
+// Position 型は削除済み。前衛/後衛は getFrontMemberId(party) で派生計算する（PositionUtils.ts）
 
 /** バフ */
 interface Buff {
@@ -499,42 +423,20 @@ type Debuff =
 
 /** 探索者の状態 */
 interface ExplorerState {
-  id: string
-  name: string
-
-  // キャラクター属性
-  characterClass: CharacterClass
-  position: Position
-
-  // 個人ステータス
-  hp: number
-  maxHp: number
-  mp: number
-  maxMp: number
-  str: number
-  int: number
-
-  // 装備スロット数（クラスごとに異なる）
-  weaponSlotCount: number
-  magicSlotCount: number
-
-  // レベル・経験値
-  level: number
-  exp: number                 // 経験値（累計討伐数）
-  killCount: number           // 個人の討伐数
-
-  // 個人装備
+  id: string; name: string; characterClass: CharacterClass
+  // position フィールドは削除済み。前衛/後衛は party 配列順から getFrontMemberId(party) で動的決定する
+  hp: number; maxHp: number; mp: number; maxMp: number; str: number; int: number
+  weaponSlotCount: number; magicSlotCount: number
+  level: number; exp: number; killCount: number
   weapons: ExplorerWeapon[]   // weaponSlotCount枠 + パンチ（パンチは常に最後）
   spells: SpellInstance[]     // magicSlotCount枠
-
-  // 戦闘中バフ/デバフ（戦闘終了時にクリア）
-  battleBuffs: Buff[]
-  battleDebuffs: Debuff[]
+  battleBuffs: Buff[]; battleDebuffs: Debuff[]
 }
 
 /**
- * createInitialParty() で3人パーティーを生成する。
- * - warrior（front）、mage（back）、cleric（back）の構成
+ * createInitialParty() で3人パーティーを生成する（warrior, mage, cleric の構成）。
+ * - 戦士の初期武器順序: [createPunch(), createWeaponInstance('rusty_knife')]
+ * - 前衛/後衛は party 配列の先頭を前衛として PositionUtils.ts が提供する
  */
 ```
 
@@ -568,8 +470,9 @@ export type ActorId =
 /** コマンドスロット（行動順を管理するスロット） */
 export interface CommandSlot {
   explorerId: string
-  command: ExplorerWeapon | SpellData | PotionData | null
+  command: BattleCommand | null
   targetId: string | null
+  weaponIndex?: number    // 同一IDの武器を区別するためのインデックス
 }
 
 /** ダメージ寄与者 */
@@ -589,7 +492,18 @@ export interface LevelUpPopup {
 export interface PlayerDamagePopup {
   id: string
   damage: number
+  targetExplorerId?: string   // オプショナル
+  label?: string              // 武器名表示用
+  timestamp: number
+}
+
+/** 経験値獲得ポップアップ（戦闘中アニメ用） */
+export interface ExpPopup {
+  enemyInstanceId: string
   targetExplorerId: string
+  amount: number
+  bonusLabel?: string
+  delayMs: number
   timestamp: number
 }
 
@@ -603,40 +517,28 @@ export interface EnemyIntent {
 
 /** 敵行動結果（拡張フィールド） */
 export interface EnemyActionResult {
-  // 基本攻撃・ダメージ
-  damage?: number
-  isAoe?: boolean               // 全体攻撃フラグ
-  // 力溜め系
+  damage?: number; isAoe?: boolean
   chargeAllAllies?: boolean     // 全味方に力溜め付与
-  // 召喚
   summonEnemyId?: string        // 召喚する敵ID
-  // 回復
-  healSelf?: number             // 自己回復量
-  healAlly?: number             // 味方回復量
-  // デバフ付与
+  healSelf?: number; healAlly?: number
   applyWeakness?: boolean       // 弱体デバフ付与
-  // バフ付与
   applySelfDefense?: boolean    // 自己防御バフ付与
 }
 
 interface BattleState {
-  phase: BattlePhase
-  turn: number
-  turnLimit: number           // ステージごとに異なる
+  phase: BattlePhase; turn: number; turnLimit: number
   enemies: EnemyInstance[]
-  commandSlots: CommandSlot[]         // 各探索者のコマンドスロット（行動順）
-  activeExplorerIndex: number         // 現在コマンド入力中の探索者インデックス
-  currentCommandIndex: number         // 実行中のコマンドスロットインデックス
-  currentEnemyIndex: number           // 実行中の敵インデックス
-  enemyIntents: EnemyIntent[]         // 敵の行動予告
-  stolenGold: number          // ゴールドラッシュで盗んだ金額
-  selectedCommand: BattleCommand | null   // 選択中のコマンド
-  selectedTargetId: string | null         // 選択中のターゲットID
-  damagePopups: DamagePopup[]
-  playerDamagePopups: PlayerDamagePopup[]
-  levelUpPopups: LevelUpPopup[]
-  battleMessage: string | null
-  battleMessageId: number
+  commandSlots: CommandSlot[]       // 各探索者のコマンドスロット（行動順）
+  activeExplorerIndex: number       // 現在コマンド入力中の探索者インデックス
+  currentCommandIndex: number; currentEnemyIndex: number
+  actionQueue: ActorId[]            // 後方互換として残置
+  enemyIntents: EnemyIntent[]
+  stolenGold: number
+  selectedCommand: BattleCommand | null; selectedTargetId: string | null
+  damagePopups: DamagePopup[]; playerDamagePopups: PlayerDamagePopup[]
+  levelUpPopups: LevelUpPopup[]; expPopups: ExpPopup[]  // expPopups: EXP獲得アニメ用
+  isGameOver?: boolean              // 敗北時オーバーレイ表示用
+  battleMessage: string | null; battleMessageId: number
   relicState: RelicBattleState
 }
 
@@ -647,24 +549,13 @@ export type BattleCommand = ExplorerWeapon | SpellInstance | PotionInstance
 ### StoreState（ストア画面の状態）
 
 ```typescript
-/** ストアカテゴリ */
 export type StoreCategory = 'weapon' | 'spell' | 'relic' | 'potion'
-
-/** ショップスロット（カテゴリ別の商品候補） */
-export interface ShopSlot {
-  category: StoreCategory
-  items: (WeaponData | SpellData | RelicData | PotionData | null)[]
-}
-
-/** 2択ショップの選択肢 */
-export interface ShopOption {
-  slots: ShopSlot[]
-}
-
+export interface ShopSlot { category: StoreCategory; items: (WeaponData | SpellData | RelicData | PotionData | null)[] }
+export interface ShopOption { slots: ShopSlot[] }
 interface StoreState {
   shopOptions: [ShopOption, ShopOption]  // 2択の選択肢
-  selectedShopIndex: number | null       // 選択済みショップインデックス（nullは未選択）
-  rerollCost: number  // 初期値3G、リロールするごとに1G増加
+  selectedShopIndex: number | null       // nullは未選択
+  rerollCost: number                     // 初期値3G、リロールごとに1G増加
 }
 ```
 
@@ -672,19 +563,7 @@ interface StoreState {
 
 ### セーブタイミング
 
-**戦闘終了後のみ**保存する。
-
-```
-戦闘勝利
-  ↓
-報酬計算（Gold + 利子）
-  ↓
-GameState更新
-  ↓
-localStorage保存  ← ここでセーブ
-  ↓
-ストア画面へ
-```
+**戦闘終了後のみ**保存する（戦闘勝利 → 報酬計算 → GameState更新 → localStorage保存 → ストア画面へ）。
 
 ### 中断時の挙動
 
@@ -711,7 +590,7 @@ interface SaveData {
 ```typescript
 // Lib/Storage/SaveManager.ts
 export const SaveManager = {
-  save(run: RunState): boolean
+  save(run: RunState): boolean   // battleStartSnapshot は非永続化（保存対象外）
   load(): RunState | null
   clear(): void
   hasSave(): boolean
@@ -744,67 +623,42 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 ### Weapons.json
 
-16種の武器データ（オブジェクト辞書形式）。全武器に `variance` フィールドあり。`magic_bullet`、`prayer` が追加済み。投げナイフは `enemyAll` ターゲット。スライス12で7種追加済み。
+19種の武器データ（オブジェクト辞書形式）。全武器に `variance` フィールドあり。
 
-```json
-{
-  "rusty_knife":     { "targetType": "enemySingle", ... },
-  "short_sword":     { "targetType": "enemySingle", ... },
-  "iron_sword":      { "targetType": "enemySingle", ... },
-  "great_axe":       { "targetType": "enemySingle", ... },
-  "greatsword":      { "targetType": "enemyAll",    ... },
-  "throwing_knife":  { "targetType": "enemyAll",    ... },
-  "whirlwind_blade": { "targetType": "enemyAll",    ... },
-  "vampiric_blade":  { "targetType": "enemySingle", "effect": { "type": "lifesteal" }, ... },
-  "magic_bullet":    { "targetType": "enemySingle", "scaleStat": "int", ... },
-  "prayer":          { "targetType": "allySingle",  "effect": { "type": "targetRateUp" }, ... },
-  // スライス12追加分（7種）
-  "holy_lance":      { "targetType": "enemySingle", "effect": { "type": "conditionalPower", ... }, ... },
-  "blood_sword":     { "targetType": "enemySingle", "hpCost": ..., ... },
-  "gold_axe":        { "targetType": "enemySingle", "goldCost": ..., ... },
-  "poison_dagger":   { "targetType": "enemySingle", ... },
-  "ice_blade":       { "targetType": "enemySingle", ... },
-  "thunder_spear":   { "targetType": "enemySingle", ... },
-  "cursed_blade":    { "targetType": "enemySingle", "effect": { "type": "conditionalPower", ... }, ... }
-}
+```
+rusty_knife, short_sword, iron_sword, great_axe, greatsword, throwing_knife, whirlwind_blade,
+vampiric_blade（lifesteal）, magic_bullet（scaleStat: int）, cursed_spear（hpCost）,
+berserker_axe（goldCost）, golden_sword, jewel_staff（scaleStat: int）, disposable_blade,
+glass_sword, rusty_greatsword（targetType: enemyAll）, soul_eater_sword（killPreserveDurability）,
+guardian_shield（shield効果、targetType: allySingle）, prayer（targetRateUp）
 ```
 
 （各武器の具体的な数値はバランス調整対象のため概要記載）
 
 ### Spells.json
 
-13種の魔法データ（オブジェクト辞書形式）。全魔法に `variance` フィールドあり。`precision` が追加済み。スライス12で6種追加済み。
+16種の魔法データ（オブジェクト辞書形式）。全魔法に `variance` フィールドあり。
 
-```json
-{
-  "fire":           { "targetType": "enemySingle", ... },
-  "firestorm":      { "targetType": "enemyAll",    ... },
-  "heal":           { "targetType": "allySingle",  "effect": { "type": "heal" }, ... },
-  "ice_bolt":       { "targetType": "enemySingle", ... },
-  "thunder":        { "targetType": "enemySingle", ... },
-  "blizzard":       { "targetType": "enemyAll",    ... },
-  "precision":      { "targetType": "allySingle",  "effect": { "type": "buff", "stat": "precision", "duration": "nextAction" }, ... },
-  // スライス12追加分（6種）
-  "barrier":        { "targetType": "allySingle",  "effect": { "type": "shield" }, ... },
-  "mana_drain":     { "targetType": "allySingle",  "effect": { "type": "hpToMp" }, ... },
-  "gold_rush":      { "targetType": "enemySingle", "effect": { "type": "goldOnHit" }, ... },
-  "coin_throw":     { "targetType": "enemySingle", "effect": { "type": "goldDamage" }, ... },
-  "repair_spell":   { "targetType": "allyAll",     "effect": { "type": "repairWeapons" }, ... },
-  "weapon_enhance": { "targetType": "allySingle",  "effect": { "type": "weaponPowerBuff" }, ... }
-}
+```
+fire, firestorm, heal, ice_bolt, thunder, blizzard, barrier（shield）,
+life_tap（hpToMp）, gold_hex（goldOnHit）, gold_burst（goldDamage）,
+field_repair（repairWeapons）, weapon_enchant（weaponPowerBuff）, precision（buff: precision）,
+master_bond（guidanceBuff）, education_bullet（killBonusExpToAll）, healing_wind（allyAll heal）
 ```
 
 （各魔法の具体的な数値はバランス調整対象のため概要記載）
 
 ### Relics.json
 
-19種のレリックデータ（オブジェクト辞書形式）。各レリックは `PassiveEffectType` に対応した `passiveEffect` を持つ。スライス12で6種追加・3種削除済み（計 15 + 6 - 3 = 18 → 最終19種）。効果の詳細値はバランス調整対象のため概要記載。
+24種のレリックデータ（オブジェクト辞書形式）。各レリックは `PassiveEffectType` に対応した `passiveEffect` を持つ。効果の詳細値はバランス調整対象のため概要記載。
 
-スライス12追加分（6種）: battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus に対応するレリック群。
+スライス12追加分: battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus, fury_flame に対応するレリック群。
+
+スライス13追加分: fighting_spirit_bracelet（levelUpDamageBoost）, shura_mark（battleEndBonusExp）, upset_strike（lowestLevelDamageMultiplier）, bully_strong（highHpTargetRateBonus）, substitute_doll（deathProtection）。
 
 ### Potions.json
 
-2種のポーションデータ（`hp_potion`、`mp_potion`）。`targetType: 'allySingle'`。効果値はバランス調整対象のため概要記載。
+3種のポーションデータ（`hp_potion`、`mp_potion`、`repair_potion`）。`targetType: 'allySingle'`。コマンド選択フェーズ中に `USE_POTION_INSTANT` で即時発動可能。効果値はバランス調整対象のため概要記載。
 
 ### Enemies.json
 
@@ -814,38 +668,23 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 - elite（5種）: orc, assassin, sleep_tiger, dark_mage, orc_lord
 - boss（1種）: dragon
 
-```json
-{
-  "slime":       { "id": "slime",       "name": "スライム",     "type": "normal", "behavior": "attack", ... },
-  "goblin":      { "id": "goblin",      "name": "ゴブリン",     "type": "normal", "behavior": "attack", ... },
-  "sewer_rat":   { "id": "sewer_rat",   "name": "ドブネズミ",   "type": "normal", "behavior": "attack", ... },
-  "hedro_slime": { "id": "hedro_slime", "name": "ヘドロスライム","type": "normal", "behavior": "attack", ... },
-  "shaman":      { "id": "shaman",      "name": "シャーマン",   "type": "normal", "behavior": "attack", ... },
-  "fairy":       { "id": "fairy",       "name": "フェアリー",   "type": "normal", "behavior": "attack", ... },
-  "orc":         { "id": "orc",         "name": "オーク",       "type": "elite",  "behavior": "attack", ... },
-  "assassin":    { "id": "assassin",    "name": "アサシン",     "type": "elite",  "behavior": "attack", ... },
-  "sleep_tiger": { "id": "sleep_tiger", "name": "眠り虎",       "type": "elite",  "behavior": "attack", ... },
-  "dark_mage":   { "id": "dark_mage",   "name": "ダークメイジ", "type": "elite",  "behavior": "attack", ... },
-  "orc_lord":    { "id": "orc_lord",    "name": "オークロード", "type": "elite",  "behavior": "attack", ... },
-  "dragon":      { "id": "dragon",      "name": "ドラゴン",     "type": "boss",   "behavior": "attack", ... }
-}
-```
-
 （各敵の具体的なステータス値はバランス調整対象のため概要記載）
 
 ### StagePatterns.json
 
 `stage_1` 〜 `stage_7` の個別形式。各ステージに `turnLimit` と `patterns` フィールドあり。`pattern` キーはなし。`stage_4` はイベントステージ（`turnLimit: 0`、`patterns: []`）。turnLimit の具体的な値はバランス調整対象。新敵12種を含む拡張パターンに全面更新済み。
 
+各 stage の pattern 数: stage 1=3, stage 2=4, stage 3=3, stage 4=0（イベント）, stage 5=4, stage 6=4, stage 7=1。
+
 ```json
 {
-  "stage_1": { "turnLimit": ..., "patterns": [{ "enemies": ["slime"] }, { "enemies": ["slime", "slime"] }, { "enemies": ["sewer_rat"] }, ...] },
-  "stage_2": { "turnLimit": ..., "patterns": [{ "enemies": ["slime", "goblin"] }, { "enemies": ["hedro_slime"] }, ...] },
-  "stage_3": { "turnLimit": ..., "patterns": [{ "enemies": ["orc"] }, { "enemies": ["shaman", "goblin"] }, { "enemies": ["assassin"] }, ...] },
+  "stage_1": { "turnLimit": ..., "patterns": [ /* 3パターン */ ] },
+  "stage_2": { "turnLimit": ..., "patterns": [ /* 4パターン */ ] },
+  "stage_3": { "turnLimit": ..., "patterns": [ /* 3パターン */ ] },
   "stage_4": { "turnLimit": 0,  "patterns": [] },
-  "stage_5": { "turnLimit": ..., "patterns": [{ "enemies": ["orc", "fairy"] }, { "enemies": ["sleep_tiger"] }, ...] },
-  "stage_6": { "turnLimit": ..., "patterns": [{ "enemies": ["dark_mage", "orc"] }, { "enemies": ["orc_lord"] }, ...] },
-  "stage_7": { "turnLimit": ..., "patterns": [{ "enemies": ["dragon"] }] }
+  "stage_5": { "turnLimit": ..., "patterns": [ /* 4パターン */ ] },
+  "stage_6": { "turnLimit": ..., "patterns": [ /* 4パターン */ ] },
+  "stage_7": { "turnLimit": ..., "patterns": [ /* 1パターン: dragon */ ] }
 }
 ```
 
@@ -862,6 +701,7 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 | ポーション売却 | SELL_POTION, UNDO_SELL_POTION |
 | 装備移動 | TRANSFER_WEAPON, TRANSFER_SPELL（メンバー間装備移動） |
 | パーティー管理 | REORDER_PARTY（パーティー並び替え。commandSlotsも連動） |
+| ポーション即時発動 | USE_POTION_INSTANT（コマンド選択フェーズ中にポーションを即時発動。HP/MP回復・武器修理に対応） |
 | イベント | OPEN_EVENT, SELECT_REST, SELECT_REPAIR, SELECT_TREASURE |
 | マップ | ADVANCE_FROM_MAP（ステージ選択） |
 
@@ -881,9 +721,17 @@ React Routerは使用せず、`phase`によるstate切り替えで実装。`App.
 
 `createBattleState` と `generateEnemyIntents` の2つの主要関数を含む。AGI順ソート（`sortActorsByAgi`）は廃止済みで、`commandSlots` 配列順により行動順を管理する。`applyBloodPact` は血の契約レリック効果として戦闘開始時に探索者のHPを一定量減少させる処理を担う。
 
+`createActionQueue` は生存メンバー全員と敵全員を対象とした Phase 2 拡張済み関数（export 化）。`REORDER_PARTY` 実行時は `actionQueue` も `createActionQueue` で再生成される。`createEnemyInstance` は仲間呼び用に export 済み。
+
 ### BattleActionProcessor
 
-`processExecuteCommand`（コマンド実行処理）、`processEnemyAction`（敵行動処理）、`processTurnEndAction`（ターン終了処理）の3主要処理関数を持つ。SpellEffectの新効果（shield, hpToMp, goldOnHit, goldDamage, repairWeapons, weaponPowerBuff）および PassiveEffectType の新効果（battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus）に対応した処理を含む。
+`processExecuteCommand`（コマンド実行処理）、`processEnemyAction`（敵行動処理）、`processTurnEndAction`（ターン終了処理）の3主要処理関数を持つ。
+
+対応する SpellEffect: shield, hpToMp, goldOnHit, goldDamage, repairWeapons, weaponPowerBuff, **guidanceBuff**（次のトドメで+1ボーナスEXP）, **killBonusExpToAll**（トドメ時に全員へボーナスEXP）。
+
+対応する PassiveEffectType: battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus, **levelUpDamageBoost**（レベルアップ時の次攻撃ダメージ倍率）, **battleEndBonusExp**（戦闘後全員ボーナスEXP＋ゴールドペナルティ）, **lowestLevelDamageMultiplier**（最低レベル者のダメージ倍率）, **highHpTargetRateBonus**（HP最大者の被弾率上昇）, **deathProtection**（致死ダメージでHP1耐え、1ラン1回消滅）。
+
+対応する WeaponEffect: lifesteal, targetRateUp, conditionalPower, **shield**（守護の盾：被ダメ軽減シールド）, **killPreserveDurability**（魂喰いの剣：トドメで耐久消費なし）。
 
 ## バランス調整システム（Tuning Editor）
 
@@ -909,17 +757,7 @@ vite-plugins/
 
 ### データフロー
 
-```
-Tuning Editor UI
-    ↓ BroadcastChannel（リアルタイム送信）
-TuningReceiver → TuningStore 更新
-    ↓
-ゲームロジック（各Core/Typesのコード）が getTuningValue() で参照
-    ↓（保存操作時）
-vite-plugins/tuning-save-plugin → TuningData.json に書き出し
-    ↓（次回起動時）
-TuningStore がTuningData.jsonを初期値として読み込む
-```
+Tuning Editor UI → BroadcastChannel → TuningReceiver → TuningStore 更新 → ゲームロジックが `getTuningValue()` で参照。保存操作時は `tuning-save-plugin` が `TuningData.json` に書き出し、次回起動時に初期値として読み込む。
 
 ### TuningConfig型（6カテゴリ）
 

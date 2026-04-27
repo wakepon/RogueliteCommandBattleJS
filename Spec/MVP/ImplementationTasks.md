@@ -72,7 +72,7 @@
 | 3.2 | マスターデータ | Spells.json, Potions.json | ✅ 完了 |
 | 3.3 | DamageCalculator | ダメージ計算式 | ✅ 完了 |
 | 3.4 | CommandValidator | コマンド使用可否判定 | ✅ 完了 |
-| 3.5 | 行動順管理 | BattleStateFactory.ts 内の createBattleState / generateEnemyIntents として実装。AGI順ソートは廃止。commandSlots 配列順で行動順管理し、REORDER_PARTY (GameReducer) でパーティー並び替え可能。commandSlotsも連動 | ✅ 完了 |
+| 3.5 | 行動順管理 | BattleStateFactory.ts 内の createBattleState / generateEnemyIntents として実装。AGI順ソートは廃止。commandSlots 配列順で行動順管理し、REORDER_PARTY (GameReducer) でパーティー並び替え可能。commandSlotsも連動。createActionQueue は生存メンバー全員と敵全員を対象とした Phase 2 拡張済み（export 化）。REORDER_PARTY 時に actionQueue も再生成される | ✅ 完了 |
 | 3.6 | BattleReducer | 戦闘状態遷移 | ✅ 完了 |
 | 3.7 | useBattle Hook | 戦闘画面用Hook | ✅ 完了 |
 | 3.8 | 戦闘UI | CommandList, TargetSelector, DamagePopup | ✅ 完了 |
@@ -209,10 +209,35 @@
 | 12.12 | weaponBreakDamageMultiplier処理 | PassiveEffectType weaponBreakDamageMultiplier に対応する処理（武器破壊時ダメージ倍率）。RunState.weaponBreakMultiplier を使用 | ✅ 完了 |
 | 12.13 | weaponBreakNextAttackBonus処理 | PassiveEffectType weaponBreakNextAttackBonus に対応する処理（武器破壊後の次攻撃ボーナス） | ✅ 完了 |
 | 12.14 | WeaponEffect conditionalPower追加 | WeaponEffect に conditionalPower を追加し DamageCalculator で対応 | ✅ 完了 |
-| 12.15 | 新武器7種追加 | Weapons.json に holy_lance, blood_sword, gold_axe, poison_dagger, ice_blade, thunder_spear, cursed_blade を追加（計16種） | ✅ 完了 |
-| 12.16 | 新魔法6種追加 | Spells.json に barrier, mana_drain, gold_rush, coin_throw, repair_spell, weapon_enhance を追加（計13種） | ✅ 完了 |
-| 12.17 | 新レリック6種追加・3種削除 | Relics.json に3アーキタイプ対応レリック6種を追加、旧レリック3種を削除（計19種） | ✅ 完了 |
+| 12.15 | 新武器9種追加 | Weapons.json に cursed_spear, berserker_axe, golden_sword, jewel_staff, disposable_blade, glass_sword, rusty_greatsword, soul_eater_sword, guardian_shield を追加（最終19種） | ✅ 完了 |
+| 12.16 | 新魔法6種追加 | Spells.json に barrier, life_tap, gold_hex, gold_burst, field_repair, weapon_enchant を追加（最終16種。master_bond, education_bullet, healing_wind を含む） | ✅ 完了 |
+| 12.17 | 新レリック追加 | Relics.json に3アーキタイプ対応レリック群を追加（最終24種） | ✅ 完了 |
 | 12.18 | 武器修理バグ修正 | repairWeapons効果が正しく全スロットの武器を修理するよう修正 | ✅ 完了 |
+
+---
+
+## スライス13: EXP/防御系アーキタイプ + リザルトアニメ + ポジション動的化
+**動作確認**: EXP/防御系レリック・魔法が機能し、リザルト画面に戦闘前後差分アニメが表示される
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|:----------:|
+| 13.1 | PositionUtils.ts 新設 | getFrontMemberId / isFrontMember を Lib/Core/ に追加。Core/index.ts で re-export | ✅ 完了 |
+| 13.2 | ExplorerState.position 削除 | Explorer.ts から position フィールドと Position 型を削除。呼び出し元を getFrontMemberId(party) に変更 | ✅ 完了 |
+| 13.3 | USE_POTION_INSTANT アクション | GameReducer にコマンド選択フェーズ中のポーション即時発動を追加（HP/MP回復・武器修理対応） | ✅ 完了 |
+| 13.4 | repair_potion 追加 | Potions.json に repair_potion を追加（計3種）。PotionEffect に repairWeapons を追加 | ✅ 完了 |
+| 13.5 | levelUpDamageBoost 処理 | PassiveEffectType levelUpDamageBoost に対応する処理（レベルアップ時の次攻撃ダメージ倍率） | ✅ 完了 |
+| 13.6 | battleEndBonusExp 処理 | PassiveEffectType battleEndBonusExp に対応する処理（修羅の証：戦闘後全員ボーナスEXP＋ゴールドペナルティ） | ✅ 完了 |
+| 13.7 | lowestLevelDamageMultiplier 処理 | PassiveEffectType lowestLevelDamageMultiplier に対応する処理（最低レベル者のダメージ倍率） | ✅ 完了 |
+| 13.8 | highHpTargetRateBonus 処理 | PassiveEffectType highHpTargetRateBonus に対応する処理（HP最大者の被弾率上昇） | ✅ 完了 |
+| 13.9 | deathProtection 処理 | PassiveEffectType deathProtection に対応する処理（致死ダメージでHP1耐え、1ラン1回消滅） | ✅ 完了 |
+| 13.10 | guidanceBuff 処理 | SpellEffect guidanceBuff に対応する処理（次のトドメで+1ボーナスEXP）。master_bond 魔法で発動 | ✅ 完了 |
+| 13.11 | killBonusExpToAll 処理 | SpellEffect killBonusExpToAll に対応する処理（トドメ時に全員へボーナスEXP）。education_bullet 魔法で発動 | ✅ 完了 |
+| 13.12 | 新レリック5種追加 | Relics.json に fighting_spirit_bracelet, shura_mark, upset_strike, bully_strong, substitute_doll を追加（計24種） | ✅ 完了 |
+| 13.13 | BattleStartSnapshot 型追加 | Run.ts に BattleStartSnapshot 型追加。RunState.battleStartSnapshot フィールド追加。戦闘開始時に記録し END_BATTLE で null に戻す | ✅ 完了 |
+| 13.14 | ResultState/MemberBattleDiff 型追加 | Game.ts に WeaponUsesDiff, MemberBattleDiff, ResultBonusEntry, MemberAnimationPhase, ResultState 型追加 | ✅ 完了 |
+| 13.15 | リザルト画面逐次アニメ | ResultScreen.tsx でメンバーカードに HP/MP/レベル/EXP/武器耐久の変化を MemberAnimationPhase で逐次表示 | ✅ 完了 |
+| 13.16 | isGameOver フラグ追加 | BattleState.isGameOver を追加。敗北時にゲームオーバーオーバーレイを表示 | ✅ 完了 |
+| 13.17 | expPopups 追加 | BattleState.expPopups: ExpPopup[] を追加。経験値獲得アニメ用ポップアップ処理 | ✅ 完了 |
 
 ---
 
@@ -232,7 +257,8 @@
 | 10: 敵パターン拡張 | 6 | 6 | 100% |
 | 11: Tuning Editor | 11 | 11 | 100% |
 | 12: 3アーキタイプ+ショップ2択制 | 18 | 18 | 100% |
-| **合計** | **85** | **85** | **100%** |
+| 13: EXP/防御系アーキタイプ+リザルトアニメ+ポジション動的化 | 17 | 17 | 100% |
+| **合計** | **102** | **102** | **100%** |
 
 ---
 
