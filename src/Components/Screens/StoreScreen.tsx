@@ -1,11 +1,11 @@
 import { useState, useCallback, useRef, useMemo } from 'react'
-import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
 import { ResourceBar, Tooltip, TooltipCard } from '../Common'
 import { MapOverlay } from '../Store/MapOverlay'
-import { ExplorerState } from '../../Lib/Types/Explorer'
+import { ExplorerState, CharacterClass } from '../../Lib/Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
@@ -15,6 +15,9 @@ import { ShopSlot, ShopOption } from '../../Lib/Types/Game'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 import { calculateRelicAttackImpacts, MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
+import { getItemSpecialEffect } from '../../Lib/Utils/ItemDescription'
+import { CLASS_ICONS } from '../Battle/PartyAvatars'
+import { SegmentedBar } from '../Common'
 
 // === 型定義 ===
 
@@ -68,43 +71,46 @@ function getSlotType(slot: ShopSlot): 'weapon' | 'spell' | 'relic' | 'potion' {
 
 // === ダメージ予測ヘルパー ===
 
-/** 武器/魔法の最大ダメージを出せるメンバーを見つけてダメージ予測を返す */
-function getBestDamagePreview(
+/** 商品カードに表示するダメージ予測（最大2人分、ダメージ大→小の順） */
+interface DualDamagePreview {
+  primary: { memberName: string; characterClass: CharacterClass; display: string }
+  secondary?: { memberName: string; characterClass: CharacterClass; display: string }
+}
+
+/**
+ * 武器=戦士+僧侶、魔法=魔法使い+僧侶 のクラスフィルタでダメージ予測。
+ * 該当クラスの中でダメージが大きい順にソートして返す（最大2人）。
+ */
+function getDualDamagePreview(
   item: WeaponData | SpellData,
   party: ExplorerState[],
   relics: RelicData[],
-): { memberName: string; display: string } | null {
+): DualDamagePreview | null {
   if (item.power <= 0) return null
-  let bestMax = -1
-  let bestDisplay = ''
-  let bestName = ''
-
+  const isWeapon = isWeaponData(item)
+  const targetClasses: CharacterClass[] = isWeapon ? ['warrior', 'cleric'] : ['mage', 'cleric']
   const opts = { relics }
-  for (const member of party) {
-    const range = isWeaponData(item)
-      ? predictWeaponDamage(member, item, opts)
-      : predictSpellDamage(member, item as SpellData, opts)
-    if (range.max > bestMax) {
-      bestMax = range.max
-      bestDisplay = formatDamageRange(range)
-      bestName = member.name
-    }
+  const candidates = party
+    .filter(m => targetClasses.includes(m.characterClass))
+    .map(member => {
+      const range = isWeapon
+        ? predictWeaponDamage(member, item, opts)
+        : predictSpellDamage(member, item as SpellData, opts)
+      return {
+        memberName: member.name,
+        characterClass: member.characterClass,
+        display: formatDamageRange(range),
+        max: range.max,
+      }
+    })
+    .filter(p => p.max > 0)
+    .sort((a, b) => b.max - a.max)
+
+  if (candidates.length === 0) return null
+  return {
+    primary: candidates[0],
+    secondary: candidates[1],
   }
-  return bestMax > 0 ? { memberName: bestName, display: bestDisplay } : null
-}
-
-/** 特定メンバーでのダメージ予測 */
-function getMemberDamagePreview(
-  item: WeaponData | SpellData,
-  member: ExplorerState,
-  relics: RelicData[],
-): string | null {
-  if (item.power <= 0) return null
-  const opts = { relics }
-  const range = isWeaponData(item)
-    ? predictWeaponDamage(member, item, opts)
-    : predictSpellDamage(member, item as SpellData, opts)
-  return range.max > 0 ? formatDamageRange(range) : null
 }
 
 // === D&Dユーティリティ ===
@@ -138,29 +144,51 @@ function EmptySlot({ label }: { label: string }) {
 
 // === 商品カード（ダメージ予測付き） ===
 
-function ShopItemCard({ name, price, type, damageInfo, usesInfo, item, attackImpacts }: {
+function ShopItemCard({ name, price, type, damageInfo, usesInfo, item, attackImpacts, specialEffect }: {
   name: string; price: number; type: 'weapon' | 'spell' | 'relic' | 'potion'
-  damageInfo?: { memberName: string; display: string } | null
+  damageInfo?: DualDamagePreview | null
   usesInfo?: string | null
   item: WeaponData | SpellData | RelicData | PotionData
   attackImpacts?: MemberAttackImpact[]
+  specialEffect?: string
 }) {
   const typeColors = { weapon: 'border-orange-500 bg-orange-900/20', spell: 'border-purple-500 bg-purple-900/20', relic: 'border-yellow-500 bg-yellow-900/20', potion: 'border-teal-500 bg-teal-900/20' }
   const isAoe = 'targetType' in item && item.targetType === 'enemyAll'
   return (
-    <Tooltip content={<TooltipCard item={item} damageText={damageInfo?.display} attackImpacts={attackImpacts} />} position="bottom">
-      <div className={`border rounded p-1.5 text-xs ${typeColors[type]}`}>
-        <div className="flex items-center gap-1">
-          <span className="text-white font-bold truncate flex-1">{name}</span>
-          {isAoe && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
-        </div>
-        {damageInfo && (
-          <div className="text-gray-400 text-[9px]">
-            <span className="text-gray-500">({damageInfo.memberName})</span> {damageInfo.display}
+    <Tooltip content={<TooltipCard item={item} damageText={damageInfo?.primary.display} attackImpacts={attackImpacts} />} position="bottom">
+      <div className={`border rounded p-2 text-xs min-h-[96px] flex gap-2 ${typeColors[type]}`}>
+        {/* 左側: 名前 / ダメージ / 説明 / 使用回数 */}
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <div className="flex items-center gap-1">
+            <span className="text-white font-bold truncate flex-1">{name}</span>
+            {isAoe && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
           </div>
-        )}
-        {usesInfo && <div className="text-gray-500 text-[9px]">{usesInfo}</div>}
-        <div className="text-yellow-400">{price}G</div>
+          {damageInfo && (
+            <div className="leading-tight">
+              {/* primary（ダメージ大）を大きく */}
+              <div className="text-gray-200 text-base font-bold">
+                <span className="mr-0.5">{CLASS_ICONS[damageInfo.primary.characterClass]}</span>
+                {damageInfo.primary.display}
+              </div>
+              {damageInfo.secondary && (
+                <div className="text-gray-400 text-[10px]">
+                  <span className="mr-0.5">{CLASS_ICONS[damageInfo.secondary.characterClass]}</span>
+                  {damageInfo.secondary.display}
+                </div>
+              )}
+            </div>
+          )}
+          {specialEffect && (
+            <div className="text-cyan-300 text-[10px] leading-tight break-words">
+              {specialEffect}
+            </div>
+          )}
+          {usesInfo && <div className="text-gray-500 text-[10px]">{usesInfo}</div>}
+        </div>
+        {/* 右側: 価格（2倍サイズ） */}
+        <div className="text-yellow-400 text-2xl font-bold flex items-center justify-end shrink-0 leading-none">
+          {price}G
+        </div>
       </div>
     </Tooltip>
   )
@@ -178,13 +206,13 @@ function ShopSlotRenderer({
 }: {
   slot: ShopSlot
   slotIndex: number
-  dmgPreview: { memberName: string; display: string } | null
+  dmgPreview: DualDamagePreview | null
   attackImpacts?: MemberAttackImpact[]
 }) {
   if (!slot.item) {
     return (
       <DroppableSlot id={`return-slot-${slotIndex}`}>
-        <div className="border-2 border-dashed border-gray-700 rounded p-1.5 h-full flex items-center justify-center">
+        <div className="border-2 border-dashed border-gray-700 rounded p-1.5 h-full min-h-[96px] flex items-center justify-center">
           <span className="text-gray-600 text-[10px]">売り切れ</span>
         </div>
       </DroppableSlot>
@@ -197,6 +225,7 @@ function ShopSlotRenderer({
 
   const type = getSlotType(slot)
   const usesInfo = getSlotUsesInfo(slot)
+  const specialEffect = getItemSpecialEffect(item)
 
   return (
     <DraggableShopItem id={`shop-slot-${slotIndex}`} data={dragData}>
@@ -208,6 +237,7 @@ function ShopSlotRenderer({
         usesInfo={usesInfo}
         item={item}
         attackImpacts={attackImpacts}
+        specialEffect={specialEffect}
       />
     </DraggableShopItem>
   )
@@ -267,10 +297,13 @@ function StoreCharacterPanel({
   const opts = { relics }
 
   return (
-    <div className="h-full flex flex-col bg-gray-800/50 rounded p-1.5">
+    <div className="h-full flex flex-col bg-gray-800/50 rounded-lg border border-gray-500 p-1.5">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-white font-bold text-xs">{member.name}</span>
-        <span className="text-yellow-400 text-[10px]">Lv.{member.level}</span>
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
+          <span className="text-white font-bold text-2xl truncate">{member.name}</span>
+        </div>
+        <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
       </div>
 
       <div className="mb-0.5">
@@ -283,7 +316,7 @@ function StoreCharacterPanel({
       </div>
       <div className="mb-1">
         <div className="flex justify-between text-[9px] text-gray-400"><span className="text-yellow-400">EXP</span><span>{expProgress}/{requiredKills}</span></div>
-        <ResourceBar current={expProgress} max={requiredKills} color="yellow" showText={false} size="sm" />
+        <SegmentedBar current={expProgress} max={requiredKills} color="yellow" size="sm" />
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-0.5">
@@ -298,14 +331,14 @@ function StoreCharacterPanel({
             <Tooltip key={`w-${i}`} content={<TooltipCard item={w} damageText={dmg} />} position="bottom">
               <DraggableShopItem id={`inv-weapon-${memberIndex}-${realIndex}`}
                 data={{ source: 'inv-weapon', memberIndex, weaponIndex: realIndex, weapon: w }}>
-                <div className={`relative border rounded p-1.5 text-[10px] border-orange-500/50 bg-orange-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
-                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
+                <div className={`relative border rounded p-1.5 text-base border-orange-500/50 bg-orange-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
                   <div className="flex items-center gap-1">
                     <span className="text-white flex-1 truncate font-bold">{w.name}</span>
-                    {w.targetType === 'enemyAll' && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
-                    {w.currentUses !== null && <span className="text-gray-400">{w.currentUses}/{w.maxUses}</span>}
+                    {w.targetType === 'enemyAll' && <span className="text-[10px] bg-red-700 text-white px-1 rounded flex-shrink-0">全体</span>}
+                    {w.currentUses !== null && <span className="text-gray-400 text-sm">{w.currentUses}/{w.maxUses}</span>}
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span className="text-gray-400">{dmg}</span>
                     <span className="text-green-400">売却 {sellPrice}G</span>
                   </div>
@@ -324,12 +357,12 @@ function StoreCharacterPanel({
           const dmg = formatDamageRange(range)
           return (
             <Tooltip key={`iw-${i}`} content={<TooltipCard item={w} damageText={dmg} durabilityText="∞" />} position="bottom">
-              <div className="border rounded p-1.5 text-[10px] border-gray-600/50 bg-gray-800/30 opacity-60">
+              <div className="border rounded p-1.5 text-base border-gray-600/50 bg-gray-800/30 opacity-60">
                 <div className="flex items-center gap-1">
                   <span className="text-gray-400 truncate flex-1">{w.name}</span>
-                  {w.targetType === 'enemyAll' && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
+                  {w.targetType === 'enemyAll' && <span className="text-[10px] bg-red-700 text-white px-1 rounded flex-shrink-0">全体</span>}
                 </div>
-                <div className="text-gray-500">{dmg}</div>
+                <div className="text-gray-500 text-sm">{dmg}</div>
               </div>
             </Tooltip>
           )
@@ -345,14 +378,14 @@ function StoreCharacterPanel({
             <Tooltip key={`s-${i}`} content={<TooltipCard item={s} damageText={dmg || undefined} />} position="bottom">
               <DraggableShopItem id={`inv-spell-${memberIndex}-${i}`}
                 data={{ source: 'inv-spell', memberIndex, spellIndex: i, spell: s }}>
-                <div className={`relative border rounded p-1.5 text-[10px] border-purple-500/50 bg-purple-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
-                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
+                <div className={`relative border rounded p-1.5 text-base border-purple-500/50 bg-purple-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
                   <div className="flex items-center gap-1">
                     <span className="text-white flex-1 truncate font-bold">{s.name}</span>
-                    {s.targetType === 'enemyAll' && <span className="text-[8px] bg-red-700 text-white px-0.5 rounded flex-shrink-0">全体</span>}
-                    <span className="text-gray-400">{s.mpCost}MP</span>
+                    {s.targetType === 'enemyAll' && <span className="text-[10px] bg-red-700 text-white px-1 rounded flex-shrink-0">全体</span>}
+                    <span className="text-gray-400 text-sm">{s.mpCost}MP</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     {dmg && <span className="text-gray-400">{dmg}</span>}
                     <span className="text-green-400 ml-auto">売却 {sellPrice}G</span>
                   </div>
@@ -390,35 +423,10 @@ function StoreSharedPanel({
   const relicEmptyCount = Math.max(0, 5 - relics.length)
 
   return (
-    <div className="h-full flex flex-col bg-gray-800/50 rounded p-1.5">
-      <div className="mb-1">
-        <div className="text-[9px] text-gray-500 mb-0.5">ポーション</div>
-        {potions.map((p, i) => {
-          const sellPrice = getSellPriceItem(p as { price: number })
-          const isMoved = movedKeys.has(`potion-${p.id}`)
-          const isNew = newPurchaseKeys.has(`potion-${p.id}`)
-          return (
-            <Tooltip key={`p-${i}`} content={<TooltipCard item={p} />} position="bottom">
-              <DraggableShopItem id={`inv-potion-${i}`}
-                data={{ source: 'inv-potion', potionIndex: i }}>
-                <div className={`relative border rounded p-1.5 text-[10px] border-teal-500/50 bg-teal-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
-                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
-                  <div className="text-white truncate font-bold">{p.name}</div>
-                  <div className="text-green-400 text-[9px]">売却 {sellPrice}G</div>
-                </div>
-              </DraggableShopItem>
-            </Tooltip>
-          )
-        })}
-        {Array.from({ length: potionEmptyCount }).map((_, i) => (
-          <DroppableSlot key={`pe-${i}`} id={`slot-potion-${i}`}>
-            <EmptySlot label="ポーション 空き" />
-          </DroppableSlot>
-        ))}
-      </div>
-      <div className="border-t border-gray-700 my-1" />
-      <div className="flex-1">
-        <div className="text-[9px] text-gray-500 mb-0.5">レリック</div>
+    <div className="h-full flex flex-col bg-gray-800/50 rounded-lg border border-gray-500 p-1.5 overflow-y-auto">
+      {/* レリック（バトル画面サイドバーと同サイズ） */}
+      <div className="flex-1 min-h-0">
+        <div className="text-base text-gray-400 font-bold mb-1">レリック</div>
         {relics.map((r, i) => {
           const sellPrice = getSellPriceItem(r as { price: number })
           const isMoved = movedKeys.has(`relic-${r.id}`)
@@ -427,10 +435,10 @@ function StoreSharedPanel({
             <Tooltip key={`r-${i}`} content={<TooltipCard item={r} attackImpacts={calculateRelicAttackImpacts(r, party, relics.filter((x: RelicInstance) => x.id !== r.id))} />} position="bottom">
               <DraggableShopItem id={`inv-relic-${i}`}
                 data={{ source: 'inv-relic', relicIndex: i }}>
-                <div className={`relative border rounded p-1.5 text-[10px] border-yellow-500/50 bg-yellow-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
-                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[7px] font-bold px-1 rounded">NEW</span>}
+                <div className={`relative border rounded p-1.5 mb-0.5 text-xl border-yellow-500/50 bg-yellow-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
                   <div className="text-white truncate font-bold">{r.name}</div>
-                  <div className="text-green-400 text-[9px]">売却 {sellPrice}G</div>
+                  <div className="text-green-400 text-xs">売却 {sellPrice}G</div>
                 </div>
               </DraggableShopItem>
             </Tooltip>
@@ -438,7 +446,38 @@ function StoreSharedPanel({
         })}
         {Array.from({ length: relicEmptyCount }).map((_, i) => (
           <DroppableSlot key={`re-${i}`} id={`slot-relic-${i}`}>
-            <EmptySlot label="レリック 空き" />
+            <div className="border-2 border-dashed border-gray-600 rounded p-1.5 mb-0.5 flex items-center justify-center">
+              <span className="text-gray-600 text-sm">レリック 空き</span>
+            </div>
+          </DroppableSlot>
+        ))}
+      </div>
+      <div className="border-t border-gray-700 my-1" />
+      {/* ポーション */}
+      <div>
+        <div className="text-sm text-gray-400 font-bold mb-1">ポーション</div>
+        {potions.map((p, i) => {
+          const sellPrice = getSellPriceItem(p as { price: number })
+          const isMoved = movedKeys.has(`potion-${p.id}`)
+          const isNew = newPurchaseKeys.has(`potion-${p.id}`)
+          return (
+            <Tooltip key={`p-${i}`} content={<TooltipCard item={p} />} position="bottom">
+              <DraggableShopItem id={`inv-potion-${i}`}
+                data={{ source: 'inv-potion', potionIndex: i }}>
+                <div className={`relative border rounded p-1.5 mb-0.5 text-base border-teal-500/50 bg-teal-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
+                  <div className="text-white truncate font-bold">{p.name}</div>
+                  <div className="text-green-400 text-xs">売却 {sellPrice}G</div>
+                </div>
+              </DraggableShopItem>
+            </Tooltip>
+          )
+        })}
+        {Array.from({ length: potionEmptyCount }).map((_, i) => (
+          <DroppableSlot key={`pe-${i}`} id={`slot-potion-${i}`}>
+            <div className="border-2 border-dashed border-gray-600 rounded p-1.5 mb-0.5 flex items-center justify-center">
+              <span className="text-gray-600 text-xs">ポーション 空き</span>
+            </div>
           </DroppableSlot>
         ))}
       </div>
@@ -468,8 +507,6 @@ export function StoreScreen() {
   const [movedKeys, setMovedKeys] = useState<Set<string>>(new Set())
   // 新規購入アイテムキー（NEWバッジ表示用）
   const [newPurchaseKeys, setNewPurchaseKeys] = useState<Set<string>>(new Set())
-  // ドラッグ中にホバーしているメンバーのインデックス
-  const [hoverMemberIndex, setHoverMemberIndex] = useState<number | null>(null)
   const initialGoldRef = useRef<number | null>(null)
 
   const { run, storeState, mapState } = state
@@ -487,28 +524,21 @@ export function StoreScreen() {
     ? storeState.shopOptions[storeState.selectedShopIndex]
     : null
 
-  // 商品カード用のダメージ予測をメモ化（選択済みショップのスロットベース）
+  // 商品カード用のダメージ予測（武器=戦士+僧侶、魔法=魔法使い+僧侶 のデュアル予測）
   const shopDamagePreviews = useMemo(() => {
-    const previews: Map<number, { memberName: string; display: string } | null> = new Map()
+    const previews: Map<number, DualDamagePreview | null> = new Map()
     if (!selectedShop) return previews
     selectedShop.slots.forEach((slot, index) => {
       if (!slot.item) { previews.set(index, null); return }
-      // 武器/魔法のみダメージ予測
       if (slot.category !== 'weapon' && slot.category !== 'spell') {
         previews.set(index, null)
         return
       }
       const item = slot.item as WeaponData | SpellData
-      if (hoverMemberIndex !== null && run.party[hoverMemberIndex]) {
-        const member = run.party[hoverMemberIndex]
-        const dmg = getMemberDamagePreview(item, member, run.relics as RelicData[])
-        previews.set(index, dmg ? { memberName: member.name, display: dmg } : null)
-      } else {
-        previews.set(index, getBestDamagePreview(item, run.party, run.relics as RelicData[]))
-      }
+      previews.set(index, getDualDamagePreview(item, run.party, run.relics as RelicData[]))
     })
     return previews
-  }, [selectedShop, run.party, run.relics, hoverMemberIndex])
+  }, [selectedShop, run.party, run.relics])
 
   // 商品カード用のレリック攻撃力影響をメモ化（レリックスロット専用）
   const shopAttackImpacts = useMemo(() => {
@@ -540,22 +570,9 @@ export function StoreScreen() {
     else if (data.source === 'sold-item') setDraggingLabel(data.soldItem.name)
   }, [run])
 
-  // ドラッグ中のホバー検知（商品カードのダメージ予測メンバー切替用）
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const overId = event.over?.id as string | undefined
-    if (!overId) { setHoverMemberIndex(null); return }
-    // slot-weapon-{memberIndex}-{slotIndex} パターンからメンバーを検出
-    if (overId.startsWith('slot-weapon-') || overId.startsWith('slot-spell-')) {
-      const memberIdx = parseInt(overId.split('-')[2])
-      if (!isNaN(memberIdx)) { setHoverMemberIndex(memberIdx); return }
-    }
-    setHoverMemberIndex(null)
-  }, [])
-
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     setDragData(null)
     setDraggingLabel(null)
-    setHoverMemberIndex(null)
     if (!event.over) return
     const dropId = event.over.id as string
     const data = event.active.data.current as ShopDragData
@@ -730,7 +747,6 @@ export function StoreScreen() {
   const handleDragCancel = useCallback(() => {
     setDragData(null)
     setDraggingLabel(null)
-    setHoverMemberIndex(null)
   }, [])
 
   // ショップ選択画面
@@ -742,7 +758,7 @@ export function StoreScreen() {
         <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
           <div className="flex justify-between items-center mb-2">
             <span className="text-white font-bold text-xs">ショップを選択</span>
-            <span className="text-yellow-400 font-bold text-sm">{gold}G</span>
+            <span className="text-yellow-400 font-bold text-3xl leading-none">{gold}G</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {storeState.shopOptions.map((option, optIdx) => (
@@ -762,8 +778,15 @@ export function StoreScreen() {
           </div>
         </div>
 
-        {/* ===== キャラ欄4等分（3キャラ + 共有枠） ===== */}
+        {/* ===== キャラ欄4等分（共有枠 + 3キャラ） ===== */}
         <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
+          <StoreSharedPanel
+            potions={run.potions}
+            relics={run.relics}
+            movedKeys={movedKeys}
+            newPurchaseKeys={newPurchaseKeys}
+            party={run.party}
+          />
           {run.party.map((member, index) => (
             <StoreCharacterPanel
               key={member.id}
@@ -775,13 +798,6 @@ export function StoreScreen() {
               relics={run.relics as RelicData[]}
             />
           ))}
-          <StoreSharedPanel
-            potions={run.potions}
-            relics={run.relics}
-            movedKeys={movedKeys}
-            newPurchaseKeys={newPurchaseKeys}
-            party={run.party}
-          />
         </div>
 
         {/* ===== スキップボタン ===== */}
@@ -809,7 +825,7 @@ export function StoreScreen() {
   const bottomSlots = shop.slots.slice(3, 6)
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={pointerWithin}>
+    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={pointerWithin}>
       <div className="min-h-screen bg-gray-800 p-2 flex flex-col gap-2">
 
         {/* ===== 商品エリア + 売却枠 ===== */}
@@ -825,7 +841,7 @@ export function StoreScreen() {
                     リロール ({storeState.rerollCost}G)
                   </Button>
                 </div>
-                <span className="font-bold text-sm">
+                <span className="font-bold text-3xl leading-none">
                   {initialGold !== gold ? (
                     <>
                       <span className="text-gray-400">{initialGold}G</span>
@@ -908,8 +924,15 @@ export function StoreScreen() {
           </DroppableSlot>
         </div>
 
-        {/* ===== キャラ欄4等分（3キャラ + 共有枠） ===== */}
+        {/* ===== キャラ欄4等分（共有枠 + 3キャラ） ===== */}
         <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
+          <StoreSharedPanel
+            potions={run.potions}
+            relics={run.relics}
+            movedKeys={movedKeys}
+            newPurchaseKeys={newPurchaseKeys}
+            party={run.party}
+          />
           {run.party.map((member, index) => (
             <StoreCharacterPanel
               key={member.id}
@@ -921,13 +944,6 @@ export function StoreScreen() {
               relics={run.relics as RelicData[]}
             />
           ))}
-          <StoreSharedPanel
-            potions={run.potions}
-            relics={run.relics}
-            movedKeys={movedKeys}
-            newPurchaseKeys={newPurchaseKeys}
-            party={run.party}
-          />
         </div>
 
         {/* ===== 確定ボタン ===== */}

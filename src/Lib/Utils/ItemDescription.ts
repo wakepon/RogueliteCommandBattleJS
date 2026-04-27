@@ -185,6 +185,87 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
   return ''
 }
 
+/**
+ * 特殊効果のみを抽出した短い説明文を生成（商品カードでの一行表示用）
+ * - ダメージ予測やMP/使用回数は呼び出し側で別表示するため含めない
+ * - 効果がない場合は空文字を返す
+ */
+export function getItemSpecialEffect(item: ItemType): string {
+  // 武器
+  if ('commandCategory' in item && item.commandCategory === 'weapon') {
+    const weapon = item as WeaponData | ExplorerWeapon
+    const parts: string[] = []
+    if ('effect' in weapon && weapon.effect) {
+      if (weapon.effect.type === 'lifesteal') {
+        parts.push(`ダメージを与えたときHP+${weapon.effect.value}回復`)
+      } else if (weapon.effect.type === 'conditionalPower') {
+        parts.push(`HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`)
+      } else if (weapon.effect.type === 'shield') {
+        parts.push(`シールド${weapon.effect.value}付与`)
+      } else if (weapon.effect.type === 'killPreserveDurability') {
+        parts.push('トドメ時に耐久消費なし')
+      } else if (weapon.effect.type === 'targetRateUp') {
+        parts.push(`対象の被弾率+${weapon.effect.value}%`)
+      }
+    }
+    if ('hpCost' in weapon && weapon.hpCost) {
+      parts.push(`HP${weapon.hpCost}消費`)
+    }
+    if ('goldCost' in weapon && weapon.goldCost) {
+      parts.push(`${weapon.goldCost}G消費/回`)
+    }
+    return parts.join(' / ')
+  }
+
+  // 魔法
+  if ('commandCategory' in item && item.commandCategory === 'spell') {
+    const spell = item as SpellData
+    if (!spell.effect) return ''
+    switch (spell.effect.type) {
+      case 'heal':
+        return `HP+${spell.effect.value}回復`
+      case 'steal':
+        return 'ゴールドを盗む'
+      case 'buff':
+        return `STR+${spell.effect.value}`
+      case 'shield':
+        return `シールド${spell.effect.value}付与`
+      case 'hpToMp':
+        return `HP${spell.effect.hpCost}消費→MP${spell.effect.mpGain}回復`
+      case 'goldOnHit':
+        return `ヒット時+${spell.effect.value}G獲得`
+      case 'goldDamage':
+        return `所持金${Math.floor(spell.effect.rate * 100)}%消費→×${spell.effect.multiplier}ダメ`
+      case 'repairWeapons':
+        return `武器耐久+${spell.effect.value}回復`
+      case 'weaponPowerBuff':
+        return `次の武器攻撃Power+${spell.effect.value}`
+      case 'guidanceBuff':
+        return '導き付与（次トドメで+1EXP）'
+      case 'killBonusExpToAll':
+        return 'トドメ時に全員へボーナスEXP'
+      default:
+        return ''
+    }
+  }
+
+  // ポーション
+  if ('commandCategory' in item && item.commandCategory === 'potion') {
+    const potion = item as PotionData
+    if (potion.effect.type === 'healHp') return `HP+${potion.effect.value}回復`
+    if (potion.effect.type === 'healMp') return `MP+${potion.effect.value}回復`
+    if (potion.effect.type === 'repairWeapons') return `全武器耐久+${potion.effect.value}回復`
+    return ''
+  }
+
+  // レリック
+  if ('passiveEffect' in item) {
+    return getPassiveEffectDescription((item as RelicData).passiveEffect)
+  }
+
+  return ''
+}
+
 /** アイテムのカテゴリ表示 */
 export function getItemCategory(item: ItemType): string {
   if ('commandCategory' in item) {
