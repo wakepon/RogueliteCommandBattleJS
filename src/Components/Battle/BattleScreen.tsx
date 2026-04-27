@@ -12,11 +12,11 @@ import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { calculateRelicAttackImpacts } from '../../Lib/Utils/RelicImpactCalculator'
 import { Button } from '../Common/Button'
-import { ResourceBar, Tooltip } from '../Common'
+import { ResourceBar, Tooltip, SegmentedBar } from '../Common'
 import { EnemyDisplay } from './EnemyDisplay'
 import { TargetSelector, getTargetSelectionState } from './TargetSelector'
 import { DamagePopup } from './DamagePopup'
-import { LevelUpModal } from './LevelUpModal'
+import { LevelUpPopupEffect } from './LevelUpPopupEffect'
 import { DraggableCommand } from './DraggableCommand'
 import { DroppableTarget } from './DroppableTarget'
 import { TooltipCard } from '../Common/TooltipCard'
@@ -69,6 +69,7 @@ function CharacterPanel({
   dragHandleProps,
   acting,
   shaking,
+  levelingUp,
 }: {
   member: ExplorerState
   isCommandPhase: boolean
@@ -91,18 +92,25 @@ function CharacterPanel({
   acting: AvatarActingType | null
   /** 被弾時の振動フラグ */
   shaking: boolean
+  /** レベルアップ縦伸縮中フラグ（最優先） */
+  levelingUp: boolean
 }) {
   const isDead = member.hp <= 0
   const isFront = isFrontMember(allParty, member.id)
   const positionLabel = isFront ? '前衛' : '後衛'
-  const positionColor = isFront ? 'text-orange-400' : 'text-cyan-400'
   const commands = [...member.weapons, ...member.spells]
 
   // EXP/レベルアップ進捗
   const requiredKills = getRequiredKillsForNextLevel(member.level)
   const expProgress = requiredKills > 0 ? member.exp : 0
 
-  const animClass = acting ? 'animate-panel-rise' : shaking ? 'animate-panel-shake' : ''
+  const animClass = levelingUp
+    ? 'animate-levelup-stretch'
+    : acting
+      ? 'animate-panel-rise'
+      : shaking
+        ? 'animate-panel-shake'
+        : ''
 
   return (
     <DroppableTarget id={`ally-${member.id}`} disabled={!isCommandPhase || draggingEnemyTarget || draggingPanel}>
@@ -118,12 +126,12 @@ function CharacterPanel({
         >
           {/* ヘッダー: 行動順番号 + クラスアイコン + 名前 + レベル */}
           <div className="flex justify-between items-center mb-1">
-            <div className="flex items-center gap-1">
-              <span className="text-yellow-400 font-bold text-[10px]">{ORDER_BADGES[orderIndex] ?? `${orderIndex + 1}`}</span>
-              <span className="text-sm leading-none">{CLASS_ICONS[member.characterClass]}</span>
-              <span className="text-white font-bold text-xs">{member.name}</span>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="text-yellow-400 font-bold text-sm shrink-0">{ORDER_BADGES[orderIndex] ?? `${orderIndex + 1}`}</span>
+              <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
+              <span className="text-white font-bold text-2xl truncate">{member.name}</span>
             </div>
-            <span className="text-yellow-400 text-[10px]">Lv.{member.level}</span>
+            <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
           </div>
 
           {/* 選択済みコマンド表示 */}
@@ -154,28 +162,32 @@ function CharacterPanel({
             <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" />
           </div>
 
-          {/* EXP バー */}
+          {/* EXP バー（必要敵数で区画分割表示） */}
           <div id={`exp-gauge-${member.id}`} className="mb-1">
             <div className="flex justify-between text-[9px] text-gray-400">
               <span className="text-yellow-400">EXP</span>
               <span>{expProgress}/{requiredKills}</span>
             </div>
-            <ResourceBar current={expProgress} max={requiredKills} color="yellow" showText={false} size="sm" />
+            <SegmentedBar current={expProgress} max={requiredKills} color="yellow" size="sm" />
           </div>
         </div>
 
-        {/* 前衛/後衛 + 被弾率 */}
+        {/* 前衛/後衛ラベル + 被弾率 */}
         {targetRate !== undefined && !isDead && (
-          <div className="text-[9px] text-gray-400 mb-1">
-            <span className={positionColor}>{positionLabel}</span>
-            <span className="mx-1">被弾:</span>
-            <span className={targetRate >= 0.5 ? 'text-red-400 font-bold' : 'text-gray-300'}>{Math.round(targetRate * 100)}%</span>
-            {previewRate !== undefined && Math.round(previewRate * 100) !== Math.round(targetRate * 100) && (
-              <>
-                <span className="text-gray-500 mx-0.5">→</span>
-                <span className={previewRate >= 0.5 ? 'text-red-400 font-bold' : 'text-yellow-400 font-bold'}>{Math.round(previewRate * 100)}%</span>
-              </>
-            )}
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span className={`text-base font-bold px-1.5 py-0.5 rounded leading-none ${isFront ? 'bg-orange-500/30 text-orange-300 border border-orange-400' : 'bg-cyan-500/30 text-cyan-300 border border-cyan-400'}`}>
+              {positionLabel}
+            </span>
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-sm text-gray-400">被弾:</span>
+              <span className={`text-2xl font-bold leading-none ${targetRate >= 0.5 ? 'text-red-400' : 'text-gray-200'}`}>{Math.round(targetRate * 100)}%</span>
+              {previewRate !== undefined && Math.round(previewRate * 100) !== Math.round(targetRate * 100) && (
+                <>
+                  <span className="text-gray-500 text-sm mx-0.5">→</span>
+                  <span className={`text-2xl font-bold leading-none ${previewRate >= 0.5 ? 'text-red-400' : 'text-yellow-400'}`}>{Math.round(previewRate * 100)}%</span>
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -216,30 +228,66 @@ function CharacterPanel({
   )
 }
 
-/** 共有枠: ポーション + レリック + ゴールド */
-function SharedPanel({
+/** 左サイドパネル: ステージ番号 / 次の敵 / 次の次の敵 / 所持金 / レリック / ポーション */
+function LeftPanel({
   potions,
   relics,
   isCommandPhase,
   gold,
   party,
+  currentStage,
+  seed,
 }: {
   potions: { id: string; name: string; commandCategory: 'potion' }[]
   relics: RelicInstance[]
   isCommandPhase: boolean
   gold: number
   party: ExplorerState[]
+  currentStage: number
+  seed: number
 }) {
   return (
-    <div className="h-full flex flex-col bg-gray-800/50 rounded p-1.5">
-      {/* ゴールド + ポーション */}
-      <div className="mb-2">
-        <div className="flex justify-between items-center mb-0.5">
-          <span className="text-[9px] text-gray-500">ポーション</span>
-          <span className="text-[10px] text-yellow-400 font-bold">{gold}G</span>
-        </div>
+    <div className="h-full flex flex-col gap-2 overflow-y-auto">
+      {/* ステージ番号（2倍）*/}
+      <div className="bg-gray-900 border border-gray-600 rounded-lg p-2 text-center">
+        <div className="text-2xl font-bold text-white leading-tight">Stage {currentStage}</div>
+      </div>
+
+      {/* 次の敵 */}
+      <NextStagePreview seed={seed} currentStage={currentStage} label="次の敵" />
+
+      {/* 次の次の敵 */}
+      <NextStagePreview seed={seed} currentStage={currentStage} offset={2} label="次の次の敵" />
+
+      {/* 所持金（4倍）*/}
+      <div className="bg-gray-900 border border-gray-600 rounded-lg p-2 text-center">
+        <div className="text-xs text-gray-400 mb-0.5">所持金</div>
+        <div className="text-4xl font-bold text-yellow-400 leading-none">{gold}G</div>
+      </div>
+
+      {/* レリック（3倍、サイドバー残り高さの約半分）*/}
+      <div className="bg-gray-800/70 border border-gray-600 rounded-lg p-2 flex-[1] min-h-0 overflow-y-auto">
+        <div className="text-base text-gray-400 font-bold mb-1">レリック</div>
+        {relics.length === 0 ? (
+          <div className="text-base text-gray-600">なし</div>
+        ) : (
+          <div className="space-y-0.5">
+            {relics.map((relic) => (
+              <Tooltip key={relic.id} content={<TooltipCard item={relic} attackImpacts={calculateRelicAttackImpacts(relic, party, relics.filter(r => r.id !== relic.id))} />} position="top">
+                <div className="text-xl text-gray-200 truncate">
+                  {relic.name}
+                </div>
+              </Tooltip>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ポーション（2倍、レリックの下）*/}
+      <div className="bg-gray-800/70 border border-gray-600 rounded-lg p-2">
+        <div className="text-sm text-gray-400 font-bold mb-1">ポーション</div>
         {potions.length === 0 ? (
-          <div className="text-[10px] text-gray-600">なし</div>
+          <div className="text-base text-gray-600">なし</div>
         ) : (
           potions.map((potion) => (
             <DraggableCommand
@@ -253,26 +301,8 @@ function SharedPanel({
         )}
       </div>
 
-      <div className="border-t border-gray-700 my-1" />
-
-      {/* レリック */}
-      <div className="flex-1">
-        <div className="text-[9px] text-gray-500 mb-0.5">レリック</div>
-        {relics.length === 0 ? (
-          <div className="text-[10px] text-gray-600">なし</div>
-        ) : (
-          <div className="space-y-0.5">
-            {relics.map((relic) => (
-              <Tooltip key={relic.id} content={<TooltipCard item={relic} attackImpacts={calculateRelicAttackImpacts(relic, party, relics.filter(r => r.id !== relic.id))} />} position="top">
-                <div className="text-[10px] text-gray-300 truncate">
-                  {relic.name}
-                </div>
-              </Tooltip>
-            ))}
-          </div>
-        )}
-      </div>
-
+      {/* 最下部の空白スペース（ポーションを上方に押し上げる） */}
+      <div className="flex-[1]" />
     </div>
   )
 }
@@ -379,15 +409,16 @@ export function BattleScreen() {
   const [acting, setActing] = useState<{ explorerId: string; type: AvatarActingType } | null>(null)
   // 被弾振動: 振動中のメンバーID集合
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set())
+  // レベルアップ縦伸縮中のメンバーID集合
+  const [levelingUpIds, setLevelingUpIds] = useState<Set<string>>(new Set())
   // 丸アイコンドラッグ中のメンバーID（DragOverlay 用）
   const [draggingAvatarId, setDraggingAvatarId] = useState<string | null>(null)
 
   // === フェーズ自動処理 ===
-  // レベルアップポップアップ表示中はフェーズ進行を一時停止
-  const hasLevelUpPopups = levelUpPopups.length > 0
+  // レベルアップ演出はフローティングポップアップとして並走するため、フェーズ進行は止めない
 
   useEffect(() => {
-    if (phase !== 'partyAction' || hasLevelUpPopups) return
+    if (phase !== 'partyAction') return
     const timers: ReturnType<typeof setTimeout>[] = []
     // 行動者のアニメ種別を判定（攻撃 or 味方対象）
     const slot = commandSlots[battleState.currentCommandIndex]
@@ -405,10 +436,10 @@ export function BattleScreen() {
     }, ACTION_DELAY_MS)
     timers.push(t1)
     return () => timers.forEach(t => clearTimeout(t))
-  }, [phase, battleState.currentCommandIndex, hasLevelUpPopups]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, battleState.currentCommandIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (phase !== 'enemyAction' || hasLevelUpPopups) return
+    if (phase !== 'enemyAction') return
     const aliveEnemies = enemies.filter(e => e.currentHp > 0)
     if (battleState.currentEnemyIndex >= aliveEnemies.length) return
     const timers: ReturnType<typeof setTimeout>[] = []
@@ -419,10 +450,10 @@ export function BattleScreen() {
     }, ENEMY_TURN_DELAY_MS)
     timers.push(t1)
     return () => timers.forEach(t => clearTimeout(t))
-  }, [phase, battleState.currentEnemyIndex, hasLevelUpPopups]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, battleState.currentEnemyIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (phase !== 'turnEnd' || hasLevelUpPopups) return
+    if (phase !== 'turnEnd') return
     const timers: ReturnType<typeof setTimeout>[] = []
     const t1 = setTimeout(() => {
       processTurnEnd()
@@ -431,16 +462,41 @@ export function BattleScreen() {
     }, ACTION_DELAY_MS)
     timers.push(t1)
     return () => timers.forEach(t => clearTimeout(t))
-  }, [phase, hasLevelUpPopups]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (hasLevelUpPopups || battleState.isGameOver) return
+    if (battleState.isGameOver) return
     const result = checkBattleResult(enemies, party)
     if (result === 'ongoing') return
     // HPバーアニメーション(300ms) + 余韻(500ms) を待ってから遷移
-    const timer = setTimeout(() => endBattle(result), 800)
+    // レベルアップ演出が出ているときは追加で1秒延長して余韻を確保
+    const delay = levelUpPopups.length > 0 ? 1800 : 800
+    const timer = setTimeout(() => endBattle(result), delay)
     return () => clearTimeout(timer)
-  }, [enemies, party, endBattle, hasLevelUpPopups, battleState.isGameOver])
+  }, [enemies, party, endBattle, battleState.isGameOver, levelUpPopups.length])
+
+  // レベルアップ縦伸縮: 新しい levelUpPopup が追加されたタイミングで対象カードをストレッチ
+  const prevLevelUpPopupIdsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const newPopups = levelUpPopups.filter(p => !prevLevelUpPopupIdsRef.current.has(p.id))
+    prevLevelUpPopupIdsRef.current = new Set(levelUpPopups.map(p => p.id))
+    if (newPopups.length === 0) return
+    const targetIds = newPopups.map(p => p.levelUpInfo.explorerId)
+    setLevelingUpIds(prev => {
+      const next = new Set(prev)
+      targetIds.forEach(id => next.add(id))
+      return next
+    })
+    // 1500ms（CSS animation の duration = 2ニョキ分と同期）後に解除
+    const timer = setTimeout(() => {
+      setLevelingUpIds(prev => {
+        const next = new Set(prev)
+        targetIds.forEach(id => next.delete(id))
+        return next
+      })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [levelUpPopups])
 
   // 被弾振動: 新しい playerDamagePopup が追加されたタイミングで対象メンバーを振動
   const prevDamagePopupIdsRef = useRef<Set<string>>(new Set())
@@ -637,12 +693,27 @@ export function BattleScreen() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={customCollisionDetection}>
-      <div className="min-h-screen bg-gray-800 p-2 flex flex-col gap-2">
+      <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
+
+        {/* ===== 左サイドパネル ===== */}
+        <div className="w-1/4 flex-shrink-0 flex flex-col">
+          <LeftPanel
+            potions={uniquePotions}
+            relics={run.relics}
+            isCommandPhase={isCommandPhase}
+            gold={gold}
+            party={party}
+            currentStage={run.currentStage}
+            seed={run.seed}
+          />
+        </div>
+
+        {/* ===== 右側メイン領域 ===== */}
+        <div className="flex-1 flex flex-col gap-2 min-w-0">
 
         {/* ===== 敵エリア ===== */}
         <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg relative min-h-[140px] flex flex-col">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-white font-bold text-xs">Stage {run.currentStage}</span>
+          <div className="flex justify-end items-center mb-2">
             <div className="flex gap-2 items-center">
               <span className="text-gray-400 text-[10px]">
                 {phase === 'command' && 'コマンド選択'}
@@ -654,18 +725,13 @@ export function BattleScreen() {
             </div>
           </div>
 
-          <div className="absolute top-1 right-1 z-[5] flex gap-1">
-            <NextStagePreview seed={run.seed} currentStage={run.currentStage} />
-            <NextStagePreview seed={run.seed} currentStage={run.currentStage} offset={2} label="Next+" />
-          </div>
-
           {visibleMessage && (
             <div className={`absolute top-8 left-1/2 -translate-x-1/2 z-10 bg-gray-800 border border-gray-500 px-4 py-1 rounded text-white text-xs font-bold shadow-lg transition-opacity duration-300 ${messageVisible ? 'opacity-100' : 'opacity-0'}`}>
               {visibleMessage}
             </div>
           )}
 
-          <div className="flex-1 flex items-center gap-3 pr-60">
+          <div className="flex-1 flex items-center gap-3">
           <div className="flex-1 flex flex-wrap justify-center items-center content-center gap-3">
             {enemies.map((enemy) => {
               const isAllyTarget = selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll' || draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'
@@ -737,9 +803,8 @@ export function BattleScreen() {
           })}
         </div>
 
-        {/* ===== キャラ欄4等分（共有枠 + 3キャラ）D&Dソート可能 ===== */}
-        <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
-          <SharedPanel potions={uniquePotions} relics={run.relics} isCommandPhase={isCommandPhase} gold={gold} party={party} />
+        {/* ===== キャラ欄3等分（3キャラ）D&Dソート可能 ===== */}
+        <div className="grid grid-cols-3 gap-1.5 flex-1 min-h-0">
           <SortableContext items={panelIds} strategy={horizontalListSortingStrategy}>
             {party.map((member, index) => {
               const memberAvailCmds = getAvailableCommands(member, gold, potions)
@@ -779,6 +844,7 @@ export function BattleScreen() {
                       dragHandleProps={dragHandleProps}
                       acting={acting?.explorerId === member.id ? acting.type : null}
                       shaking={shakingIds.has(member.id)}
+                      levelingUp={levelingUpIds.has(member.id)}
                     />
                   )}
                 </SortableCharacterPanel>
@@ -796,6 +862,8 @@ export function BattleScreen() {
           </div>
         )}
 
+        </div>{/* 右側メイン領域 終わり */}
+
         {playerDamagePopups.map((popup) => (
           <PlayerDamagePopupEffect key={popup.id} popup={popup} onComplete={() => removePlayerPopup(popup.id)} />
         ))}
@@ -805,9 +873,13 @@ export function BattleScreen() {
             columns={2} party={party} onSelectTarget={selectTarget} onConfirm={executeCommand} onCancel={cancelCommand} />
         )}
 
-        {!expAnimating && levelUpPopups.length > 0 && (
-          <LevelUpModal key={levelUpPopups[0].id} levelUpInfo={levelUpPopups[0].levelUpInfo} onComplete={() => removeLevelUpPopup(levelUpPopups[0].id)} />
-        )}
+        {!expAnimating && levelUpPopups.map(popup => (
+          <LevelUpPopupEffect
+            key={popup.id}
+            levelUpInfo={popup.levelUpInfo}
+            onComplete={() => removeLevelUpPopup(popup.id)}
+          />
+        ))}
 
         <DragOverlay>
           {draggingCommand && (

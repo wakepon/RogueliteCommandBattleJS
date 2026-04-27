@@ -101,12 +101,14 @@ export function EnemyDisplay({
 
       {/* 行動予告 */}
       {intent && !isDead && (
-        <div className="text-[10px] text-center mb-1">
-          <span className="text-gray-400">次: </span>
-          <span className={intent.damage > 0 ? 'text-red-300' : 'text-gray-300'}>
+        <div className="text-center mb-1 leading-tight">
+          <span className="text-gray-400 text-[10px]">次: </span>
+          <span className={`text-[10px] ${intent.damage > 0 ? 'text-red-300' : 'text-gray-300'}`}>
             {intent.actionName}
-            {intent.damage > 0 && `(${intent.damage})`}
           </span>
+          {intent.damage > 0 && (
+            <span className="text-red-300 text-[15px] font-bold ml-0.5">({intent.damage})</span>
+          )}
         </div>
       )}
 
@@ -119,9 +121,9 @@ export function EnemyDisplay({
         />
       </div>
 
-      {/* 攻撃力表示 */}
+      {/* とどめ報酬表示 */}
       <div className="text-xs text-gray-400 text-center">
-        ATK: {enemy.attack}
+        とどめ時 EXP +1
       </div>
 
       {/* バフ/デバフ表示 */}

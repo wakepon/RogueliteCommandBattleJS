@@ -7,9 +7,10 @@ interface BuffIconProps {
 
 export function BuffIcon({ buff, debuff }: BuffIconProps) {
   if (buff) {
+    const label = buff.type === 'charge' ? '力' : buff.type.charAt(0).toUpperCase()
     return (
       <div className="inline-flex items-center justify-center w-6 h-6 bg-green-600 rounded text-xs text-white" title={`${buff.type}: +${buff.value}`}>
-        {buff.type.charAt(0).toUpperCase()}
+        {label}
       </div>
     )
   }

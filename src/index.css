@@ -65,6 +65,21 @@
   animation: item-fade 250ms ease-out both;
 }
 
+/* バトル: レベルアップ時のメンバーカード縦方向ニョキニョキ伸縮
+ * 周期 0.75 秒で 1 ニョキ（伸びて戻る）、合計 2 ニョキで 1.5 秒。
+ */
+@keyframes levelup-stretch {
+  0%   { transform: scaleY(1); }
+  25%  { transform: scaleY(1.2); }   /* 1ニョキ目: 伸び切り */
+  50%  { transform: scaleY(1); }     /* 1ニョキ目: 戻る（0.75s） */
+  75%  { transform: scaleY(1.2); }   /* 2ニョキ目: 伸び切り */
+  100% { transform: scaleY(1); }     /* 2ニョキ目: 戻る（1.5s） */
+}
+.animate-levelup-stretch {
+  animation: levelup-stretch 1500ms ease-in-out;
+  transform-origin: bottom center;
+}
+
 /* リザルト: レベルアップ振動（500ms） */
 @keyframes result-shake {
   0%, 100% { transform: translateX(0); }

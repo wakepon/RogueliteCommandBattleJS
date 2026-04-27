@@ -80,7 +80,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
       {...listeners}
       {...attributes}
       className={`
-        flex items-center gap-1.5 px-2 py-1 rounded text-xs
+        flex items-center gap-1.5 px-2 py-1 rounded text-base
         ${isDragging ? 'opacity-50 ring-2 ring-yellow-400' : ''}
         ${!isAvailable || disabled
           ? 'text-gray-500 cursor-not-allowed opacity-50'
@@ -89,18 +89,18 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
         transition-colors select-none
       `}
     >
-      <span className={`w-4 h-4 rounded text-[10px] flex items-center justify-center flex-shrink-0 ${style.bgColor}`}>
+      <span className={`w-6 h-6 rounded text-sm flex items-center justify-center flex-shrink-0 ${style.bgColor}`}>
         {style.label}
       </span>
       <span className="flex-1 truncate">{command.name}</span>
       {command.targetType === 'enemyAll' && (
-        <span className="text-[9px] bg-red-700 text-white px-0.5 rounded">全</span>
+        <span className="text-xs bg-red-700 text-white px-1 rounded">全</span>
       )}
       {damageText && (
-        <span className="text-[10px] text-gray-400 flex-shrink-0">{damageText}</span>
+        <span className="text-base text-gray-400 flex-shrink-0">{damageText}</span>
       )}
       {usesText && (
-        <span className="text-[10px] text-gray-400 flex-shrink-0">{usesText}</span>
+        <span className="text-base text-gray-400 flex-shrink-0">{usesText}</span>
       )}
     </div>
     </Tooltip>

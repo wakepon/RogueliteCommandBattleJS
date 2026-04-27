@@ -1,5 +1,6 @@
 export * from './Button'
 export * from './ResourceBar'
+export * from './SegmentedBar'
 export * from './BuffIcon'
 export * from './Tooltip'
 export * from './TooltipCard'
