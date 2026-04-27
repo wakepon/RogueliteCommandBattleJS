@@ -2,7 +2,7 @@ import { GameState } from '../Types/Game'
 import { RunState } from '../Types/Run'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
-import { BattleCommand, BattleState, ExpPopup } from '../Types/Battle'
+import { BattleCommand, BattleState, ExpPopup, BonusGain } from '../Types/Battle'
 import { SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
 import { battleReducer, BattleAction, createPlayerDamagePopup, createExpPopup } from './BattleReducer'
@@ -28,7 +28,6 @@ import {
   hasRelicEffect,
   getWeaponBreakIncrement,
   getWeaponBreakAttackBonus,
-  getGoldPerKill,
   getDamageTakenToMpRate,
   getLevelUpDamageBoost,
   hasDeathProtection,
@@ -493,9 +492,14 @@ function executeAttackCommand(
   }
 
   // 魔法の goldOnHit 効果: ゴールド獲得
+  // ボーナスゴールド獲得記録（リザルト画面の内訳表示用）
+  const localBonusGains: BonusGain[] = []
   let extraGold = 0
   if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'goldOnHit') {
     extraGold += selectedCommand.effect.value
+    if (extraGold > 0) {
+      localBonusGains.push({ source: selectedCommand.name, value: extraGold })
+    }
   }
 
   // 攻撃後にnextActionバフ（精密など）を消費
@@ -514,10 +518,15 @@ function executeAttackCommand(
   }
 
   if (defeatedCount > 0) {
-    // 商人の護符: 敵撃破時ゴールド追加
-    const goldPerKill = getGoldPerKill(relics)
-    if (goldPerKill > 0) {
-      updatedRun = { ...updatedRun, gold: updatedRun.gold + goldPerKill * defeatedCount }
+    // 商人の護符など: 敵撃破時ゴールド追加（レリックごとに source 名を保持）
+    const goldPerKillRelics = relics.filter(r => r.passiveEffect?.type === 'goldPerKill')
+    for (const relic of goldPerKillRelics) {
+      const perKill = (relic.passiveEffect as { value: number }).value
+      const total = perKill * defeatedCount
+      if (total > 0) {
+        updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
+        localBonusGains.push({ source: relic.name, value: total })
+      }
     }
 
     // 教育の魔弾: トドメで全員にボーナスEXP
@@ -551,6 +560,14 @@ function executeAttackCommand(
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
       // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
       updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+    }
+  }
+
+  // ボーナスゴールド獲得を battleState.bonusGains に反映
+  if (localBonusGains.length > 0) {
+    newBattleState = {
+      ...newBattleState,
+      bonusGains: [...newBattleState.bonusGains, ...localBonusGains],
     }
   }
 

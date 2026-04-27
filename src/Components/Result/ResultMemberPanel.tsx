@@ -1,5 +1,5 @@
 import { MemberBattleDiff, MemberAnimationPhase } from '../../Lib/Types/Game'
-import { ResourceBar } from '../Common'
+import { ResourceBar, SegmentedBar } from '../Common'
 import { DiffLabel } from './DiffLabel'
 
 interface ResultMemberPanelProps {
@@ -61,13 +61,13 @@ export function ResultMemberPanel({ diff, phase }: ResultMemberPanelProps) {
   // 武器耐久値: showAfterResources で after に切り替え
   const durableWeapons = diff.weapons.filter(w => w.maxUses !== null)
 
-  // 振動クラス: shaking のみ
-  const shakeClass = phase === 'shaking' ? 'animate-result-shake' : ''
+  // レベルアップ演出: shaking フェーズで縦方向ニョキニョキ
+  const stretchClass = phase === 'shaking' ? 'animate-levelup-stretch' : ''
   // 大カードの出現アニメ: enter フェーズのみ
   const enterAnimClass = phase === 'enter' ? 'animate-card-fade' : ''
 
   return (
-    <div className={`bg-black/30 rounded-lg p-4 text-white ${enterAnimClass} ${shakeClass}`}>
+    <div className={`bg-black/30 rounded-lg p-4 text-white ${enterAnimClass} ${stretchClass}`}>
       {/* 名前とレベル */}
       <div className="flex justify-between items-center mb-2">
         <span className="text-white font-bold">{diff.name}</span>
@@ -126,7 +126,7 @@ export function ResultMemberPanel({ diff, phase }: ResultMemberPanelProps) {
         />
       </div>
 
-      {/* EXP */}
+      {/* EXP（必要敵数で区画分割表示。レベルアップ時は最大→0 へ瞬時にワープ） */}
       <div className="mb-2">
         <div className="flex justify-between text-xs text-gray-400 mb-0.5">
           <span>EXP</span>
@@ -134,13 +134,12 @@ export function ResultMemberPanel({ diff, phase }: ResultMemberPanelProps) {
             {expCurrent} / {expMax}
           </span>
         </div>
-        <ResourceBar
+        <SegmentedBar
           current={expCurrent}
           max={expMax}
           color="yellow"
-          showText={false}
           size="sm"
-          transitionMs={RESOURCE_TRANSITION_MS}
+          animateExpansion
         />
       </div>
 

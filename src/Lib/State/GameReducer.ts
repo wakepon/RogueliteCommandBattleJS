@@ -189,13 +189,22 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           : []
         const goldDiff = snapshot ? endGold - snapshot.gold : 0
 
+        // 戦闘中の魔法/レリック効果によるゴールド獲得を集計（同名は合算）
+        const bonusGainMap = new Map<string, number>()
+        for (const g of state.battleState.bonusGains) {
+          bonusGainMap.set(g.source, (bonusGainMap.get(g.source) ?? 0) + g.value)
+        }
+        const bonusEntries = Array.from(bonusGainMap, ([source, value]) => ({ source, value }))
+        // bonusEntries 分は goldEarned にも含めて表示する（goldDiff との不整合を防ぐ）
+        const bonusTotal = bonusEntries.reduce((s, e) => s + e.value, 0)
+
         const resultState: ResultState = {
           result: 'victory',
-          goldEarned: rewardTotal,
+          goldEarned: rewardTotal + bonusTotal,
           baseGold: reward.baseGold,
           interestGold: reward.interestGold,
           stolenGold: reward.stolenGold,
-          bonusEntries: [],
+          bonusEntries,
           killCount,
           memberDiffs,
           goldDiff,

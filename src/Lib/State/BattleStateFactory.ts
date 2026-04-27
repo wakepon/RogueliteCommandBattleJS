@@ -181,6 +181,7 @@ export function createBattleState(
     // 共有
     stolenGold: 0,
     relicState: createRelicBattleState(relics),
+    bonusGains: [],
 
     // UI
     selectedCommand: null,
