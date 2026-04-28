@@ -39,9 +39,11 @@ export function PlayerDamagePopupEffect({ popup, onComplete }: PlayerDamagePopup
 
   if (!pos) return null
 
+  const isShielded = !!popup.shielded
   const isHealing = popup.damage < 0
-  const isLabelOnly = popup.damage === 0
-  // damage=0かつlabelなしは想定外（空ポップアップを残さない）
+  // ダメージなし & ラベルのみの場合（damage===0 のラベル専用ポップアップ）
+  const isLabelOnly = popup.damage === 0 && !isShielded
+  // damage=0かつlabelなしかつshieldedでないものは想定外（空ポップアップを残さない）
   if (isLabelOnly && !popup.label) return null
   const displayText = isHealing ? `+${Math.abs(popup.damage)}` : `-${popup.damage}`
   const textColorClass = isHealing ? 'text-green-400' : 'text-red-500'
@@ -61,7 +63,12 @@ export function PlayerDamagePopupEffect({ popup, onComplete }: PlayerDamagePopup
             {popup.label}
           </span>
         )}
-        {!isLabelOnly && (
+        {isShielded ? (
+          <span className="text-2xl font-bold drop-shadow-lg whitespace-nowrap">
+            <span className="text-cyan-400">Shielded</span>
+            <span className="text-red-500"> -{popup.damage}</span>
+          </span>
+        ) : !isLabelOnly && (
           <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
             {displayText}
           </span>

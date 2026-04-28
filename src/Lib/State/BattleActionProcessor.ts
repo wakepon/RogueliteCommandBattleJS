@@ -1221,8 +1221,9 @@ export function processEnemyAction(
       damage: actualDamage,
     })
 
-    // 全生存パーティーメンバーにダメージ適用（シールドバフ考慮）
+    // 全生存パーティーメンバーにダメージ適用（シールドバフ考慮、ポップアップは軽減後の値で作成）
     const aliveMembers = newRun.party.filter(m => m.hp > 0)
+    const aoePopups = []
     for (const member of aliveMembers) {
       const { reducedDamage: memberDamage, updatedBuffs: memberBuffs } = processShieldDamageReduction(member.battleBuffs, actualDamage)
       // 苦痛のリング: 被ダメの一定割合をMP回復
@@ -1235,10 +1236,10 @@ export function processEnemyAction(
         battleBuffs: memberBuffs,
       }
       newRun = updatePartyMember(newRun, updatedMember)
+      // メンバーごとにシールド軽減後のダメージでポップアップ作成（軽減発生時は shielded フラグ）
+      aoePopups.push(createPlayerDamagePopup(memberDamage, member.id, undefined, memberDamage < actualDamage))
     }
 
-    // 全メンバー分のポップアップを追加
-    const aoePopups = aliveMembers.map(m => createPlayerDamagePopup(actualDamage, m.id))
     newBattleState = {
       ...newBattleState,
       playerDamagePopups: [...newBattleState.playerDamagePopups, ...aoePopups],
@@ -1252,6 +1253,17 @@ export function processEnemyAction(
 
     // シールドバフによるダメージ軽減
     const { reducedDamage: shieldedDamage, updatedBuffs: shieldedBuffs } = processShieldDamageReduction(battleAction.explorer.battleBuffs, actualDamage)
+
+    // ダメージポップアップを作成（シールド軽減後の値を使用、軽減発生時は shielded フラグ）
+    if (actualDamage > 0) {
+      newBattleState = {
+        ...newBattleState,
+        playerDamagePopups: [
+          ...newBattleState.playerDamagePopups,
+          createPlayerDamagePopup(shieldedDamage, battleAction.targetExplorerId, undefined, shieldedDamage < actualDamage),
+        ],
+      }
+    }
 
     // 苦痛のリング: 被ダメの一定割合をMP回復
     const dmgToMpRate = getDamageTakenToMpRate(relics)

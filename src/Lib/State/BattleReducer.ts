@@ -57,12 +57,13 @@ function createDamagePopup(targetId: string, damage: number, contributors?: Dama
 }
 
 /** プレイヤーダメージポップアップを作成 */
-export function createPlayerDamagePopup(damage: number, targetExplorerId?: string, label?: string): PlayerDamagePopup {
+export function createPlayerDamagePopup(damage: number, targetExplorerId?: string, label?: string, shielded?: boolean): PlayerDamagePopup {
   return {
     id: generatePopupId(),
     targetExplorerId,
     damage,
     label,
+    shielded,
     timestamp: Date.now(),
   }
 }
@@ -285,14 +286,9 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ? `${enemyName}の${action.actionName}`
         : `${enemyName}は${action.actionName}`
 
-      // isAoe時のポップアップはBattleActionProcessor側で処理するため、ここではスキップ
-      const newPlayerPopups = (action.damage > 0 && !action.isAoe)
-        ? [...state.playerDamagePopups, createPlayerDamagePopup(action.damage, action.targetExplorerId)]
-        : state.playerDamagePopups
-
+      // ポップアップ作成は BattleActionProcessor 側で行う（シールドバフ軽減後の値を使うため）
       return {
         ...state,
-        playerDamagePopups: newPlayerPopups,
         battleMessage,
         battleMessageId: state.battleMessageId + 1,
       }

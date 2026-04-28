@@ -46,8 +46,9 @@ export interface DamagePopup {
 export interface PlayerDamagePopup {
   id: string
   targetExplorerId?: string  // ダメージを受けたキャラのID
-  damage: number
+  damage: number  // シールド軽減後の最終ダメージ値
   label?: string  // テキストラベル（例: 武器名）
+  shielded?: boolean  // シールドバフによるダメージ軽減が発生した場合 true（"Shielded -X" 表示用）
   timestamp: number
 }
 
