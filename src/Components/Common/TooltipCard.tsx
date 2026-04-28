@@ -84,10 +84,14 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
   // 武器
   if ('commandCategory' in item && item.commandCategory === 'weapon') {
     const weapon = item as WeaponData | ExplorerWeapon
+    // 祈り/魔力弾等の魔法系武器（無限使用）は実質的に魔法と同等のため、耐久値/依存ステの代わりにMP消費を表示
+    const isSpellLike = weapon.maxUses === null
     if (damageText) {
       lines.push({ label: 'ダメージ', value: damageText, color: 'text-orange-300' })
     }
-    if (durabilityText) {
+    if (isSpellLike) {
+      lines.push({ label: 'MP消費', value: '0', color: 'text-blue-300' })
+    } else if (durabilityText) {
       lines.push({ label: '耐久値', value: durabilityText })
     } else if ('currentUses' in weapon && weapon.currentUses !== null) {
       lines.push({ label: '耐久値', value: `${weapon.currentUses}/${weapon.maxUses}` })
@@ -101,7 +105,7 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '吸血', value: `${weapon.effect.value}HP`, color: 'text-green-300' })
       }
       if (weapon.effect.type === 'targetRateUp') {
-        lines.push({ label: '被弾率UP', value: `+${weapon.effect.value}%`, color: 'text-red-300' })
+        lines.push({ label: '効果', value: `対象の被弾率+${weapon.effect.value}%`, color: 'text-red-300' })
       }
       if (weapon.effect.type === 'conditionalPower') {
         lines.push({ label: '条件', value: `HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
@@ -119,7 +123,7 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     if ('goldCost' in weapon && weapon.goldCost) {
       lines.push({ label: 'G消費', value: `${weapon.goldCost}G/回`, color: 'text-yellow-400' })
     }
-    if ('scaleStat' in weapon && weapon.scaleStat === 'int') {
+    if (!isSpellLike && 'scaleStat' in weapon && weapon.scaleStat === 'int') {
       lines.push({ label: '依存ステ', value: 'INT', color: 'text-blue-300' })
     }
     if ('targetType' in weapon && weapon.targetType === 'enemyAll') {
