@@ -286,17 +286,18 @@ function LeftPanel({
         )}
       </div>
 
-      {/* ポーション（2倍、レリックの下）*/}
+      {/* ポーション（2倍、レリックの下。同種を複数所持していても重ならず別カードで表示） */}
       <div className="bg-gray-800/70 border border-gray-600 rounded-lg p-2">
         <div className="text-sm text-gray-400 font-bold mb-1">ポーション</div>
         {potions.length === 0 ? (
           <div className="text-base text-gray-600">なし</div>
         ) : (
-          potions.map((potion) => (
+          potions.map((potion, idx) => (
             <DraggableCommand
-              key={potion.id}
+              key={`${potion.id}-${idx}`}
               command={potion as BattleCommand}
               explorerId="shared"
+              commandIndex={idx}
               disabled={!isCommandPhase}
               isAvailable={true}
             />
@@ -560,7 +561,6 @@ export function BattleScreen() {
   const isCommandPhase = phase === 'command'
   // ドラッグ中はクリックベースのターゲット選択を無効化（D&Dで処理するため）
   const isSelectingTarget = selectedCommand !== null && isCommandPhase && !draggingCommand
-  const uniquePotions = potions.filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
   const targetRates = calculateTargetRates(party, run.relics)
 
   // 祈りコマンドによる被弾率プレビュー
@@ -732,7 +732,7 @@ export function BattleScreen() {
         {/* ===== 左サイドパネル ===== */}
         <div className="w-1/4 flex-shrink-0 flex flex-col">
           <LeftPanel
-            potions={uniquePotions}
+            potions={potions}
             relics={run.relics}
             isCommandPhase={isCommandPhase}
             gold={gold}
