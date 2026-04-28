@@ -17,6 +17,7 @@ import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../.
 import { calculateRelicAttackImpacts, MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
 import { getItemSpecialEffect } from '../../Lib/Utils/ItemDescription'
 import { CLASS_ICONS } from '../Battle/PartyAvatars'
+import { NextStagePreview } from '../Battle/NextStagePreview'
 import { SegmentedBar } from '../Common'
 
 // === 型定義 ===
@@ -125,10 +126,24 @@ function DraggableShopItem({ id, data, children, disabled }: { id: string; data:
   )
 }
 
-function DroppableSlot({ id, children, disabled, className }: { id: string; children: React.ReactNode; disabled?: boolean; className?: string }) {
+function DroppableSlot({ id, children, disabled, className, isValidTarget }: {
+  id: string
+  children: React.ReactNode
+  disabled?: boolean
+  className?: string
+  /** ドラッグ中、このスロットが有効なドロップ先である場合に薄く強調表示 */
+  isValidTarget?: boolean
+}) {
   const { isOver, setNodeRef } = useDroppable({ id, disabled })
+  const isOverActive = isOver && !disabled
+  const isValid = !!isValidTarget && !disabled && !isOverActive
+  const highlight = isOverActive
+    ? 'ring-2 ring-yellow-400 bg-yellow-400/10'
+    : isValid
+      ? 'ring-2 ring-yellow-400/50 bg-yellow-400/5'
+      : ''
   return (
-    <div ref={setNodeRef} className={`${isOver && !disabled ? 'ring-2 ring-yellow-400 bg-yellow-400/10' : ''} ${disabled ? 'opacity-30' : ''} ${className ?? ''}`}>
+    <div ref={setNodeRef} className={`${highlight} ${disabled ? 'opacity-30' : ''} ${className ?? ''} rounded`}>
       {children}
     </div>
   )
@@ -348,7 +363,7 @@ function StoreCharacterPanel({
           )
         })}
         {Array.from({ length: weaponEmptyCount }).map((_, i) => (
-          <DroppableSlot key={`we-${i}`} id={`slot-weapon-${memberIndex}-${i}`} disabled={weaponDropDisabled}>
+          <DroppableSlot key={`we-${i}`} id={`slot-weapon-${memberIndex}-${i}`} disabled={weaponDropDisabled} isValidTarget={!!isDraggingWeapon}>
             <EmptySlot label="武器 空き" />
           </DroppableSlot>
         ))}
@@ -395,7 +410,7 @@ function StoreCharacterPanel({
           )
         })}
         {Array.from({ length: spellEmptyCount }).map((_, i) => (
-          <DroppableSlot key={`se-${i}`} id={`slot-spell-${memberIndex}-${i}`} disabled={spellDropDisabled}>
+          <DroppableSlot key={`se-${i}`} id={`slot-spell-${memberIndex}-${i}`} disabled={spellDropDisabled} isValidTarget={!!isDraggingSpell}>
             <EmptySlot label="魔法 空き" />
           </DroppableSlot>
         ))}
@@ -404,57 +419,108 @@ function StoreCharacterPanel({
   )
 }
 
-// === 共有枠 ===
+// === 左サイドパネル: ショップタイトル / 次の敵 / 次の次の敵 / 所持金 / レリック / ポーション ===
 
-function StoreSharedPanel({
+function StoreLeftPanel({
+  gold,
+  initialGold,
+  shopTitle,
+  currentStage,
+  seed,
   potions,
   relics,
   movedKeys,
   newPurchaseKeys,
   party,
+  dragData,
 }: {
+  gold: number
+  initialGold: number
+  shopTitle: string
+  currentStage: number
+  seed: number
   potions: PotionData[]
   relics: RelicInstance[]
   movedKeys: Set<string>
   newPurchaseKeys: Set<string>
   party: ExplorerState[]
+  dragData: ShopDragData | null
 }) {
-  const potionEmptyCount = Math.max(0, 2 - potions.length)
+  const goldChanged = initialGold !== gold
   const relicEmptyCount = Math.max(0, 5 - relics.length)
+  const potionEmptyCount = Math.max(0, 2 - potions.length)
+
+  // レリック空きスロットへの有効ドロップ判定: shop-relic / sold-item(relic)
+  const isDraggingRelic = !!(dragData && (
+    dragData.source === 'shop-relic'
+    || (dragData.source === 'sold-item' && dragData.soldItem.type === 'relic')
+  ))
+  // ポーション空きスロットへの有効ドロップ判定: shop-potion / sold-item(potion)
+  const isDraggingPotion = !!(dragData && (
+    dragData.source === 'shop-potion'
+    || (dragData.source === 'sold-item' && dragData.soldItem.type === 'potion')
+  ))
 
   return (
-    <div className="h-full flex flex-col bg-gray-800/50 rounded-lg border border-gray-500 p-1.5 overflow-y-auto">
-      {/* レリック（バトル画面サイドバーと同サイズ） */}
-      <div className="flex-1 min-h-0">
-        <div className="text-base text-gray-400 font-bold mb-1">レリック</div>
-        {relics.map((r, i) => {
-          const sellPrice = getSellPriceItem(r as { price: number })
-          const isMoved = movedKeys.has(`relic-${r.id}`)
-          const isNew = newPurchaseKeys.has(`relic-${r.id}`)
-          return (
-            <Tooltip key={`r-${i}`} content={<TooltipCard item={r} attackImpacts={calculateRelicAttackImpacts(r, party, relics.filter((x: RelicInstance) => x.id !== r.id))} />} position="bottom">
-              <DraggableShopItem id={`inv-relic-${i}`}
-                data={{ source: 'inv-relic', relicIndex: i }}>
-                <div className={`relative border rounded p-1.5 mb-0.5 text-xl border-yellow-500/50 bg-yellow-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
-                  {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
-                  <div className="text-white truncate font-bold">{r.name}</div>
-                  <div className="text-green-400 text-xs">売却 {sellPrice}G</div>
-                </div>
-              </DraggableShopItem>
-            </Tooltip>
-          )
-        })}
-        {Array.from({ length: relicEmptyCount }).map((_, i) => (
-          <DroppableSlot key={`re-${i}`} id={`slot-relic-${i}`}>
-            <div className="border-2 border-dashed border-gray-600 rounded p-1.5 mb-0.5 flex items-center justify-center">
-              <span className="text-gray-600 text-sm">レリック 空き</span>
+    <div className="h-full flex flex-col gap-2 overflow-y-auto">
+      {/* 上段: タイトル / 次の敵 / 次の次の敵 / 所持金 / レリック を最低 1/3 高さ確保 */}
+      <div className="flex flex-col gap-2" style={{ minHeight: '33vh' }}>
+        {/* ショップタイトル */}
+        <div className="bg-gray-900 border border-gray-600 rounded-lg p-2 text-center">
+          <div className="text-2xl font-bold text-white leading-tight">{shopTitle}</div>
+        </div>
+
+        {/* 次の敵 */}
+        <NextStagePreview seed={seed} currentStage={currentStage} label="次の敵" />
+
+        {/* 次の次の敵 */}
+        <NextStagePreview seed={seed} currentStage={currentStage} offset={2} label="次の次の敵" />
+
+        {/* 所持金（4倍）。ショップで使うと initialGold→gold の差分を表示 */}
+        <div className="bg-gray-900 border border-gray-600 rounded-lg p-2 text-center">
+          <div className="text-xs text-gray-400 mb-0.5">所持金</div>
+          {goldChanged ? (
+            <div className="leading-none">
+              <div className="text-gray-400 text-base">{initialGold}G →</div>
+              <div className={`${gold < 0 ? 'text-red-400' : 'text-yellow-400'} text-4xl font-bold mt-0.5`}>{gold}G</div>
             </div>
-          </DroppableSlot>
-        ))}
+          ) : (
+            <div className="text-4xl font-bold text-yellow-400 leading-none">{gold}G</div>
+          )}
+        </div>
+
+        {/* レリック（上段の余白を埋める。空きスロット含めスクロール可能） */}
+        <div className="bg-gray-800/70 border border-gray-600 rounded-lg p-2 flex-1 min-h-0 overflow-y-auto">
+          <div className="text-base text-gray-400 font-bold mb-1">レリック</div>
+          {relics.map((r, i) => {
+            const sellPrice = getSellPriceItem(r as { price: number })
+            const isMoved = movedKeys.has(`relic-${r.id}`)
+            const isNew = newPurchaseKeys.has(`relic-${r.id}`)
+            return (
+              <Tooltip key={`r-${i}`} content={<TooltipCard item={r} attackImpacts={calculateRelicAttackImpacts(r, party, relics.filter((x: RelicInstance) => x.id !== r.id))} />} position="bottom">
+                <DraggableShopItem id={`inv-relic-${i}`}
+                  data={{ source: 'inv-relic', relicIndex: i }}>
+                  <div className={`relative border rounded p-1.5 mb-0.5 text-xl border-yellow-500/50 bg-yellow-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
+                    {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
+                    <div className="text-white truncate font-bold">{r.name}</div>
+                    <div className="text-green-400 text-xs">売却 {sellPrice}G</div>
+                  </div>
+                </DraggableShopItem>
+              </Tooltip>
+            )
+          })}
+          {Array.from({ length: relicEmptyCount }).map((_, i) => (
+            <DroppableSlot key={`re-${i}`} id={`slot-relic-${i}`} isValidTarget={isDraggingRelic}>
+              <div className="border-2 border-dashed border-gray-600 rounded p-1.5 mb-0.5 flex items-center justify-center">
+                <span className="text-gray-600 text-sm">レリック 空き</span>
+              </div>
+            </DroppableSlot>
+          ))}
+        </div>
       </div>
-      <div className="border-t border-gray-700 my-1" />
-      {/* ポーション */}
-      <div>
+
+      {/* 下段: ポーション（画面 1/3 地点から開始） */}
+      <div className="bg-gray-800/70 border border-gray-600 rounded-lg p-2">
         <div className="text-sm text-gray-400 font-bold mb-1">ポーション</div>
         {potions.map((p, i) => {
           const sellPrice = getSellPriceItem(p as { price: number })
@@ -474,13 +540,16 @@ function StoreSharedPanel({
           )
         })}
         {Array.from({ length: potionEmptyCount }).map((_, i) => (
-          <DroppableSlot key={`pe-${i}`} id={`slot-potion-${i}`}>
+          <DroppableSlot key={`pe-${i}`} id={`slot-potion-${i}`} isValidTarget={isDraggingPotion}>
             <div className="border-2 border-dashed border-gray-600 rounded p-1.5 mb-0.5 flex items-center justify-center">
               <span className="text-gray-600 text-xs">ポーション 空き</span>
             </div>
           </DroppableSlot>
         ))}
       </div>
+
+      {/* 余白（ポーションを上方に固定） */}
+      <div className="flex-1" />
     </div>
   )
 }
@@ -752,65 +821,79 @@ export function StoreScreen() {
   // ショップ選択画面
   if (storeState.selectedShopIndex === null) {
     return (
-      <div className="min-h-screen bg-gray-800 p-2 flex flex-col gap-2">
+      <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
 
-        {/* ===== ショップ選択エリア（商品エリアの位置） ===== */}
-        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-white font-bold text-xs">ショップを選択</span>
-            <span className="text-yellow-400 font-bold text-3xl leading-none">{gold}G</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {storeState.shopOptions.map((option, optIdx) => (
-              <button
-                key={optIdx}
-                className="bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 rounded-lg p-3 flex flex-col items-center gap-1 transition-colors cursor-pointer min-h-[80px]"
-                onClick={() => selectShop(optIdx)}
-              >
-                <div className="text-white font-bold text-sm">
-                  {STORE_CATEGORY_LABELS[option.categories[0]]}
-                  <span className="text-gray-500 mx-1">・</span>
-                  {STORE_CATEGORY_LABELS[option.categories[1]]}
-                </div>
-                <div className="text-gray-500 text-[10px]">各{option.slots.length / 2}枠</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ===== キャラ欄4等分（共有枠 + 3キャラ） ===== */}
-        <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
-          <StoreSharedPanel
+        {/* ===== 左サイドパネル ===== */}
+        <div className="w-1/4 flex-shrink-0 flex flex-col">
+          <StoreLeftPanel
+            gold={gold}
+            initialGold={initialGold}
+            shopTitle="ショップ"
+            currentStage={run.currentStage}
+            seed={run.seed}
             potions={run.potions}
             relics={run.relics}
             movedKeys={movedKeys}
             newPurchaseKeys={newPurchaseKeys}
             party={run.party}
+            dragData={null}
           />
-          {run.party.map((member, index) => (
-            <StoreCharacterPanel
-              key={member.id}
-              member={member}
-              memberIndex={index}
-              dragData={null}
-              movedKeys={movedKeys}
-              newPurchaseKeys={newPurchaseKeys}
-              relics={run.relics as RelicData[]}
-            />
-          ))}
         </div>
 
-        {/* ===== スキップボタン ===== */}
-        <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
-          <div className="flex gap-2 justify-center">
-            {mapState && (
-              <Button variant="secondary" onClick={() => setShowMap(true)}>マップ</Button>
-            )}
-            <Button variant="primary" onClick={closeStore} className="flex-1 max-w-md">
-              ショップをスキップ
-            </Button>
+        {/* ===== 右側メイン領域 ===== */}
+        <div className="flex-1 flex flex-col gap-2 min-w-0">
+
+          {/* ===== ショップ選択エリア（商品エリアの位置） ===== */}
+          <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+            <div className="mb-2">
+              <span className="text-white font-bold text-xs">ショップを選択</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {storeState.shopOptions.map((option, optIdx) => (
+                <button
+                  key={optIdx}
+                  className="bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 rounded-lg p-3 flex flex-col items-center gap-1 transition-colors cursor-pointer min-h-[80px]"
+                  onClick={() => selectShop(optIdx)}
+                >
+                  <div className="text-white font-bold text-sm">
+                    {STORE_CATEGORY_LABELS[option.categories[0]]}
+                    <span className="text-gray-500 mx-1">・</span>
+                    {STORE_CATEGORY_LABELS[option.categories[1]]}
+                  </div>
+                  <div className="text-gray-500 text-[10px]">各{option.slots.length / 2}枠</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+
+          {/* ===== キャラ欄3等分（3キャラ。共有枠はサイドバーへ移動） ===== */}
+          <div className="grid grid-cols-3 gap-1.5 flex-1 min-h-0">
+            {run.party.map((member, index) => (
+              <StoreCharacterPanel
+                key={member.id}
+                member={member}
+                memberIndex={index}
+                dragData={null}
+                movedKeys={movedKeys}
+                newPurchaseKeys={newPurchaseKeys}
+                relics={run.relics as RelicData[]}
+              />
+            ))}
+          </div>
+
+          {/* ===== スキップボタン ===== */}
+          <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
+            <div className="flex gap-2 justify-center">
+              {mapState && (
+                <Button variant="secondary" onClick={() => setShowMap(true)}>マップ</Button>
+              )}
+              <Button variant="primary" onClick={closeStore} className="flex-1 max-w-md">
+                ショップをスキップ
+              </Button>
+            </div>
+          </div>
+
+        </div>{/* 右側メイン領域 終わり */}
 
         {showMap && mapState && (
           <MapOverlay nodes={mapState.nodes} currentStage={mapState.currentStage} onClose={() => setShowMap(false)} />
@@ -824,34 +907,48 @@ export function StoreScreen() {
   const topSlots = shop.slots.slice(0, 3)
   const bottomSlots = shop.slots.slice(3, 6)
 
+  const shopTitle = `${STORE_CATEGORY_LABELS[shop.categories[0]]}・${STORE_CATEGORY_LABELS[shop.categories[1]]}ショップ`
+
+  // 装備中アイテム(インベントリ→ショップ戻し / 売却枠)の有効ドロップ判定
+  const isDraggingInv = !!(dragData && (
+    dragData.source === 'inv-weapon' || dragData.source === 'inv-spell'
+    || dragData.source === 'inv-relic' || dragData.source === 'inv-potion'
+  ))
+
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={pointerWithin}>
-      <div className="min-h-screen bg-gray-800 p-2 flex flex-col gap-2">
+      <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
+
+        {/* ===== 左サイドパネル ===== */}
+        <div className="w-1/4 flex-shrink-0 flex flex-col">
+          <StoreLeftPanel
+            gold={gold}
+            initialGold={initialGold}
+            shopTitle={shopTitle}
+            currentStage={run.currentStage}
+            seed={run.seed}
+            potions={run.potions}
+            relics={run.relics}
+            movedKeys={movedKeys}
+            newPurchaseKeys={newPurchaseKeys}
+            party={run.party}
+            dragData={dragData}
+          />
+        </div>
+
+        {/* ===== 右側メイン領域 ===== */}
+        <div className="flex-1 flex flex-col gap-2 min-w-0">
 
         {/* ===== 商品エリア + 売却枠 ===== */}
         <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg relative min-h-[200px] flex gap-2">
           {/* 商品エリア全体をドロップ可能に（購入取り消し用） */}
-          <DroppableSlot id="shop-return-zone" className="flex-1">
+          <DroppableSlot id="shop-return-zone" className="flex-1" isValidTarget={isDraggingInv}>
             <div>
-              {/* ヘッダー */}
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-bold text-xs">ショップ</span>
-                  <Button variant="secondary" onClick={rerollStore} disabled={gold < storeState.rerollCost} className="text-[10px] px-2 py-0.5">
-                    リロール ({storeState.rerollCost}G)
-                  </Button>
-                </div>
-                <span className="font-bold text-3xl leading-none">
-                  {initialGold !== gold ? (
-                    <>
-                      <span className="text-gray-400">{initialGold}G</span>
-                      <span className="text-gray-500 mx-1">→</span>
-                      <span className={gold < 0 ? 'text-red-400' : 'text-yellow-400'}>{gold}G</span>
-                    </>
-                  ) : (
-                    <span className="text-yellow-400">{gold}G</span>
-                  )}
-                </span>
+              {/* ヘッダー: リロールボタンのみ（タイトル/所持金はサイドバーへ移動） */}
+              <div className="flex items-center mb-2">
+                <Button variant="secondary" onClick={rerollStore} disabled={gold < storeState.rerollCost} className="text-[10px] px-2 py-0.5">
+                  リロール ({storeState.rerollCost}G)
+                </Button>
               </div>
 
               {/* 上段: 最初のカテゴリ3枠 */}
@@ -895,7 +992,7 @@ export function StoreScreen() {
           </DroppableSlot>
 
           {/* 売却枠 */}
-          <DroppableSlot id="sell-zone" className="w-32 flex-shrink-0">
+          <DroppableSlot id="sell-zone" className="w-32 flex-shrink-0" isValidTarget={isDraggingInv}>
             <div className="h-full border-2 border-dashed border-red-700/50 rounded flex flex-col bg-red-900/10 p-1.5">
               <div className="text-red-400 text-[9px] font-bold text-center mb-1">売却</div>
               <div className="flex-1 overflow-y-auto space-y-0.5">
@@ -924,15 +1021,8 @@ export function StoreScreen() {
           </DroppableSlot>
         </div>
 
-        {/* ===== キャラ欄4等分（共有枠 + 3キャラ） ===== */}
-        <div className="grid grid-cols-4 gap-1.5 flex-1 min-h-0">
-          <StoreSharedPanel
-            potions={run.potions}
-            relics={run.relics}
-            movedKeys={movedKeys}
-            newPurchaseKeys={newPurchaseKeys}
-            party={run.party}
-          />
+        {/* ===== キャラ欄3等分（3キャラ。共有枠はサイドバーへ移動） ===== */}
+        <div className="grid grid-cols-3 gap-1.5 flex-1 min-h-0">
           {run.party.map((member, index) => (
             <StoreCharacterPanel
               key={member.id}
@@ -957,6 +1047,8 @@ export function StoreScreen() {
             </Button>
           </div>
         </div>
+
+        </div>{/* 右側メイン領域 終わり */}
 
         {showMap && mapState && (
           <MapOverlay nodes={mapState.nodes} currentStage={mapState.currentStage} onClose={() => setShowMap(false)} />
