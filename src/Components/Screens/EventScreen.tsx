@@ -1,11 +1,15 @@
 import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
+import { Tooltip, TooltipCard } from '../Common'
 import {
   calculateRestHeal,
   getRepairableWeapons,
   canRepairWeapons,
 } from '../../Lib/Core/EventLogic'
 import { Rarity } from '../../Lib/Types/Item'
+import { getItemSpecialEffect } from '../../Lib/Utils/ItemDescription'
+import { calculateRelicAttackImpacts } from '../../Lib/Utils/RelicImpactCalculator'
+import { RelicData } from '../../Lib/Types/Relic'
 
 /** レアリティに応じた色を取得 */
 function getRarityColor(rarity: Rarity): string {
@@ -221,6 +225,9 @@ export function EventScreen() {
       return null
     }
 
+    const effectText = getItemSpecialEffect(relic as RelicData)
+    const attackImpacts = calculateRelicAttackImpacts(relic as RelicData, run.party, run.relics)
+
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-white text-center mb-4">
@@ -230,16 +237,23 @@ export function EventScreen() {
           レリックを発見しました!
         </p>
 
-        {/* レリック表示 */}
+        {/* レリック表示（マウスオーバーで詳細表示） */}
         <div className="flex justify-center mb-8">
-          <div
-            className={`p-6 rounded-lg border-2 min-w-48 ${getRarityColor(relic.rarity)}`}
-          >
-            <div className="text-lg text-white font-bold">{relic.name}</div>
-            <div className={`text-sm mt-1 ${getRarityTextColor(relic.rarity)}`}>
-              {relic.rarity}
+          <Tooltip content={<TooltipCard item={relic} attackImpacts={attackImpacts} />} position="top">
+            <div
+              className={`p-6 rounded-lg border-2 min-w-48 max-w-72 cursor-help ${getRarityColor(relic.rarity)}`}
+            >
+              <div className="text-lg text-white font-bold">{relic.name}</div>
+              <div className={`text-sm mt-1 ${getRarityTextColor(relic.rarity)}`}>
+                {relic.rarity}
+              </div>
+              {effectText && (
+                <div className="text-xs text-cyan-300 mt-2 leading-tight break-words">
+                  {effectText}
+                </div>
+              )}
             </div>
-          </div>
+          </Tooltip>
         </div>
 
         <div className="flex justify-center gap-4">
@@ -264,6 +278,8 @@ export function EventScreen() {
 
     // レリックの売却価格を計算
     const getSellPrice = (price: number) => Math.floor(price / 2)
+    const newRelicEffectText = getItemSpecialEffect(relic as RelicData)
+    const newRelicAttackImpacts = calculateRelicAttackImpacts(relic as RelicData, run.party, run.relics)
 
     return (
       <div className="space-y-6">
@@ -274,18 +290,25 @@ export function EventScreen() {
           売却するレリックを選んでください
         </p>
 
-        {/* 獲得するレリック */}
+        {/* 獲得するレリック（マウスオーバーで詳細表示） */}
         <div className="mb-6">
           <p className="text-sm text-gray-400 text-center mb-2">獲得するレリック:</p>
           <div className="flex justify-center">
-            <div
-              className={`p-4 rounded-lg border-2 min-w-40 ${getRarityColor(relic.rarity)}`}
-            >
-              <div className="text-white font-bold">{relic.name}</div>
-              <div className={`text-sm ${getRarityTextColor(relic.rarity)}`}>
-                {relic.rarity}
+            <Tooltip content={<TooltipCard item={relic} attackImpacts={newRelicAttackImpacts} />} position="top">
+              <div
+                className={`p-4 rounded-lg border-2 min-w-40 max-w-64 cursor-help ${getRarityColor(relic.rarity)}`}
+              >
+                <div className="text-white font-bold">{relic.name}</div>
+                <div className={`text-sm ${getRarityTextColor(relic.rarity)}`}>
+                  {relic.rarity}
+                </div>
+                {newRelicEffectText && (
+                  <div className="text-xs text-cyan-300 mt-1 leading-tight break-words">
+                    {newRelicEffectText}
+                  </div>
+                )}
               </div>
-            </div>
+            </Tooltip>
           </div>
         </div>
 

@@ -1,9 +1,26 @@
 import { useMemo } from 'react'
 import { EnemyData, EnemyType } from '../../Lib/Types/Enemy'
 import { isEventStage, TOTAL_STAGES } from '../../Lib/Core/StageManager'
-import { ResourceBar } from '../Common'
+import { ResourceBar, Tooltip } from '../Common'
 import StagePatternsData from '../../Lib/Data/StagePatterns.json'
 import EnemiesData from '../../Lib/Data/Enemies.json'
+
+/** イベント選択肢のツールチップ表示内容（イベント選択画面と同一の文言） */
+const EVENT_TOOLTIP_INFO = {
+  rest: { name: '休憩', desc: '全員のHPを最大HPの50%回復' },
+  treasure: { name: '宝箱', desc: 'ランダムなレリックを1つ獲得' },
+  repair: { name: '武器修理', desc: '1人を選択 → その人の全武器の使用回数を全回復' },
+} as const
+
+function EventTooltipContent({ type }: { type: 'rest' | 'treasure' | 'repair' }) {
+  const info = EVENT_TOOLTIP_INFO[type]
+  return (
+    <div className="min-w-[120px] max-w-[200px]">
+      <div className="text-white font-bold text-xs mb-1">{info.name}</div>
+      <div className="text-[10px] text-gray-300 leading-snug">{info.desc}</div>
+    </div>
+  )
+}
 
 interface StagePattern {
   turnLimit: number
@@ -89,20 +106,26 @@ export function NextStagePreview({ seed, currentStage, offset = 1, label = 'Next
       </div>
 
       {isNextEvent ? (
-        // イベントステージの場合: 3つの選択肢を表示（横並び）
+        // イベントステージの場合: 3つの選択肢を表示（横並び。各アイコンにマウスオーバーで詳細表示）
         <div className="flex gap-2 justify-around">
-          <div className="text-[10px] text-green-400 flex items-center gap-0.5">
-            <span>♥</span>
-            <span>休憩</span>
-          </div>
-          <div className="text-[10px] text-yellow-400 flex items-center gap-0.5">
-            <span>★</span>
-            <span>宝箱</span>
-          </div>
-          <div className="text-[10px] text-blue-400 flex items-center gap-0.5">
-            <span>⚒</span>
-            <span>修理</span>
-          </div>
+          <Tooltip content={<EventTooltipContent type="rest" />} position="top">
+            <div className="text-[10px] text-green-400 flex items-center gap-0.5 cursor-help">
+              <span>♥</span>
+              <span>休憩</span>
+            </div>
+          </Tooltip>
+          <Tooltip content={<EventTooltipContent type="treasure" />} position="top">
+            <div className="text-[10px] text-yellow-400 flex items-center gap-0.5 cursor-help">
+              <span>★</span>
+              <span>宝箱</span>
+            </div>
+          </Tooltip>
+          <Tooltip content={<EventTooltipContent type="repair" />} position="top">
+            <div className="text-[10px] text-blue-400 flex items-center gap-0.5 cursor-help">
+              <span>⚒</span>
+              <span>修理</span>
+            </div>
+          </Tooltip>
         </div>
       ) : (
         // バトルステージ: 敵情報を横並びで表示
