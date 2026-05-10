@@ -53,25 +53,25 @@ function shuffleArray<T>(array: T[], seed: number): T[] {
 }
 
 /** カテゴリ別アイテム生成: 武器（耐久∞を除外） */
-export function generateWeaponItems(seed: number, count: number): WeaponData[] {
+function generateWeaponItems(seed: number, count: number): WeaponData[] {
   const allWeapons = Object.values(weaponsData).filter(w => w.maxUses !== null)
   return pickRandom(allWeapons, count, seed)
 }
 
 /** カテゴリ別アイテム生成: 魔法（MP0を除外） */
-export function generateSpellItems(seed: number, count: number): SpellData[] {
+function generateSpellItems(seed: number, count: number): SpellData[] {
   const allSpells = Object.values(spellsData).filter(s => s.mpCost > 0)
   return pickRandom(allSpells, count, seed + 50)
 }
 
 /** カテゴリ別アイテム生成: レリック */
-export function generateRelicItems(seed: number, count: number): RelicData[] {
+function generateRelicItems(seed: number, count: number): RelicData[] {
   const allRelics = Object.values(relicsData)
   return pickRandom(allRelics, count, seed + 100)
 }
 
 /** カテゴリ別アイテム生成: ポーション */
-export function generatePotionItems(seed: number, count: number): PotionData[] {
+function generatePotionItems(seed: number, count: number): PotionData[] {
   const allPotions = Object.values(potionsData)
   return pickRandom(allPotions, count, seed + 200)
 }
@@ -144,14 +144,6 @@ export function rerollStore(storeState: StoreState, seed: number): StoreState {
   }
 }
 
-/** 売却可能かどうかを判定 */
-export function isSellable(item: unknown): item is IPurchasable {
-  return item !== null &&
-    typeof item === 'object' &&
-    'price' in item &&
-    typeof (item as IPurchasable).price === 'number'
-}
-
 /** 武器の売却価格を計算（使用回数を考慮） */
 export function getSellPrice(weapon: ExplorerWeapon): number {
   if (weapon.id === 'punch') {
@@ -204,16 +196,6 @@ export function isWeaponData(item: WeaponData | SpellData): item is WeaponData {
 /** 魔法かどうかを判定 */
 export function isSpellData(item: WeaponData | SpellData): item is SpellData {
   return item.commandCategory === 'spell'
-}
-
-/** レリックかどうかを判定 */
-export function isRelicData(item: RelicData | PotionData): item is RelicData {
-  return 'passiveEffect' in item
-}
-
-/** ポーションかどうかを判定 */
-export function isPotionData(item: RelicData | PotionData): item is PotionData {
-  return 'effect' in item && 'commandCategory' in item && item.commandCategory === 'potion'
 }
 
 /** カテゴリの日本語表示名 */

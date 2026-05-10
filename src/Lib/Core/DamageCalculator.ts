@@ -3,6 +3,7 @@ import { ExplorerWeapon } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { EnemyInstance } from '../Types/Enemy'
 import { RelicInstance } from '../Types/Relic'
+import { DamageContributor } from '../Types/Battle'
 import { getTuningValue } from '../Tuning/TuningStore'
 import {
   getStatBonus,
@@ -14,11 +15,8 @@ import {
   getLowestLevelDamageMultiplier,
 } from './RelicProcessor'
 
-/** ダメージ寄与者（ポップアップ表示用） */
-export interface DamageContributor {
-  name: string
-  label: string  // "+15", "×1.5", "（確定）" など
-}
+// DamageContributor を再エクスポート（後方互換）
+export type { DamageContributor }
 
 /**
  * ダメージ計算結果

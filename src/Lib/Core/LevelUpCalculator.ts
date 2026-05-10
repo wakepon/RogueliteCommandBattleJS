@@ -38,7 +38,7 @@ export function getRequiredKillsForNextLevel(currentLevel: number): number {
  * レベルアップ可能か判定
  * 経験値が必要討伐数以上ならtrue
  */
-export function canLevelUp(explorer: ExplorerState): boolean {
+function canLevelUp(explorer: ExplorerState): boolean {
   const required = getRequiredKillsForNextLevel(explorer.level)
   return explorer.exp >= required
 }
@@ -74,7 +74,7 @@ function getClassGrowth(): Record<CharacterClass, { maxHp: number; maxMp: number
  * - クラス別の成長値でステータス増加
  * - HP/MP: 旧最大値の一定割合回復（Tuning設定、上限は新最大値）
  */
-export function applyLevelUp(explorer: ExplorerState): {
+function applyLevelUp(explorer: ExplorerState): {
   updatedExplorer: ExplorerState
   levelUpInfo: LevelUpInfo
 } {

@@ -2,11 +2,6 @@ import { RelicInstance } from '../Types/Relic'
 import { PassiveEffectType } from '../Types/Passive'
 import { ExplorerState } from '../Types/Explorer'
 
-/** 全レリックの効果一覧を取得 */
-export function getRelicEffects(relics: RelicInstance[]): PassiveEffectType[] {
-  return relics.map(r => r.passiveEffect)
-}
-
 /** 特定効果の所持判定 */
 export function hasRelicEffect(
   relics: RelicInstance[],
@@ -167,15 +162,6 @@ export function getWeaponBreakAttackBonus(relics: RelicInstance[]): number {
     if (r.passiveEffect.type === 'weaponBreakNextAttackBonus') return r.passiveEffect.value
   }
   return 0
-}
-
-/** 商人の護符: キル時ゴールド */
-export function getGoldPerKill(relics: RelicInstance[]): number {
-  let total = 0
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'goldPerKill') total += r.passiveEffect.value
-  }
-  return total
 }
 
 /** 苦痛のリング: 被ダメ→MP変換率 */

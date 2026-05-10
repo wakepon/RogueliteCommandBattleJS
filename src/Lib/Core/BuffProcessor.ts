@@ -63,17 +63,6 @@ export function getChargeMultiplier(buffs: Buff[]): number {
 }
 
 /**
- * 攻撃後に力溜めバフを消費する（削除する）
- * @param buffs - 現在のバフ配列
- * @returns 力溜めを除いたバフ配列
- */
-export function consumeChargeBuff(buffs: Buff[]): Buff[] {
-  return buffs.filter(
-    b => !(b.type === CHARGE_BUFF_TYPE && b.duration === 'nextAction')
-  )
-}
-
-/**
  * 攻撃後にnextActionバフ（精密など）を消費する
  * @param buffs - 現在のバフ配列
  * @returns nextActionバフを除いたバフ配列

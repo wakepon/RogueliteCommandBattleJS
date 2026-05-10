@@ -169,7 +169,3 @@ export function createInitialParty(): ExplorerState[] {
   ]
 }
 
-// 後方互換: 単体Explorer生成（テスト等で使用）
-export function createInitialExplorer(): ExplorerState {
-  return createExplorerByClass('warrior', 1)
-}

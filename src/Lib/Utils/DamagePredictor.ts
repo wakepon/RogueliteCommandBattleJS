@@ -373,14 +373,3 @@ export function calculateDetailedDamagePreview(
   return { totalMin, totalMax, isBoosted: anyBoosted, segments }
 }
 
-/** 特定の敵への累計ダメージプレビュー（全コマンドスロット + 仮想コマンドから） */
-export function calculateCumulativeDamagePreview(
-  commandSlots: CommandSlot[],
-  targetEnemyId: string,
-  party: ExplorerState[],
-  options: DamagePredictOptions = {},
-  tentative?: TentativeCommand | null
-): DamageRange {
-  const detailed = calculateDetailedDamagePreview(commandSlots, targetEnemyId, party, options, tentative)
-  return { min: detailed.totalMin, max: detailed.totalMax, isBoosted: detailed.isBoosted }
-}
