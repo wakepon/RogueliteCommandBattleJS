@@ -50,14 +50,14 @@ function defaultResult(actionName: string, damage: number): EnemyActionResult {
 
 /** スライムの行動決定 */
 function selectSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
-  return defaultResult('体当たり', 15)
+  return defaultResult('体当たり', 11)
 }
 
 /** ゴブリンの行動決定 */
 function selectGoblinAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.60, value: defaultResult('斬りつける', 12) },
-    { weight: 0.40, value: defaultResult('振りまわす', 25) },
+    { weight: 0.60, value: defaultResult('斬りつける', 9) },
+    { weight: 0.40, value: defaultResult('振りまわす', 19) },
   ]
   return selectByWeight(table)
 }
@@ -67,13 +67,13 @@ function selectSewerRatAction(enemy: EnemyInstance): EnemyActionResult {
   // 仲間を呼んだことがない場合、40%の確率で仲間を呼ぶ
   if (!enemy.hasSummoned) {
     const table = [
-      { weight: 0.60, value: defaultResult('かみつく', 12) },
+      { weight: 0.60, value: defaultResult('かみつく', 9) },
       { weight: 0.40, value: { ...defaultResult('仲間を呼ぶ', 0), summonEnemyId: 'sewer_rat' } },
     ]
     return selectByWeight(table)
   }
   // 仲間を呼んだ後はかみつくのみ
-  return defaultResult('かみつく', 12)
+  return defaultResult('かみつく', 9)
 }
 
 /** オークの行動決定 */
@@ -82,7 +82,7 @@ function selectOrcAction(enemy: EnemyInstance): EnemyActionResult {
 
   if (hasCharge) {
     return {
-      ...defaultResult('渾身の一撃', 40),
+      ...defaultResult('渾身の一撃', 30),
       consumeCharge: true,
     }
   }
@@ -94,7 +94,7 @@ function selectOrcAction(enemy: EnemyInstance): EnemyActionResult {
 
   const table = [
     { weight: 0.60, value: chargeAction },
-    { weight: 0.40, value: defaultResult('こづく', 14) },
+    { weight: 0.40, value: defaultResult('こづく', 10) },
   ]
   return selectByWeight(table)
 }
@@ -102,8 +102,8 @@ function selectOrcAction(enemy: EnemyInstance): EnemyActionResult {
 /** アサシンの行動決定 */
 function selectAssassinAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.55, value: defaultResult('急所狙い', 35) },
-    { weight: 0.45, value: { ...defaultResult('二連撃', 15), hits: 2 } },
+    { weight: 0.55, value: defaultResult('急所狙い', 26) },
+    { weight: 0.45, value: { ...defaultResult('二連撃', 11), hits: 2 } },
   ]
   return selectByWeight(table)
 }
@@ -116,7 +116,7 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
   // 力溜め中: フェーズに関係なく大暴れ（力溜め消費）
   if (hasCharge) {
     return {
-      ...defaultResult('大暴れ', 20),
+      ...defaultResult('大暴れ', 15),
       hits: 2,
       consumeCharge: true,
     }
@@ -124,7 +124,7 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
 
   if (hpRatio > 0.8) {
     // Phase 1: HP > 80% — 寝ている
-    return defaultResult('寝返り', 10)
+    return defaultResult('寝返り', 8)
   }
 
   // Phase 2: HP ≤ 80% — 覚醒
@@ -134,8 +134,8 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
   }
 
   const table = [
-    { weight: 0.50, value: defaultResult('怒りの爪', 24) },
-    { weight: 0.25, value: { ...defaultResult('あばれる', 10), hits: 2 } },
+    { weight: 0.50, value: defaultResult('怒りの爪', 18) },
+    { weight: 0.25, value: { ...defaultResult('あばれる', 8), hits: 2 } },
     { weight: 0.25, value: chargeAction },
   ]
   return selectByWeight(table)
@@ -145,7 +145,7 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
 function selectShamanAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
     { weight: 0.45, value: { ...defaultResult('仲間を鼓舞する', 0), chargeAllAllies: true } },
-    { weight: 0.55, value: defaultResult('杖で殴る', 10) },
+    { weight: 0.55, value: defaultResult('杖で殴る', 8) },
   ]
   return selectByWeight(table)
 }
@@ -153,8 +153,8 @@ function selectShamanAction(_enemy: EnemyInstance): EnemyActionResult {
 /** ヘドロスライムの行動決定 */
 function selectHedroSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.50, value: { ...defaultResult('泥かけ', 8), applyWeakness: { value: 0.25, duration: 2 } } },
-    { weight: 0.50, value: defaultResult('体当たり', 15) },
+    { weight: 0.50, value: { ...defaultResult('泥かけ', 6), applyWeakness: { value: 0.25, duration: 2 } } },
+    { weight: 0.50, value: defaultResult('体当たり', 11) },
   ]
   return selectByWeight(table)
 }
@@ -163,7 +163,7 @@ function selectHedroSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
 function selectDarkMageAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
     { weight: 0.40, value: { ...defaultResult('MPドレイン', 0), mpDrain: 10 } },
-    { weight: 0.60, value: defaultResult('ダークショット', 12) },
+    { weight: 0.60, value: defaultResult('ダークショット', 9) },
   ]
   return selectByWeight(table)
 }
@@ -172,7 +172,7 @@ function selectDarkMageAction(_enemy: EnemyInstance): EnemyActionResult {
 function selectOrcLordAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
     { weight: 0.35, value: { ...defaultResult('鼓舞', 0), chargeAllAllies: true } },
-    { weight: 0.45, value: defaultResult('小突く', 8) },
+    { weight: 0.45, value: defaultResult('小突く', 6) },
     { weight: 0.20, value: { ...defaultResult('ガード', 0), applySelfDefense: { value: 50, duration: 1 } } },
   ]
   return selectByWeight(table)
@@ -182,7 +182,7 @@ function selectOrcLordAction(_enemy: EnemyInstance): EnemyActionResult {
 function selectFairyAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
     { weight: 0.80, value: { ...defaultResult('ヒール', 0), healAlly: { amount: 10 } } },
-    { weight: 0.20, value: defaultResult('タックル', 8) },
+    { weight: 0.20, value: defaultResult('タックル', 6) },
   ]
   return selectByWeight(table)
 }
@@ -195,7 +195,7 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
   // 力溜め中: フェーズに関係なく渾身の一撃（力溜め消費）
   if (hasCharge) {
     return {
-      ...defaultResult('渾身の一撃', 55),
+      ...defaultResult('渾身の一撃', 41),
       consumeCharge: true,
     }
   }
@@ -203,9 +203,9 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
   if (hpRatio > 0.5) {
     // Phase 1: HP > 50%
     const table = [
-      { weight: 0.50, value: defaultResult('切り裂く爪', 28) },
+      { weight: 0.50, value: defaultResult('切り裂く爪', 21) },
       { weight: 0.30, value: { ...defaultResult('自己再生', 0), healSelf: 20 } },
-      { weight: 0.20, value: { ...defaultResult('火炎ブレス', 18), isAoe: true } },
+      { weight: 0.20, value: { ...defaultResult('火炎ブレス', 14), isAoe: true } },
     ]
     return selectByWeight(table)
   }
@@ -217,8 +217,8 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
   }
 
   const table = [
-    { weight: 0.30, value: defaultResult('怒りの爪', 35) },
-    { weight: 0.30, value: { ...defaultResult('猛火のブレス', 25), isAoe: true } },
+    { weight: 0.30, value: defaultResult('怒りの爪', 26) },
+    { weight: 0.30, value: { ...defaultResult('猛火のブレス', 19), isAoe: true } },
     { weight: 0.40, value: chargeAction },
   ]
   return selectByWeight(table)

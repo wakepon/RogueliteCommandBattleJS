@@ -65,6 +65,10 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   { key: 'cleric_growth_maxMp', label: '僧侶 MP成長', category: 'levelup', defaultValue: 3, control: { type: 'number', min: 0, max: 30, step: 1 } },
   { key: 'cleric_growth_str', label: '僧侶 STR成長', category: 'levelup', defaultValue: 1, control: { type: 'number', min: 0, max: 10, step: 1 } },
   { key: 'cleric_growth_int', label: '僧侶 INT成長', category: 'levelup', defaultValue: 1, control: { type: 'number', min: 0, max: 10, step: 1 } },
+  { key: 'levelup_required_kills_cap', label: '必要討伐数 上限(0=なし)', category: 'levelup', defaultValue: 0, control: { type: 'number', min: 0, max: 30, step: 1 } },
+  // レベルアップ回復率
+  { key: 'levelup_hp_recovery_rate', label: 'LvUP HP回復率', category: 'levelup', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
+  { key: 'levelup_mp_recovery_rate', label: 'LvUP MP回復率', category: 'levelup', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
 
   // === 武器・基本攻撃 ===
   { key: 'punch_power', label: 'パンチ 威力', category: 'weapon', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },

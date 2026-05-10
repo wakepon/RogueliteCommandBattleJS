@@ -74,7 +74,7 @@
     "name": "再生のコケ",
     "rarity": "Uncommon",
     "price": 7,
-    "passiveEffect": { "type": "regenPerTurn", "value": 10 }
+    "passiveEffect": { "type": "regenPerTurn", "value": 5 }
   },
   "fury_flame": {
     "id": "fury_flame",

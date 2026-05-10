@@ -29,7 +29,9 @@ export interface LevelUpInfo {
  */
 export function getRequiredKillsForNextLevel(currentLevel: number): number {
   const coefficient = getTuningValue('levelup_formula_coefficient', 3)
-  return Math.floor(coefficient * Math.log2(currentLevel + 1))
+  const raw = Math.floor(coefficient * Math.log2(currentLevel + 1))
+  const cap = getTuningValue('levelup_required_kills_cap', 0)
+  return cap > 0 ? Math.min(raw, cap) : raw
 }
 
 /**
@@ -70,7 +72,7 @@ function getClassGrowth(): Record<CharacterClass, { maxHp: number; maxMp: number
  * - level +1
  * - exp から必要分を消費
  * - クラス別の成長値でステータス増加
- * - HP/MP: 旧最大値の50%回復（上限は新最大値）
+ * - HP/MP: 旧最大値の一定割合回復（Tuning設定、上限は新最大値）
  */
 export function applyLevelUp(explorer: ExplorerState): {
   updatedExplorer: ExplorerState
@@ -93,8 +95,8 @@ export function applyLevelUp(explorer: ExplorerState): {
     exp: explorer.exp - requiredExp,
     maxHp: newMaxHp,
     maxMp: newMaxMp,
-    hp: Math.min(explorer.hp + Math.ceil(explorer.maxHp * 0.5), newMaxHp),
-    mp: Math.min(explorer.mp + Math.ceil(explorer.maxMp * 0.5), newMaxMp),
+    hp: Math.min(explorer.hp + Math.ceil(explorer.maxHp * getTuningValue('levelup_hp_recovery_rate', 0.5)), newMaxHp),
+    mp: Math.min(explorer.mp + Math.ceil(explorer.maxMp * getTuningValue('levelup_mp_recovery_rate', 0.5)), newMaxMp),
     str: explorer.str + growth.str,
     int: explorer.int + growth.int,
   }
