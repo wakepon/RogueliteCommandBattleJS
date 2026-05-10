@@ -166,7 +166,8 @@ export function getSellPrice(weapon: ExplorerWeapon): number {
   }
 
   const usageRatio = weaponInstance.currentUses / weaponInstance.maxUses
-  return Math.floor(basePrice * usageRatio * 0.5)
+  const minSellPrice = basePrice >= 10 ? 2 : 1
+  return Math.floor((basePrice - minSellPrice) * usageRatio * 0.5 + minSellPrice)
 }
 
 /** 通常アイテムの売却価格（半額） */
