@@ -30,7 +30,7 @@
     "price": 8,
     "commandCategory": "spell",
     "targetType": "allySingle",
-    "mpCost": 5,
+    "mpCost": 3,
     "power": 0,
     "variance": 0,
     "effect": {
