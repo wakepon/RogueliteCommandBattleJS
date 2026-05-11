@@ -45,7 +45,7 @@ function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
   const pattern = stagePatternsData[stageKey]
 
   if (!pattern) {
-    return [createEnemyInstance('slime')]
+    return [createEnemyInstance('slime'), createEnemyInstance('slime')]
   }
 
   if (pattern.patterns.length === 0) {

@@ -2,7 +2,7 @@
   "stage_1": {
     "turnLimit": 5,
     "patterns": [
-      { "enemies": ["slime"] },
+      { "enemies": ["goblin", "slime"] },
       { "enemies": ["slime", "slime"] },
       { "enemies": ["sewer_rat", "slime"] }
     ]
