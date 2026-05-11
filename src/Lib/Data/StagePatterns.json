@@ -51,5 +51,33 @@
     "patterns": [
       { "enemies": ["dragon"] }
     ]
+  },
+  "stage_8": {
+    "turnLimit": 10,
+    "patterns": [
+      { "enemies": ["orc", "assassin"] },
+      { "enemies": ["sleep_tiger", "dark_mage"] },
+      { "enemies": ["orc_lord", "orc"] }
+    ]
+  },
+  "stage_9": {
+    "turnLimit": 0,
+    "patterns": []
+  },
+  "stage_10": {
+    "turnLimit": 10,
+    "patterns": [
+      { "enemies": ["assassin", "dark_mage", "goblin"] },
+      { "enemies": ["orc_lord", "orc", "shaman"] },
+      { "enemies": ["sleep_tiger", "orc", "hedro_slime"] }
+    ]
+  },
+  "stage_11": {
+    "turnLimit": 14,
+    "patterns": [
+      { "enemies": ["dragon", "orc_lord"] },
+      { "enemies": ["dragon", "assassin"] },
+      { "enemies": ["dragon", "dark_mage"] }
+    ]
   }
 }

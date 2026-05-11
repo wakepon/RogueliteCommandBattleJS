@@ -22,4 +22,5 @@ export interface EnemyInstance extends EnemyData {
   battleBuffs: Buff[]
   battleDebuffs: Debuff[]
   hasSummoned?: boolean  // 仲間呼び1回制限用
+  justSummoned?: boolean // 召喚されたターンは行動しない
 }

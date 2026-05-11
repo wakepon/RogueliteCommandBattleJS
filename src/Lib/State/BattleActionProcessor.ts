@@ -2,7 +2,7 @@ import { GameState } from '../Types/Game'
 import { RunState } from '../Types/Run'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
-import { BattleCommand, BattleState, ExpPopup, BonusGain } from '../Types/Battle'
+import { BattleCommand, BattleState, ExpPopup, BonusGain, PlayerDamagePopup } from '../Types/Battle'
 import { SpellData } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
 import { battleReducer, BattleAction, createPlayerDamagePopup, createExpPopup } from './BattleReducer'
@@ -1196,12 +1196,24 @@ export function processEnemyAction(
 
   // healAlly: 最もHP割合が低い生存敵（自身含む）を回復
   if (battleAction.healAlly) {
-    effectState = applyHealAlly(effectState, battleAction.healAlly.amount)
+    effectState = applyHealAlly(effectState, battleAction.healAlly)
   }
 
   // summonEnemyId: 戦闘中に敵を追加
   if (battleAction.summonEnemyId) {
     effectState = applySummonEnemy(effectState, battleAction.enemyId, battleAction.summonEnemyId)
+  }
+
+  // transformName: 敵の表示名を変更
+  if (battleAction.transformName) {
+    effectState = {
+      ...effectState,
+      enemies: effectState.enemies.map(enemy =>
+        enemy.instanceId === battleAction.enemyId
+          ? { ...enemy, name: battleAction.transformName! }
+          : enemy
+      ),
+    }
   }
 
   // エフェクト適用結果をbattleReducer経由で反映
@@ -1212,9 +1224,46 @@ export function processEnemyAction(
     })
   }
 
-  // ダメージ処理: isAoeの場合は全生存メンバーにダメージ
+  // ダメージ処理
   let newRun = state.run
-  if (battleAction.isAoe && actualDamage > 0) {
+  if (battleAction.randomTargetHits && battleAction.randomTargetHits.length > 0) {
+    // ランダムターゲット: 各hitを対象ごとに独立処理（poison/weakness等のデバフは未対応）
+    newBattleState = battleReducer(newBattleState, {
+      ...battleAction,
+      damage: battleAction.damage,
+    })
+
+    const perHitDamage = battleAction.damage
+    const randomPopups: PlayerDamagePopup[] = []
+
+    for (let i = 0; i < battleAction.randomTargetHits.length; i++) {
+      const hit = battleAction.randomTargetHits[i]
+      const member = newRun.party.find(m => m.id === hit.targetExplorerId)
+      if (!member || member.hp <= 0) continue
+
+      // 壊れかけの鎧: 1hit目のみダメージ0化
+      const hitDamage = (i === 0 && shieldAbsorbed) ? 0 : perHitDamage
+      const { reducedDamage, updatedBuffs } = processShieldDamageReduction(member.battleBuffs, hitDamage)
+      const dmgToMpRate = getDamageTakenToMpRate(relics)
+      const mpRecovery = dmgToMpRate > 0 ? Math.ceil(reducedDamage * dmgToMpRate) : 0
+
+      const updatedMember = {
+        ...member,
+        hp: Math.max(0, member.hp - reducedDamage),
+        mp: Math.min(member.mp + mpRecovery, member.maxMp),
+        battleBuffs: updatedBuffs,
+      }
+      newRun = updatePartyMember(newRun, updatedMember)
+      if (reducedDamage > 0) {
+        randomPopups.push(createPlayerDamagePopup(reducedDamage, hit.targetExplorerId, undefined, reducedDamage < hitDamage))
+      }
+    }
+
+    newBattleState = {
+      ...newBattleState,
+      playerDamagePopups: [...newBattleState.playerDamagePopups, ...randomPopups],
+    }
+  } else if (battleAction.isAoe && actualDamage > 0) {
     // 全体攻撃: BattleReducerにポップアップ用のダメージを通知
     newBattleState = battleReducer(newBattleState, {
       ...battleAction,
@@ -1312,12 +1361,11 @@ export function processEnemyAction(
       const { value, duration } = battleAction.applyWeakness
       const existingWeakness = updatedExplorer.battleDebuffs.find(d => d.type === 'weakness')
       if (existingWeakness) {
-        // 既存の弱体を上書き（duration更新）
         updatedExplorer = {
           ...updatedExplorer,
           battleDebuffs: updatedExplorer.battleDebuffs.map(d =>
             d.type === 'weakness'
-              ? { ...d, value, duration }
+              ? { ...d, value, duration, justApplied: true }
               : d
           ),
         }
@@ -1326,7 +1374,7 @@ export function processEnemyAction(
           ...updatedExplorer,
           battleDebuffs: [
             ...updatedExplorer.battleDebuffs,
-            { type: 'weakness' as const, value, duration },
+            { type: 'weakness' as const, value, duration, justApplied: true },
           ],
         }
       }

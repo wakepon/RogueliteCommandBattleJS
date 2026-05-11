@@ -181,7 +181,7 @@ export function calculateWeaponDamage(
   const weaknessDebuff = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
     rawDamage *= (1.0 - weaknessDebuff.value)
-    contributors.push({ name: '弱体', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
+    contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
   }
 
   // 基本ダメージを切り捨て後にブレを加算
@@ -274,7 +274,7 @@ export function calculateSpellDamage(
   const spellWeakness = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (spellWeakness && spellWeakness.type === 'weakness') {
     rawDamage *= (1.0 - spellWeakness.value)
-    contributors.push({ name: '弱体', label: `×${(1.0 - spellWeakness.value).toFixed(2)}` })
+    contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - spellWeakness.value).toFixed(2)}` })
   }
 
   // 基本ダメージを切り捨て後にブレを加算

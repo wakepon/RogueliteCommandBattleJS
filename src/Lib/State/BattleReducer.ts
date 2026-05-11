@@ -20,9 +20,12 @@ export type BattleAction =
       actionName: string; poisonStacks: number; mpDrain: number;
       applyCharge: boolean; consumeCharge: boolean; hits: number;
       chargeAllAllies?: boolean; summonEnemyId?: string; healSelf?: number;
-      healAlly?: { amount: number }; isAoe?: boolean;
+      healAlly?: { amount?: number; percentOfMaxHp?: number }; isAoe?: boolean;
       applyWeakness?: { value: number; duration: number };
-      applySelfDefense?: { value: number; duration: number } }
+      applySelfDefense?: { value: number; duration: number };
+      transformName?: string;
+      isRandomTarget?: boolean;
+      randomTargetHits?: Array<{ targetExplorerId: string }> }
   | { type: 'ADVANCE_ENEMY_ACTION' }  // 次の敵の行動へ
   // ターン終了
   | { type: 'PROCESS_TURN_END'; totalPoisonDamage: number; updatedParty: ExplorerState[] }
@@ -296,7 +299,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
 
     case 'ADVANCE_ENEMY_ACTION': {
       const nextIndex = state.currentEnemyIndex + 1
-      const aliveEnemies = state.enemies.filter(e => e.currentHp > 0)
+      const aliveEnemies = state.enemies.filter(e => e.currentHp > 0 && !e.justSummoned)
       if (nextIndex >= aliveEnemies.length) {
         // 敵行動完了 → ターン終了フェーズへ
         return {
@@ -324,6 +327,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         turn: state.turn + 1,
         commandSlots: action.commandSlots,
         enemyIntents: action.enemyIntents,
+        enemies: state.enemies.map(e => e.justSummoned ? { ...e, justSummoned: undefined } : e),
         activeExplorerIndex: 0,
         currentCommandIndex: 0,
         currentEnemyIndex: 0,

@@ -80,16 +80,22 @@ export function applyHealSelf(battleState: BattleState, enemyId: string, amount:
 }
 
 /** 最もHP割合が低い生存敵（自身含む）を回復 */
-export function applyHealAlly(battleState: BattleState, amount: number): BattleState {
+export function applyHealAlly(
+  battleState: BattleState,
+  healAlly: { amount?: number; percentOfMaxHp?: number }
+): BattleState {
   const aliveEnemies = battleState.enemies.filter(e => e.currentHp > 0)
   if (aliveEnemies.length === 0) return battleState
 
   const mostInjured = aliveEnemies.reduce((a, b) =>
     (a.currentHp / a.hp) < (b.currentHp / b.hp) ? a : b
   )
+  const healAmount = healAlly.percentOfMaxHp
+    ? Math.floor(mostInjured.hp * healAlly.percentOfMaxHp)
+    : (healAlly.amount ?? 0)
   const updatedEnemies = battleState.enemies.map(enemy => {
     if (enemy.instanceId === mostInjured.instanceId) {
-      return { ...enemy, currentHp: Math.min(enemy.hp, enemy.currentHp + amount) }
+      return { ...enemy, currentHp: Math.min(enemy.hp, enemy.currentHp + healAmount) }
     }
     return enemy
   })
@@ -102,7 +108,14 @@ export function applySummonEnemy(
   actingEnemyId: string,
   summonEnemyId: string
 ): BattleState {
-  const newEnemy = createEnemyInstance(summonEnemyId)
+  const baseEnemy = createEnemyInstance(summonEnemyId)
+  const mult = battleState.enemyHpMultiplier
+  const newEnemy = {
+    ...baseEnemy,
+    hp: mult !== 1.0 ? Math.floor(baseEnemy.hp * mult) : baseEnemy.hp,
+    currentHp: mult !== 1.0 ? Math.floor(baseEnemy.currentHp * mult) : baseEnemy.currentHp,
+    justSummoned: true,
+  }
   const updatedEnemies = battleState.enemies.map(enemy => {
     if (enemy.instanceId === actingEnemyId) {
       return { ...enemy, hasSummoned: true }

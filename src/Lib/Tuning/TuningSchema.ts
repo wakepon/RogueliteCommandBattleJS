@@ -21,6 +21,7 @@ export const TUNING_CATEGORIES: Record<string, string> = {
   battle: 'バトル',
   economy: '報酬・経済',
   event: 'イベント',
+  floor: '第二階層',
 }
 
 /** 全調整項目のスキーマ定義 */
@@ -96,4 +97,9 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
 
   // === イベント ===
   { key: 'rest_heal_percent', label: '休憩回復率', category: 'event', defaultValue: 0.5, control: { type: 'slider', min: 0.1, max: 1.0, step: 0.05 } },
+
+  // === 第二階層 ===
+  { key: 'floor_2_hp_multiplier', label: '敵HP倍率', category: 'floor', defaultValue: 1.6, control: { type: 'slider', min: 1.0, max: 3.0, step: 0.1 } },
+  { key: 'floor_2_damage_multiplier', label: '敵攻撃力倍率', category: 'floor', defaultValue: 2.0, control: { type: 'slider', min: 1.0, max: 3.0, step: 0.1 } },
+  { key: 'floor_2_rare_rate', label: 'ショップRare率', category: 'floor', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
 ]

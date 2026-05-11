@@ -19,6 +19,7 @@ export interface DamageRange {
   min: number
   max: number
   isBoosted: boolean
+  isWeakened?: boolean
 }
 
 /** 乗算レリック効果の情報 */
@@ -129,6 +130,12 @@ export function predictWeaponDamage(
     baseDamage *= levelUpBoostBuff.value
   }
 
+  // 弱体デバフによるダメージ低下
+  const weaknessDebuff = explorer.battleDebuffs.find(d => d.type === 'weakness')
+  if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
+    baseDamage *= (1.0 - weaknessDebuff.value)
+  }
+
   const base = Math.floor(baseDamage)
   // 精密バフ: ブレ幅→0、最大ブレ値で固定
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
@@ -145,7 +152,9 @@ export function predictWeaponDamage(
     || weaponBreakMultiplier > 0
     || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
-  return { min, max, isBoosted }
+  const isWeakened = weaknessDebuff !== undefined
+
+  return { min, max, isBoosted, isWeakened }
 }
 
 /** 魔法ダメージ予測 */
@@ -180,6 +189,12 @@ export function predictSpellDamage(
     baseDamage *= levelUpBoostBuff.value
   }
 
+  // 弱体デバフによるダメージ低下
+  const spellWeakness = explorer.battleDebuffs.find(d => d.type === 'weakness')
+  if (spellWeakness && spellWeakness.type === 'weakness') {
+    baseDamage *= (1.0 - spellWeakness.value)
+  }
+
   const base = Math.floor(baseDamage)
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
   const isPrecise = hasPrecision || explorerHasPrecision
@@ -191,7 +206,9 @@ export function predictSpellDamage(
     || relicMultiplier > 1.0
     || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
-  return { min, max, isBoosted }
+  const isWeakened = spellWeakness !== undefined
+
+  return { min, max, isBoosted, isWeakened }
 }
 
 /** ダメージ範囲を文字列にフォーマット */
@@ -289,6 +306,12 @@ function detectActiveMultipliers(
     if (hpRatio <= command.effect.hpThreshold) {
       multipliers.push({ relicName: command.name, multiplier: 0 }) // 加算表示用
     }
+  }
+
+  // 弱体デバフ
+  const weaknessDebuff = explorer.battleDebuffs.find(d => d.type === 'weakness')
+  if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
+    multipliers.push({ relicName: '攻撃ダウン', multiplier: 1.0 - weaknessDebuff.value })
   }
 
   return multipliers

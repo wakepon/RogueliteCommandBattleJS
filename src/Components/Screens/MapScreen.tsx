@@ -1,6 +1,7 @@
 import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
 import { MapContent } from '../Common/MapContent'
+import { TOTAL_STAGES } from '../../Lib/Core/StageManager'
 
 export function MapScreen() {
   const { state, advanceFromMap } = useGame()
@@ -16,7 +17,7 @@ export function MapScreen() {
       <div className="p-4 text-center border-b border-gray-700">
         <h1 className="text-xl font-bold">マップ</h1>
         <p className="text-sm text-gray-400 mt-1">
-          ステージ {currentStage} / 7
+          ステージ {currentStage} / {TOTAL_STAGES}
         </p>
       </div>
 

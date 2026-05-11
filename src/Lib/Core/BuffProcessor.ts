@@ -80,6 +80,9 @@ export function decrementWeaknessDuration(debuffs: Debuff[]): Debuff[] {
   return debuffs
     .map(d => {
       if (d.type === 'weakness') {
+        if (d.justApplied) {
+          return { ...d, justApplied: false }
+        }
         return { ...d, duration: d.duration - 1 }
       }
       return d

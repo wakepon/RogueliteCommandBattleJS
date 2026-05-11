@@ -140,6 +140,7 @@ export interface StoreState {
   shopOptions: [ShopOption, ShopOption]  // 2択
   selectedShopIndex: number | null       // 未選択=null, 選択後=0or1
   rerollCost: number
+  rareRate: number                       // 第二階層以降のRare出現率
 }
 
 // ゲーム全体の状態

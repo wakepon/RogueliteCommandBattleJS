@@ -1,6 +1,6 @@
 import { MapNode, EnemyPreview } from '../Types/Game'
 import { EnemyData } from '../Types/Enemy'
-import { isEventStage, isFinalStage, TOTAL_STAGES } from './StageManager'
+import { isEventStage, isBossStage, TOTAL_STAGES } from './StageManager'
 import EnemiesData from '../Data/Enemies.json'
 import StagePatternsData from '../Data/StagePatterns.json'
 
@@ -22,7 +22,7 @@ export function generateMapNodes(seed: number): MapNode[] {
       continue
     }
 
-    if (isFinalStage(stage)) {
+    if (isBossStage(stage)) {
       nodes.push({ stage, nodeType: 'boss', enemies: getEnemyPreviews(stage, seed) })
       continue
     }

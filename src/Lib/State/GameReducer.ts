@@ -130,7 +130,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'CONTINUE_GAME': {
       const { run } = action
-      const storeState = createStoreState(run.seed + run.currentStage)
+      const storeState = createStoreState(run.seed + run.currentStage, run.currentStage)
       const mapState: MapState = {
         nodes: generateMapNodes(run.seed),
         currentStage: run.currentStage,
@@ -279,7 +279,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'OPEN_STORE': {
       if (!state.run) return state
-      const storeState = createStoreState(state.run.seed + state.run.currentStage)
+      const storeState = createStoreState(state.run.seed + state.run.currentStage, state.run.currentStage)
       const mapState: MapState = {
         nodes: generateMapNodes(state.run.seed),
         currentStage: state.run.currentStage,

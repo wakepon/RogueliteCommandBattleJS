@@ -15,10 +15,12 @@ export interface EnemyActionResult {
   chargeAllAllies?: boolean    // 他の生存敵全員にcharge付与
   summonEnemyId?: string       // 戦闘中に敵を追加
   healSelf?: number            // 自身のHP回復量
-  healAlly?: { amount: number } // 味方1体のHP回復
+  healAlly?: { amount?: number; percentOfMaxHp?: number } // 味方1体のHP回復
   isAoe?: boolean              // 全体攻撃
   applyWeakness?: { value: number; duration: number }   // 弱体デバフ付与
   applySelfDefense?: { value: number; duration: number } // 自己防御バフ
+  transformName?: string       // 条件トリガーで敵表示名を変更
+  isRandomTarget?: boolean     // 各hitでランダムにターゲットを選択
 }
 
 /** 確率テーブルからランダムに行動を選択 */
@@ -116,9 +118,10 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
   // 力溜め中: フェーズに関係なく大暴れ（力溜め消費）
   if (hasCharge) {
     return {
-      ...defaultResult('大暴れ', 15),
+      ...defaultResult('大暴れ', 20),
       hits: 2,
       consumeCharge: true,
+      transformName: 'マッドタイガー',
     }
   }
 
@@ -127,16 +130,18 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
     return defaultResult('寝返り', 8)
   }
 
-  // Phase 2: HP ≤ 80% — 覚醒
+  // Phase 2: HP ≤ 80% — 覚醒（マッドタイガー）
   const chargeAction: EnemyActionResult = {
     ...defaultResult('力溜め', 0),
     applyCharge: true,
+    transformName: 'マッドタイガー',
   }
 
   const table = [
-    { weight: 0.50, value: defaultResult('怒りの爪', 18) },
-    { weight: 0.25, value: { ...defaultResult('あばれる', 8), hits: 2 } },
-    { weight: 0.25, value: chargeAction },
+    { weight: 0.35, value: { ...defaultResult('怒りの爪', 24), transformName: 'マッドタイガー' } },
+    { weight: 0.20, value: { ...defaultResult('あばれる', 12), hits: 2, transformName: 'マッドタイガー' } },
+    { weight: 0.25, value: { ...defaultResult('乱れ引っかき', 10), hits: 3, isRandomTarget: true, transformName: 'マッドタイガー' } },
+    { weight: 0.20, value: chargeAction },
   ]
   return selectByWeight(table)
 }
@@ -153,7 +158,7 @@ function selectShamanAction(_enemy: EnemyInstance): EnemyActionResult {
 /** ヘドロスライムの行動決定 */
 function selectHedroSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.50, value: { ...defaultResult('泥かけ', 6), applyWeakness: { value: 0.25, duration: 2 } } },
+    { weight: 0.50, value: { ...defaultResult('泥かけ', 6), applyWeakness: { value: 0.5, duration: 1 } } },
     { weight: 0.50, value: defaultResult('体当たり', 11) },
   ]
   return selectByWeight(table)
@@ -181,7 +186,7 @@ function selectOrcLordAction(_enemy: EnemyInstance): EnemyActionResult {
 /** 妖精の行動決定 */
 function selectFairyAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.80, value: { ...defaultResult('ヒール', 0), healAlly: { amount: 10 } } },
+    { weight: 0.80, value: { ...defaultResult('ヒール', 0), healAlly: { percentOfMaxHp: 0.3 } } },
     { weight: 0.20, value: defaultResult('タックル', 6) },
   ]
   return selectByWeight(table)
@@ -204,7 +209,7 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
     // Phase 1: HP > 50%
     const table = [
       { weight: 0.50, value: defaultResult('切り裂く爪', 21) },
-      { weight: 0.30, value: { ...defaultResult('自己再生', 0), healSelf: 20 } },
+      { weight: 0.30, value: { ...defaultResult('自己再生', 0), healSelf: Math.floor(enemy.hp * 0.8) } },
       { weight: 0.20, value: { ...defaultResult('火炎ブレス', 14), isAoe: true } },
     ]
     return selectByWeight(table)

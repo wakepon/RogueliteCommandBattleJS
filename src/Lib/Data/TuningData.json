@@ -51,5 +51,8 @@
   "base_reroll_cost": 3,
   "max_relic_count": 5,
   "max_potion_count": 2,
-  "rest_heal_percent": 0.5
+  "rest_heal_percent": 0.5,
+  "floor_2_hp_multiplier": 1.6,
+  "floor_2_damage_multiplier": 2.0,
+  "floor_2_rare_rate": 0.5
 }

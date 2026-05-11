@@ -21,7 +21,7 @@ export interface Buff {
 // バトル中のデバフ
 export type Debuff =
   | { type: 'poison'; stacks: number }
-  | { type: 'weakness'; value: number; duration: number }
+  | { type: 'weakness'; value: number; duration: number; justApplied?: boolean }
 
 // Explorer（プレイヤーキャラクター）の状態
 // 前衛/後衛は party 配列順から派生（getFrontMemberId 参照）

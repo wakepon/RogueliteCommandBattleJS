@@ -133,6 +133,11 @@ function CharacterPanel({
               <span className="text-yellow-400 font-bold text-sm shrink-0">{ORDER_BADGES[orderIndex] ?? `${orderIndex + 1}`}</span>
               <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
               <span className="text-white font-bold text-2xl truncate">{member.name}</span>
+              {member.battleDebuffs.find(d => d.type === 'weakness') && (
+                <span className="text-red-400 text-xs font-bold bg-red-900/50 px-1 rounded shrink-0">
+                  攻↓{(member.battleDebuffs.find(d => d.type === 'weakness') as { duration: number }).duration}
+                </span>
+              )}
             </div>
             <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
           </div>
@@ -446,7 +451,7 @@ export function BattleScreen() {
 
   useEffect(() => {
     if (phase !== 'enemyAction') return
-    const aliveEnemies = enemies.filter(e => e.currentHp > 0)
+    const aliveEnemies = enemies.filter(e => e.currentHp > 0 && !e.justSummoned)
     if (battleState.currentEnemyIndex >= aliveEnemies.length) return
     const timers: ReturnType<typeof setTimeout>[] = []
     const t1 = setTimeout(() => {

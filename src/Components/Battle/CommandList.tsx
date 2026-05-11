@@ -162,16 +162,19 @@ export function CommandList({
           // ダメージ予測値の計算
           let damageDisplay: string | null = null
           let isBoosted = false
+          let isWeakened = false
           if (explorer) {
             const opts = { relics, killStreakActive, includeConditionalRelics: true, party }
             if (isWeapon(command)) {
               const range = predictWeaponDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)
               isBoosted = range.isBoosted
+              isWeakened = range.isWeakened ?? false
             } else if (isSpell(command) && command.power > 0) {
               const range = predictSpellDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)
               isBoosted = range.isBoosted
+              isWeakened = range.isWeakened ?? false
             }
           }
 
@@ -214,7 +217,7 @@ export function CommandList({
 
               {/* ダメージ予測値 */}
               {damageDisplay && (
-                <span className={`text-xs ${isBoosted ? 'text-orange-400' : 'text-gray-400'}`}>
+                <span className={`text-xs ${isWeakened ? 'text-red-400' : isBoosted ? 'text-orange-400' : 'text-gray-400'}`}>
                   {damageDisplay}
                 </span>
               )}

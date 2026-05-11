@@ -131,6 +131,10 @@ export interface BattleState {
   actionQueue: ActorId[]
   currentActorIndex: number
 
+  // 階層倍率（第二階層以降で使用）
+  enemyHpMultiplier: number
+  enemyDamageMultiplier: number
+
   // ゲームオーバー状態（敗北時にオーバーレイを表示する）
   isGameOver?: boolean
 }
