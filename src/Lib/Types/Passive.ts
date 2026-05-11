@@ -19,7 +19,7 @@ export type PassiveEffectType =
   | { type: 'battleStartHpReduction'; rate: number; strBonus: number }  // 血の契約: 戦闘開始時HP削減+STR
   | { type: 'damageTakenToMp'; rate: number }  // 苦痛のリング: 被ダメ→MP変換
   | { type: 'goldPerKill'; value: number }  // 商人の護符: キル時ゴールド
-  | { type: 'weaponBreakDamageMultiplier'; increment: number }  // 不死鳥の残り火: 武器破壊時倍率蓄積
+  | { type: 'weaponBreakDamageMultiplier'; increment: number }  // 努力の証: 武器破壊時倍率蓄積
   | { type: 'weaponBreakNextAttackBonus'; value: number }  // 鍛冶師の金槌: 武器破壊後Power加算
   // EXP・防御系
   | { type: 'levelUpDamageBoost'; multiplier: number }  // 闘気の腕輪: 戦闘中レベルアップ時、次攻撃ダメージ倍率

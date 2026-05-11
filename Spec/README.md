@@ -46,7 +46,7 @@ Spec/
 **Core Game チーム** (4ファイル更新):
 - `Overview/BattleOverview.md` — ダメージ計算式にconditionalPower/weaponPowerBonus/weaponBreakMultiplier追記、新規武器7種・魔法6種の概要追加、シールドバフ2系統明記、バフ一覧にshield/weaponPowerBonus追加
 - `Overview/StoreOverview.md` — レリック15→18種更新（3種削除・6種追加）、効果タイプ一覧更新、ショップ枠を固定8枠→2択選択制(6枠)に変更
-- `MVP/BattleSystem.md` — ダメージ計算式更新、レリック倍率修正(怒りの炎・血染めの手袋削除→不死鳥の残り火追加)、バフテーブル・レリック効果テーブル更新
+- `MVP/BattleSystem.md` — ダメージ計算式更新、レリック倍率修正(怒りの炎・血染めの手袋削除→努力の証追加)、バフテーブル・レリック効果テーブル更新
 - `MVP/StoreItem.md` — 武器7種・魔法6種・レリック6種追加、3種削除、レアリティ修正、商品抽選を2択選択制に修正
 
 **Data & State チーム** (4ファイル更新):

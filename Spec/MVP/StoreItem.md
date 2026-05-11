@@ -92,7 +92,7 @@
 | **苦痛のリング** | - | Uncommon | HP低下時に特殊効果発動。 |
 | **商人の護符** | - | Uncommon | ゴールド関連の効果（購入・獲得に影響）。 |
 | **金の指輪** | - | Common | ゴールド獲得量増加。 |
-| **不死鳥の残り火** | - | Rare | 武器破壊時にダメージ倍率上昇（weaponBreakMultiplier）。 |
+| **努力の証** | - | Rare | 武器破壊時にダメージ倍率上昇（weaponBreakMultiplier）。 |
 | **鍛冶師の金槌** | - | Uncommon | 武器使用回数または耐久に関する強化。 |
 | **怒りの炎** | - | Uncommon | HP低下時に攻撃ダメージ倍率上昇（lowHpDamageMultiplier）。 |
 | **闘気の腕輪** | - | Uncommon | 戦闘中レベルアップ後の次攻撃にダメージ倍率バフを付与（levelUpDamageBoost）。 |

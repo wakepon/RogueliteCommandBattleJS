@@ -37,7 +37,7 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
       return `${statName} +${effect.value}`
     }
     case 'weaponDamageBonus':
-      return `武器ダメージ +${effect.value}`
+      return `物理武器ダメージ +${effect.value}（パンチ除く）`
     case 'interestCap':
       return `利子上限 ${effect.value}G`
     case 'lowHpDamageMultiplier':

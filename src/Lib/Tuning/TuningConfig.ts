@@ -67,6 +67,9 @@ export interface TuningConfig {
   // イベント
   readonly rest_heal_percent: number
 
+  // レリック
+  readonly phoenix_ember_increment: number
+
   // 第二階層
   readonly floor_2_hp_multiplier: number
   readonly floor_2_damage_multiplier: number

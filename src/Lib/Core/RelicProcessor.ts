@@ -1,6 +1,7 @@
 import { RelicInstance } from '../Types/Relic'
 import { PassiveEffectType } from '../Types/Passive'
 import { ExplorerState } from '../Types/Explorer'
+import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 特定効果の所持判定 */
 export function hasRelicEffect(
@@ -21,6 +22,13 @@ export function getStatBonus(
     }
     return sum
   }, 0)
+}
+
+/** 武器ダメージボーナス（鋭い砥石）の対象かどうか判定（INT武器・パンチは対象外） */
+export function isWeaponDamageBonusApplicable(weapon: { id: string; scaleStat?: 'str' | 'int' }): boolean {
+  if (weapon.id === 'punch') return false
+  if (weapon.scaleStat === 'int') return false
+  return true
 }
 
 /** 武器ダメージボーナス合算 */
@@ -148,10 +156,12 @@ export function getWeaponAttackMpRecover(relics: RelicInstance[]): { value: numb
   return null
 }
 
-/** 不死鳥の残り火: 武器破壊時の蓄積increment */
+/** 努力の証: 武器破壊時の蓄積increment */
 export function getWeaponBreakIncrement(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'weaponBreakDamageMultiplier') return r.passiveEffect.increment
+    if (r.passiveEffect.type === 'weaponBreakDamageMultiplier') {
+      return getTuningValue('phoenix_ember_increment', r.passiveEffect.increment)
+    }
   }
   return 0
 }

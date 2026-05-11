@@ -19,7 +19,7 @@ MVP実装のダメージ計算式:
 * ブレ補正は加算方式。各武器/魔法にvariance値が設定されており、`-variance ~ +variance` の整数が均等分布で生成され、基礎ダメージ(floor済み)に加算される。乗算方式ではない。
 * **conditionalPower:** 条件付きで加算される追加威力（猛撃の斧など、特定条件下でのみ発動）。
 * **weaponPowerBonus:** 武器強化バフによって付与される威力加算ボーナス。
-* **weaponBreakMultiplier:** 武器破壊時などに乗算される倍率（不死鳥の残り火レリックが付与）。
+* **weaponBreakMultiplier:** 武器破壊時などに乗算される倍率（努力の証レリックが付与）。
 * **レリック倍率（追加）:** `lowHpDamageMultiplier`（怒りの炎）、`lowestLevelDamageMultiplier`（番狂わせの一撃）、`levelUpDamageBoost`（闘気の腕輪、戦闘中レベルアップ後の次攻撃バフ）も乗算される。
 
 * **戦闘ペース：** 1戦闘は平均3ターン程度。ダンジョンクリアまでにトータル45回分の攻撃リソースが必要。

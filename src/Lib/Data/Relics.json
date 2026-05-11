@@ -120,7 +120,7 @@
   },
   "phoenix_ember": {
     "id": "phoenix_ember",
-    "name": "不死鳥の残り火",
+    "name": "努力の証",
     "rarity": "Rare",
     "price": 9,
     "passiveEffect": { "type": "weaponBreakDamageMultiplier", "increment": 0.25 }

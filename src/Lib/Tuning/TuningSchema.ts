@@ -98,6 +98,9 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   // === イベント ===
   { key: 'rest_heal_percent', label: '休憩回復率', category: 'event', defaultValue: 0.5, control: { type: 'slider', min: 0.1, max: 1.0, step: 0.05 } },
 
+  // === レリック ===
+  { key: 'phoenix_ember_increment', label: '努力の証 蓄積倍率', category: 'battle', defaultValue: 0.25, control: { type: 'number', min: 0.05, max: 1.0, step: 0.05 } },
+
   // === 第二階層 ===
   { key: 'floor_2_hp_multiplier', label: '敵HP倍率', category: 'floor', defaultValue: 1.6, control: { type: 'slider', min: 1.0, max: 3.0, step: 0.1 } },
   { key: 'floor_2_damage_multiplier', label: '敵攻撃力倍率', category: 'floor', defaultValue: 2.0, control: { type: 'slider', min: 1.0, max: 3.0, step: 0.1 } },

@@ -62,7 +62,7 @@
 * **weaponPowerBonus:** 武器強化バフによって付与される威力加算ボーナス。
 * **バフ倍率:** 倍率効果を**加算**。未適用時は1.0。複数のバフ倍率は加算される。
 * **レリック倍率（武器ダメージ）:** lastStrikeDamageMultiplier（研ぎ師の名刺、武器最終使用時）が乗算される。
-* **weaponBreakMultiplier:** 武器破壊時に乗算される倍率（不死鳥の残り火レリックが付与）。
+* **weaponBreakMultiplier:** 武器破壊時に乗算される倍率（努力の証レリックが付与）。
 * **レリック倍率（魔法ダメージ）:** lowMpDamageBonus（集中の水晶）が乗算される。
 * **追加レリック倍率:** `lowHpDamageMultiplier`（怒りの炎、HP低下時に乗算）、`lowestLevelDamageMultiplier`（番狂わせの一撃、最低レベルキャラ使用時に乗算）、`levelUpDamageBoost`（闘気の腕輪、戦闘中レベルアップ後の次攻撃に対してバフとして付与）も乗算される。
 
@@ -137,7 +137,7 @@
 | 苦痛のリング | HP低下時に特殊効果発動 |
 | 商人の護符 | ゴールド関連の効果（購入・獲得に影響） |
 | 金の指輪 | ゴールド獲得量増加 |
-| 不死鳥の残り火 | 武器破壊時にダメージ倍率上昇（weaponBreakMultiplier） |
+| 努力の証 | 武器破壊時にダメージ倍率上昇（weaponBreakMultiplier） |
 | 鍛冶師の金槌 | 武器使用回数または耐久に関する強化 |
 | 怒りの炎 | HP低下時に攻撃ダメージ倍率上昇（lowHpDamageMultiplier） |
 | 闘気の腕輪 | 戦闘中レベルアップ後の次攻撃にダメージ倍率バフを付与（levelUpDamageBoost） |

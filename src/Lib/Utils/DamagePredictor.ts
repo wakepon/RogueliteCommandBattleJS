@@ -7,6 +7,7 @@ import { isWeapon, isSpell } from '../Core/CommandValidator'
 import {
   getStatBonus,
   getWeaponDamageBonus,
+  isWeaponDamageBonusApplicable,
   getLowHpDamageMultiplier,
   getKillStreakMultiplier,
   getLastStrikeMultiplier,
@@ -58,7 +59,7 @@ export interface DamagePredictOptions {
   killStreakActive?: boolean
   includeConditionalRelics?: boolean
   hasPrecision?: boolean  // 精密バフでブレ幅→0
-  weaponBreakMultiplier?: number  // 不死鳥の残り火: 武器破壊蓄積倍率
+  weaponBreakMultiplier?: number  // 努力の証: 武器破壊蓄積倍率
   party?: ExplorerState[]  // 番狂わせの一撃: パーティ全体のレベル比較
 }
 
@@ -80,7 +81,7 @@ export function predictWeaponDamage(
   // scaleStat対応（魔力弾はINT依存）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
   const statBonus = getStatBonus(relics, scaleStat)
-  const weaponDmgBonus = getWeaponDamageBonus(relics)
+  const weaponDmgBonus = isWeaponDamageBonusApplicable(weapon) ? getWeaponDamageBonus(relics) : 0
   const effectiveStat = (scaleStat === 'int' ? explorer.int : explorer.str) + statBonus
   const buffMultiplier = calculateBuffMultiplier(explorer, scaleStat)
 
@@ -101,7 +102,7 @@ export function predictWeaponDamage(
   const effectivePower = weapon.power + weaponDmgBonus + conditionalPowerBonus + weaponPowerBonusValue
   let baseDamage = effectiveStat * effectivePower * buffMultiplier
 
-  // 不死鳥の残り火: 武器破壊蓄積倍率
+  // 努力の証: 武器破壊蓄積倍率
   if (weaponBreakMultiplier > 0) {
     baseDamage *= (1 + weaponBreakMultiplier)
   }
@@ -279,7 +280,7 @@ function detectActiveMultipliers(
         multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
       }
     }
-    // 不死鳥の残り火: 武器破壊蓄積倍率
+    // 努力の証: 武器破壊蓄積倍率
     if (effect.type === 'weaponBreakDamageMultiplier' && weaponBreakMultiplier > 0 && isWeapon(command)) {
       multipliers.push({ relicName: relic.name, multiplier: 1 + weaponBreakMultiplier })
     }

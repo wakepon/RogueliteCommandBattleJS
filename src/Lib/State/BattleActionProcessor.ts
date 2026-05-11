@@ -475,7 +475,7 @@ function executeAttackCommand(
     if (weaponBefore && weaponAfter &&
         weaponBefore.currentUses !== null && weaponBefore.currentUses > 0 &&
         weaponAfter.currentUses !== null && weaponAfter.currentUses <= 0) {
-      // 不死鳥の残り火: 蓄積倍率を加算
+      // 努力の証: 蓄積倍率を加算
       const breakIncrement = getWeaponBreakIncrement(relics)
       if (breakIncrement > 0) {
         updatedWeaponBreakMultiplier += breakIncrement
