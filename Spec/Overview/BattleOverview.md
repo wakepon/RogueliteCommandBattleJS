@@ -29,6 +29,7 @@ MVP実装のダメージ計算式:
 
 ### 1.6 **ターゲットタイプ**
 * `enemySingle`（敵単体）、`allySingle`（味方単体）、`enemyAll`（敵全体）、`allyAll`（味方全体）、`enemyRandom`（敵ランダム）の5種類。
+* **isRandomTarget:** EnemyActionResult に `isRandomTarget` フィールドが存在し、各ヒットでランダムにターゲットを選択する行動に使用される。
 
 ### 1.7 **敵行動予告 (Intent)**
 * EnemyIntent型が実装されており、敵の次ターンの行動と予測ダメージが事前に表示される。
@@ -63,7 +64,7 @@ MVP実装のダメージ計算式:
     * **生命変換:** HPをMPに変換する（hpToMp）。
     * **金のまじない:** 攻撃命中時にゴールドを獲得する（goldOnHit）。
     * **ゴールドバースト:** 所持ゴールドに応じてダメージが変動する（goldDamage）。
-    * **戦場の鍛冶:** 味方の武器使用回数を回復する（repairWeapons）。
+    * **戦場の鍛冶:** 味方単体（allySingle）の武器使用回数を回復する（repairWeapons）。
     * **武器強化:** 味方の武器威力を一時的に上昇させるバフを付与する（weaponPowerBuff）。
 * 武器・魔法には **呪い**、**祝福**がついている場合もある。
 * 呪い
@@ -78,12 +79,12 @@ MVP実装のダメージ計算式:
 ### 2.x 新武器・新魔法（クラス初期装備・追加実装）
 * **魔力弾** (magic_bullet): 無制限使用の武器。INT依存ダメージ（scaleStat: 'int'）。魔法使いの初期装備。
 * **祈り** (prayer): 無制限使用の武器。味方単体対象（allySingle）。効果: 被ターゲット率UP（targetRateUp）。僧侶の初期装備。
-* **精密** (precision): 味方単体対象のバフ魔法。次の攻撃のダメージブレを最大値で固定する。僧侶の初期装備。
+* **精密** (precision): 味方単体対象のバフ魔法。次の攻撃のダメージブレを最大値で固定する。ショップで購入可能。
 * **魂喰いの剣** (soul_eater_sword): トドメを刺した際に耐久を消費しない（`killPreserveDurability`）効果を持つ武器。
 * **守護の盾** (guardian_shield): 味方単体（allySingle）にシールドを付与する武器。
 * **師弟の絆** (master_bond): 使用者に「導きバフ」（`guidanceBuff`）を付与する魔法。次のキルで追加EXPが発生する。
 * **教育の魔弾** (education_bullet): 攻撃魔法。キル時にパーティー全員に追加EXPを付与する（`killBonusExpToAll`）。
-* **癒しの風** (healing_wind): 味方全体（allyAll）を回復する魔法。
+* **癒しの風** (healing_wind): 味方全体（allyAll）を回復する魔法。heal valueはTuning Editorで調整可能。
 
 ## 3. ポーション(消耗アイテム)
 * **種類：** ステータス上昇（一時的もしくはダンジョン内で永続だが微量）、武器、魔法への永続バフ
@@ -114,8 +115,11 @@ MVP実装のダメージ計算式:
 * 「出血」はMVP未実装。
 
 ## 6. 討伐ターン
-* ターン制限はStageパターンごとに固定値として設定されている（例: stage_1は5, stage_7は12）。
+* ターン制限はStageパターンごとに固定値として設定されている（例: stage_1は5, stage_7は12, stage_8は10, stage_10は10, stage_11は14）。
 * 討伐ターン数を超過した場合のペナルティダメージは現状未実装。UIにのみターン超過の表示がある。
+
+### 第二階層（ステージ8-11）
+* BattleState に `enemyHpMultiplier` / `enemyDamageMultiplier` フィールドが存在し、第二階層では敵HP・敵攻撃力に倍率が適用される（Tuning Editorで調整可能）。
 
 ## 6.x ターゲティングシステム
 * 前衛・後衛の判定は party 配列順から動的に決定される（1.1 参照）。

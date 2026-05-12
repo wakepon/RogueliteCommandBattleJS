@@ -7,7 +7,6 @@ import { getTuningValue } from '../Tuning/TuningStore'
 /** 武器効果 */
 export type WeaponEffect =
   | { type: 'lifesteal'; value: number }
-  | { type: 'targetRateUp'; value: number }  // 祈り: 被ターゲット率UP
   | { type: 'conditionalPower'; hpThreshold: number; bonusPower: number }  // HP条件でPower増加
   | { type: 'shield'; value: number }  // 守護の盾: 対象に被ダメ軽減シールド付与
   | { type: 'killPreserveDurability' }  // 魂喰いの剣: トドメを刺すと耐久を消費しない
@@ -19,6 +18,7 @@ export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetab
   variance: number  // ダメージブレ幅（±variance の加算ブレ）
   goldCost?: number
   hpCost?: number
+  hits?: number     // 複数ヒット数（三節棍等）
   effect?: WeaponEffect
   scaleStat?: 'str' | 'int'  // ダメージ計算に使うステータス（デフォルト: str）
 }

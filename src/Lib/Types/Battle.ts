@@ -40,6 +40,10 @@ export interface DamagePopup {
   damage: number
   timestamp: number
   contributors?: DamageContributor[]
+  delayMs?: number        // 表示開始までの遅延（マルチヒット順次表示用）
+  fadeAfterMs?: number    // 作成時刻からフェード開始までのms
+  fadeDurationMs?: number // フェードアウトの長さ（ms）
+  hitIndex?: number       // マルチヒットの何番目か（Y座標オフセット用）
 }
 
 /** プレイヤーへのダメージポップアップ */
@@ -80,7 +84,6 @@ export interface EnemyIntent {
 
 /** レリック戦闘内状態 */
 export interface RelicBattleState {
-  shieldActive: boolean      // 壊れかけの鎧
   killStreakActive: boolean   // 血染めの手袋
 }
 

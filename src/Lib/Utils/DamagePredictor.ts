@@ -324,7 +324,8 @@ export function calculateDetailedDamagePreview(
   targetEnemyId: string,
   party: ExplorerState[],
   options: DamagePredictOptions = {},
-  tentative?: TentativeCommand | null
+  tentative?: TentativeCommand | null,
+  aliveEnemyCount?: number
 ): DetailedDamagePreview {
   let totalMin = 0
   let totalMax = 0
@@ -357,8 +358,9 @@ export function calculateDetailedDamagePreview(
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
     const isEnemyAllSpell = isSpell(slot.command) && slot.command.targetType === 'enemyAll'
     const isEnemyAll = isEnemyAllWeapon || isEnemyAllSpell
+    const isEnemyRandom = isWeapon(slot.command) && slot.command.targetType === 'enemyRandom'
 
-    if (!targetsThisEnemy && !isEnemyAll) continue
+    if (!targetsThisEnemy && !isEnemyAll && !isEnemyRandom) continue
 
     let range: DamageRange | null = null
 
@@ -368,6 +370,14 @@ export function calculateDetailedDamagePreview(
     } else if (isSpell(slot.command)) {
       if (slot.command.targetType === 'allySingle' || slot.command.targetType === 'allyAll') continue
       range = predictSpellDamage(explorer, slot.command, slotOptions)
+    }
+
+    if (range && isEnemyRandom && isWeapon(slot.command)) {
+      const hits = ('hits' in slot.command && slot.command.hits) ? slot.command.hits : 3
+      const multipleEnemies = (aliveEnemyCount ?? 1) > 1
+      range = multipleEnemies
+        ? { min: 0, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
+        : { min: range.min * hits, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
     }
 
     if (range) {

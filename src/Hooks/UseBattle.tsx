@@ -3,6 +3,7 @@ import { useGame } from './UseGame'
 import { PotionInstance } from '../Lib/Types/Potion'
 import { BattleAction } from '../Lib/State/BattleReducer'
 import { getAvailableCommands, selectEnemyAction, processPartyTurnEnd, calculateTargetRates, selectTargetByRate } from '../Lib/Core'
+import { isWeapon } from '../Lib/Core/CommandValidator'
 import { generateEnemyIntents } from '../Lib/State/BattleStateFactory'
 import { BattleState, BattleCommand, BattlePhase, CommandSlot, PlayerDamagePopup, LevelUpPopup, DamagePopup, ExpPopup } from '../Lib/Types/Battle'
 import { ExplorerState } from '../Lib/Types/Explorer'
@@ -119,7 +120,22 @@ export function useBattle(): UseBattleResult | null {
     if (!slot?.command) return
     const explorer = run.party.find(e => e.id === slot.explorerId)
     if (!explorer || explorer.hp <= 0) return  // 戦闘不能チェック
-    dispatchBattle({ type: 'EXECUTE_COMMAND', explorer })
+
+    // enemyRandom武器の場合、ランダムターゲットを事前に決定
+    let randomEnemyTargets: string[] | undefined
+    if (isWeapon(slot.command) && slot.command.targetType === 'enemyRandom') {
+      const aliveEnemies = battleState.enemies.filter(e => e.currentHp > 0)
+      if (aliveEnemies.length > 0) {
+        const hits = ('hits' in slot.command && slot.command.hits) ? slot.command.hits : 3
+        randomEnemyTargets = []
+        for (let i = 0; i < hits; i++) {
+          const randomIndex = Math.floor(Math.random() * aliveEnemies.length)
+          randomEnemyTargets.push(aliveEnemies[randomIndex].instanceId)
+        }
+      }
+    }
+
+    dispatchBattle({ type: 'EXECUTE_COMMAND', explorer, randomEnemyTargets })
   }, [battleState, run, dispatchBattle])
 
   const advancePartyAction = useCallback(() => {

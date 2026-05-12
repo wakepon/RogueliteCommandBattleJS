@@ -41,16 +41,6 @@ export function getWeaponDamageBonus(relics: RelicInstance[]): number {
   }, 0)
 }
 
-/** interestCap値を取得（未所持なら0） */
-export function getInterestCapBonus(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'interestCap') {
-      return r.passiveEffect.value
-    }
-  }
-  return 0
-}
-
 /** 条件付きダメージ倍率を計算（lowHpDamageMultiplier） */
 export function getLowHpDamageMultiplier(
   relics: RelicInstance[],
@@ -143,19 +133,6 @@ export function getWeaponDurabilitySaveChance(relics: RelicInstance[]): number {
   return 0
 }
 
-/** weaponAttackMpRecover の値を取得 */
-export function getWeaponAttackMpRecover(relics: RelicInstance[]): { value: number; excludeWeaponId?: string } | null {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'weaponAttackMpRecover') {
-      return {
-        value: r.passiveEffect.value,
-        excludeWeaponId: r.passiveEffect.excludeWeaponId,
-      }
-    }
-  }
-  return null
-}
-
 /** 努力の証: 武器破壊時の蓄積increment */
 export function getWeaponBreakIncrement(relics: RelicInstance[]): number {
   for (const r of relics) {
@@ -174,10 +151,10 @@ export function getWeaponBreakAttackBonus(relics: RelicInstance[]): number {
   return 0
 }
 
-/** 苦痛のリング: 被ダメ→MP変換率 */
-export function getDamageTakenToMpRate(relics: RelicInstance[]): number {
+/** 苦痛のリング: 被ダメ→MP固定回復値 */
+export function getDamageTakenToMpValue(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'damageTakenToMp') return r.passiveEffect.rate
+    if (r.passiveEffect.type === 'damageTakenToMp') return r.passiveEffect.value
   }
   return 0
 }

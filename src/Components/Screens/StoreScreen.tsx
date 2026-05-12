@@ -691,7 +691,7 @@ export function StoreScreen() {
       }
       if (data.source === 'inv-spell') {
         const spell = run.party[data.memberIndex]?.spells[data.spellIndex]
-        if (spell) {
+        if (spell && spell.price > 0) {
           setSoldItems(prev => [...prev, { name: spell.name, type: 'spell', sellPrice: getSellPriceItem(spell), memberIndex: data.memberIndex, spell }])
           sellSpell(data.spellIndex, data.memberIndex)
         }

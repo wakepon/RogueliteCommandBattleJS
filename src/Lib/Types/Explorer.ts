@@ -53,19 +53,8 @@ export function createWeaponInstance(weaponId: string): WeaponInstance {
     throw new Error(`${weaponId} not found in weapons data`)
   }
 
-  let power = data.power
-  let variance = data.variance
-
-  // 魔力弾はTuningでオーバーライド可能
-  if (weaponId === 'magic_bullet') {
-    power = getTuningValue('magic_bullet_power', data.power)
-    variance = getTuningValue('magic_bullet_variance', data.variance)
-  }
-
   return {
     ...data,
-    power,
-    variance,
     currentUses: data.maxUses === null ? null : data.maxUses,
   } as WeaponInstance
 }
@@ -76,7 +65,16 @@ export function createSpellInstance(spellId: string): SpellInstance {
   if (!data) {
     throw new Error(`${spellId} not found in spells data`)
   }
-  return { ...data }
+  let power = data.power
+  let variance = data.variance
+
+  // 魔力弾はTuningでオーバーライド可能
+  if (spellId === 'magic_bullet') {
+    power = getTuningValue('magic_bullet_power', data.power)
+    variance = getTuningValue('magic_bullet_variance', data.variance)
+  }
+
+  return { ...data, power, variance }
 }
 
 // クラス別初期ステータス
@@ -117,8 +115,8 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
       int: getTuningValue('mage_int', 7),
       weaponSlotCount: getTuningValue('mage_weaponSlotCount', 0),
       magicSlotCount: getTuningValue('mage_magicSlotCount', 4),
-      weapons: () => [createWeaponInstance('magic_bullet')],
-      spells: () => [createSpellInstance('fire')],
+      weapons: () => [],
+      spells: () => [createSpellInstance('magic_bullet'), createSpellInstance('fire')],
     },
     cleric: {
       name: '僧侶',
@@ -129,8 +127,8 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
       int: getTuningValue('cleric_int', 5),
       weaponSlotCount: getTuningValue('cleric_weaponSlotCount', 1),
       magicSlotCount: getTuningValue('cleric_magicSlotCount', 3),
-      weapons: () => [createWeaponInstance('prayer')],
-      spells: () => [createSpellInstance('heal')],
+      weapons: () => [],
+      spells: () => [createSpellInstance('prayer'), createSpellInstance('heal')],
     },
   }
 }

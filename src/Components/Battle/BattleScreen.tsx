@@ -5,7 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
-import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon, isFrontMember } from '../../Lib/Core'
+import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isFrontMember } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
@@ -567,12 +567,13 @@ export function BattleScreen() {
   // ドラッグ中はクリックベースのターゲット選択を無効化（D&Dで処理するため）
   const isSelectingTarget = selectedCommand !== null && isCommandPhase && !draggingCommand
   const targetRates = calculateTargetRates(party, run.relics)
+  const aliveEnemyCount = enemies.filter(e => e.currentHp > 0).length
 
   // 祈りコマンドによる被弾率プレビュー
   const previewParty = party.map(member => {
     const prayerSlot = commandSlots.find(s =>
       s.targetId === member.id && s.command &&
-      isWeapon(s.command) && 'effect' in s.command && s.command.effect?.type === 'targetRateUp'
+      isSpell(s.command) && s.command.effect?.type === 'targetRateUp'
     )
     if (!prayerSlot?.command) return member
     if (member.battleBuffs.some(b => b.type === 'targetRateUp')) return member
@@ -671,7 +672,7 @@ export function BattleScreen() {
       ? commandSlots[battleState.activeExplorerIndex]?.explorerId ?? rawExplorerId
       : rawExplorerId
 
-    const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll'
+    const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll' || command.targetType === 'enemyRandom'
     const isAllyTargetCmd = command.targetType === 'allySingle' || command.targetType === 'allyAll'
 
     let targetId: string | null = null
@@ -781,7 +782,7 @@ export function BattleScreen() {
               // ドラッグ中: 攻撃対象になりうる敵全体を強調
               const isDraggingAttack = draggingCommand !== null && !isAllyTarget && enemy.currentHp > 0
               // ホバー中の個別強調: 直接ホバーされている or 全体攻撃時は全敵
-              const isEnemyAll = draggingCommand?.targetType === 'enemyAll'
+              const isEnemyAll = draggingCommand?.targetType === 'enemyAll' || draggingCommand?.targetType === 'enemyRandom'
               const isHoveredEnemy = isDraggingAttack && (
                 hoverEnemyId === enemy.instanceId || (isEnemyAll && hoverEnemyId !== null)
               )
@@ -800,7 +801,7 @@ export function BattleScreen() {
                 }
               }
               const damagePreview = isCommandPhase
-                ? calculateDetailedDamagePreview(commandSlots, enemy.instanceId, party, previewOptions, tentative)
+                ? calculateDetailedDamagePreview(commandSlots, enemy.instanceId, party, previewOptions, tentative, aliveEnemyCount)
                 : null
 
               return (
@@ -838,7 +839,7 @@ export function BattleScreen() {
           {damagePopups.map((popup) => {
             const targetIndex = enemies.findIndex(e => e.instanceId === popup.targetId)
             if (targetIndex === -1) return null
-            return <DamagePopup key={popup.id} damage={popup.damage} targetIndex={targetIndex} totalTargets={enemies.length} onComplete={() => removePopup(popup.id)} contributors={popup.contributors} />
+            return <DamagePopup key={popup.id} damage={popup.damage} targetIndex={targetIndex} totalTargets={enemies.length} onComplete={() => removePopup(popup.id)} contributors={popup.contributors} delayMs={popup.delayMs} fadeAfterMs={popup.fadeAfterMs} fadeDurationMs={popup.fadeDurationMs} hitIndex={popup.hitIndex} />
           })}
         </div>
 
@@ -868,7 +869,7 @@ export function BattleScreen() {
                       isSelectingTarget={isSelectingTarget}
                       selectedTargetId={selectedTargetId}
                       draggingAllyTarget={draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'}
-                      draggingEnemyTarget={draggingCommand !== null && (draggingCommand.targetType === 'enemySingle' || draggingCommand.targetType === 'enemyAll')}
+                      draggingEnemyTarget={draggingCommand !== null && (draggingCommand.targetType === 'enemySingle' || draggingCommand.targetType === 'enemyAll' || draggingCommand.targetType === 'enemyRandom')}
                       onAllyClick={() => {
                         if (isSelectingTarget && (selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll')) {
                           selectTarget(member.id)

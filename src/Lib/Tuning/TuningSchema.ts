@@ -18,6 +18,7 @@ export const TUNING_CATEGORIES: Record<string, string> = {
   character: 'キャラクター',
   levelup: 'レベルアップ',
   weapon: '武器・基本攻撃',
+  spell: '魔法',
   battle: 'バトル',
   economy: '報酬・経済',
   event: 'イベント',
@@ -74,8 +75,8 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   // === 武器・基本攻撃 ===
   { key: 'punch_power', label: 'パンチ 威力', category: 'weapon', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
   { key: 'punch_variance', label: 'パンチ ブレ幅', category: 'weapon', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
-  { key: 'magic_bullet_power', label: '魔力弾 威力', category: 'weapon', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
-  { key: 'magic_bullet_variance', label: '魔力弾 ブレ幅', category: 'weapon', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
+  { key: 'magic_bullet_power', label: '魔力弾 威力', category: 'spell', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
+  { key: 'magic_bullet_variance', label: '魔力弾 ブレ幅', category: 'spell', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
 
   // === バトルメカニクス ===
   { key: 'poison_damage_per_tick', label: '毒ダメージ/tick', category: 'battle', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 1 } },
@@ -89,7 +90,6 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   { key: 'gold_reward_elite', label: 'エリート敵 報酬G', category: 'economy', defaultValue: 5, control: { type: 'number', min: 0, max: 50, step: 1 } },
   { key: 'gold_reward_boss', label: 'ボス 報酬G', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 100, step: 1 } },
   { key: 'interest_cap_default', label: '利子上限(通常)', category: 'economy', defaultValue: 5, control: { type: 'number', min: 0, max: 30, step: 1 } },
-  { key: 'interest_cap_piggybank', label: '利子上限(貯金箱)', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 30, step: 1 } },
   { key: 'store_category_slots', label: 'ショップ各カテゴリ枠数', category: 'economy', defaultValue: 3, control: { type: 'number', min: 1, max: 6, step: 1 } },
   { key: 'base_reroll_cost', label: 'リロール基本コスト', category: 'economy', defaultValue: 3, control: { type: 'number', min: 0, max: 20, step: 1 } },
   { key: 'max_relic_count', label: 'レリック所持上限', category: 'economy', defaultValue: 5, control: { type: 'number', min: 1, max: 20, step: 1 } },

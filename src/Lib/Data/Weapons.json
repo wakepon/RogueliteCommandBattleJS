@@ -65,17 +65,6 @@
     "variance": 4,
     "maxUses": 3
   },
-  "whirlwind_blade": {
-    "id": "whirlwind_blade",
-    "name": "旋風の刃",
-    "rarity": "Uncommon",
-    "price": 7,
-    "commandCategory": "weapon",
-    "targetType": "enemyAll",
-    "power": 2,
-    "variance": 4,
-    "maxUses": 6
-  },
   "vampiric_blade": {
     "id": "vampiric_blade",
     "name": "吸血の刃",
@@ -90,18 +79,6 @@
       "type": "lifesteal",
       "value": 7
     }
-  },
-  "magic_bullet": {
-    "id": "magic_bullet",
-    "name": "魔力弾",
-    "rarity": "Common",
-    "price": 0,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 1,
-    "variance": 2,
-    "maxUses": null,
-    "scaleStat": "int"
   },
   "cursed_spear": {
     "id": "cursed_spear",
@@ -133,28 +110,15 @@
   },
   "golden_sword": {
     "id": "golden_sword",
-    "name": "黄金の剣",
+    "name": "後払いの剣",
     "rarity": "Uncommon",
-    "price": 6,
+    "price": 3,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 4,
     "variance": 5,
     "maxUses": 5,
     "goldCost": 1
-  },
-  "jewel_staff": {
-    "id": "jewel_staff",
-    "name": "宝石の杖",
-    "rarity": "Rare",
-    "price": 8,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 3,
-    "variance": 4,
-    "maxUses": 4,
-    "goldCost": 2,
-    "scaleStat": "int"
   },
   "disposable_blade": {
     "id": "disposable_blade",
@@ -205,7 +169,7 @@
     "id": "guardian_shield",
     "name": "守護の盾",
     "rarity": "Uncommon",
-    "price": 8,
+    "price": 6,
     "commandCategory": "weapon",
     "targetType": "allySingle",
     "power": 0,
@@ -213,19 +177,40 @@
     "maxUses": 5,
     "effect": { "type": "shield", "value": 20 }
   },
-  "prayer": {
-    "id": "prayer",
-    "name": "祈り",
-    "rarity": "Common",
-    "price": 0,
+  "three_section_staff": {
+    "id": "three_section_staff",
+    "name": "三節棍",
+    "rarity": "Uncommon",
+    "price": 8,
     "commandCategory": "weapon",
-    "targetType": "allySingle",
-    "power": 0,
-    "variance": 0,
-    "maxUses": null,
-    "effect": {
-      "type": "targetRateUp",
-      "value": 25
-    }
+    "targetType": "enemyRandom",
+    "power": 2,
+    "variance": 5,
+    "maxUses": 3,
+    "hits": 3
+  },
+  "cursed_greatsword": {
+    "id": "cursed_greatsword",
+    "name": "呪いの大剣",
+    "rarity": "Uncommon",
+    "price": 8,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 8,
+    "variance": 7,
+    "maxUses": 3,
+    "hpCost": 10
+  },
+  "deferred_axe": {
+    "id": "deferred_axe",
+    "name": "後払いの斧",
+    "rarity": "Uncommon",
+    "price": 5,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 7,
+    "variance": 8,
+    "maxUses": 5,
+    "goldCost": 2
   }
 }

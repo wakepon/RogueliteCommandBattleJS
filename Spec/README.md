@@ -15,6 +15,30 @@ Spec/
 
 ## 更新履歴
 
+### 2026-05-11: 第二階層追加 + 敵改善 + UIレイアウト刷新 + バランス調整の反映
+
+3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。
+
+**Core Game チーム** (9ファイル更新):
+- `Overview/BattleOverview.md` — 第二階層（ステージ8-11）の敵HP/ダメージ倍率追記、スリープタイガーPhase2に乱れ引っかき（3連撃ランダムターゲット）追加・マッドタイガー変身追記、ドラゴン自己再生を最大HP80%と明記、妖精ヒールをpercentOfMaxHp方式に修正、戦場の鍛冶のtargetTypeをallySingleに修正、精密を「ショップ購入可能」に修正、癒しの風heal valueをパラメータ調整対象表現に
+- `Overview/EnemyOverview.md` — スリープタイガーPhase2確率テーブル更新（乱れ引っかき25%追加）、マッドタイガー変身追記、妖精のヒール方式をpercentOfMaxHp: 0.3に修正
+- `Overview/StoreOverview.md` — killStreakBonusを未使用と注記、第二階層Rare出現率補正追加、武器売却価格を最低売値保証付き新計算式に更新
+- `Overview/DungeonExploreOverview.md` — 全7ステージ→全11ステージ構成に更新、第二階層（Stage 8-11）の編成テーブル・敵強化倍率を追加、Stage 9をイベントステージに追加
+- `MVP/BattleSystem.md` — Stage 8/10/11のturnLimit追加、levelup_required_kills_cap追記、HP/MP回復率をTuning Editor表現に修正
+- `MVP/EnemyCharacter.md` — Stage 1パターンA「スライムx1」→「ゴブリン+スライム」修正、Stage 8/10/11編成テーブル追加、スリープタイガー・ドラゴン・妖精の行動パターン更新
+- `MVP/GameFlow.md` — 全11ステージ構成に更新、第二階層の進行追加、Stage 1編成修正、成長値をパラメータ調整対象表現に
+- `MVP/StoreItem.md` — 売却価格計算式更新、Rare出現率補正追加、ヒールMP/癒しの風heal value/ポーション価格をパラメータ調整対象に、呪いの槍Rare/黄金の剣Uncommonに修正、戦場の鍛冶allySingleに修正
+- `MVP/PlayerStatus.md` — 初期HPをTuning Editor調整可能表現に、HP成長値・回復率をパラメータ調整対象と明記
+
+**Data & State チーム** (4ファイル更新):
+- `Architecture/SystemDesign.md` — BattleStateにbonusGains/enemyHpMultiplier/enemyDamageMultiplier追加、StoreStateにrareRate追加、ShopSlotをタグ付きユニオン型に修正、TuningConfigを7カテゴリに更新、StageManagerセクション新設（TOTAL_STAGES=11/getFloor/isBossStage）、EnemyActionResultにtransformName/isRandomTarget追加、StagePatterns stage_8〜11追加、GameReducerイベントアクション6種追加
+- `MVP/MVPScope.md` — 「1階層」→「2階層」に修正、第二階層をCore実装項目に追加
+- `MVP/DevelopmentRoadmap.md` — フェーズ5にバランス調整実施済み項目追記、フェーズ6（第二階層追加）を新規追加
+- `MVP/ImplementationTasks.md` — スライス14（第二階層実装、21タスク）を新規追加、進捗サマリー更新
+
+**UI チーム** (1ファイル更新):
+- `MVP/UIUXDesign.md` — SharedPanel廃止→左サイドパネル（LeftPanel）構成に全面改訂、キャラ欄をgrid-cols-3に変更、次ステージプレビューを左パネル内縦並びに移動、経験値バーをSegmentedBar（区画分割）に変更、レベルアップ演出をフローティングポップアップ化、弱体デバフバッジ・シールド軽減ポップアップ追加、ストア画面も左サイドバー化、ドロップ先強調表示・商品カード効果文追加、マップ画面「ステージX/11」表示、戦闘結果画面の報酬内訳順序修正・純増行削除
+
 ### 2026-04-26: 前衛・後衛動的化 + リザルト演出 + 新アイテム群の反映
 
 3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。

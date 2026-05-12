@@ -2,7 +2,7 @@ import { BattleState, ActorId, RelicBattleState, CommandSlot, EnemyIntent } from
 import { EnemyInstance, EnemyData } from '../Types/Enemy'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { RelicInstance } from '../Types/Relic'
-import { hasRelicEffect, getBattleStartHpReduction } from '../Core/RelicProcessor'
+import { getBattleStartHpReduction } from '../Core/RelicProcessor'
 import { selectEnemyAction } from '../Core/EnemyAI'
 import { getFloor } from '../Core/StageManager'
 import { getTuningValue } from '../Tuning/TuningStore'
@@ -125,9 +125,8 @@ export function generateEnemyIntents(
 }
 
 /** レリック戦闘状態を初期化 */
-function createRelicBattleState(relics: RelicInstance[]): RelicBattleState {
+function createRelicBattleState(): RelicBattleState {
   return {
-    shieldActive: hasRelicEffect(relics, 'firstHitShield'),
     killStreakActive: false,
   }
 }
@@ -201,7 +200,7 @@ export function createBattleState(
 
     // 共有
     stolenGold: 0,
-    relicState: createRelicBattleState(relics),
+    relicState: createRelicBattleState(),
     bonusGains: [],
 
     // UI

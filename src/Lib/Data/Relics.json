@@ -11,14 +11,7 @@
     "name": "鋭い砥石",
     "rarity": "Uncommon",
     "price": 8,
-    "passiveEffect": { "type": "weaponDamageBonus", "value": 3 }
-  },
-  "piggy_bank": {
-    "id": "piggy_bank",
-    "name": "貯金箱",
-    "rarity": "Rare",
-    "price": 10,
-    "passiveEffect": { "type": "interestCap", "value": 10 }
+    "passiveEffect": { "type": "weaponDamageBonus", "value": 2 }
   },
   "mage_ring": {
     "id": "mage_ring",
@@ -27,26 +20,12 @@
     "price": 7,
     "passiveEffect": { "type": "statBonus", "stat": "int", "value": 2 }
   },
-  "cracked_armor": {
-    "id": "cracked_armor",
-    "name": "壊れかけの鎧",
-    "rarity": "Common",
-    "price": 6,
-    "passiveEffect": { "type": "firstHitShield" }
-  },
   "weapon_oil": {
     "id": "weapon_oil",
     "name": "武器お手入れ用油",
     "rarity": "Common",
     "price": 6,
     "passiveEffect": { "type": "weaponDurabilitySave", "chance": 0.5 }
-  },
-  "stress_relief": {
-    "id": "stress_relief",
-    "name": "ストレス発散",
-    "rarity": "Uncommon",
-    "price": 8,
-    "passiveEffect": { "type": "weaponAttackMpRecover", "value": 3, "excludeWeaponId": "punch" }
   },
   "sharpener_card": {
     "id": "sharpener_card",
@@ -60,21 +39,21 @@
     "name": "集中の水晶",
     "rarity": "Uncommon",
     "price": 7,
-    "passiveEffect": { "type": "lowMpDamageBonus", "mpThreshold": 0.5, "multiplier": 1.3 }
+    "passiveEffect": { "type": "lowMpDamageBonus", "mpThreshold": 0.5, "multiplier": 1.5 }
   },
   "counter_thorns": {
     "id": "counter_thorns",
     "name": "反撃の棘",
     "rarity": "Common",
     "price": 5,
-    "passiveEffect": { "type": "thornsDamage", "value": 5 }
+    "passiveEffect": { "type": "thornsDamage", "value": 7 }
   },
   "regen_moss": {
     "id": "regen_moss",
     "name": "再生のコケ",
     "rarity": "Uncommon",
     "price": 7,
-    "passiveEffect": { "type": "regenPerTurn", "value": 5 }
+    "passiveEffect": { "type": "regenPerTurn", "value": 3 }
   },
   "fury_flame": {
     "id": "fury_flame",
@@ -102,7 +81,7 @@
     "name": "苦痛のリング",
     "rarity": "Common",
     "price": 5,
-    "passiveEffect": { "type": "damageTakenToMp", "rate": 0.25 }
+    "passiveEffect": { "type": "damageTakenToMp", "value": 5 }
   },
   "merchants_talisman": {
     "id": "merchants_talisman",
@@ -110,13 +89,6 @@
     "rarity": "Rare",
     "price": 8,
     "passiveEffect": { "type": "goldPerKill", "value": 2 }
-  },
-  "gold_ring": {
-    "id": "gold_ring",
-    "name": "金の指輪",
-    "rarity": "Common",
-    "price": 4,
-    "passiveEffect": { "type": "interestCap", "value": 5 }
   },
   "phoenix_ember": {
     "id": "phoenix_ember",
@@ -144,7 +116,7 @@
     "name": "修羅の証",
     "rarity": "Rare",
     "price": 10,
-    "passiveEffect": { "type": "battleEndBonusExp", "expValue": 1, "goldPenalty": 2 }
+    "passiveEffect": { "type": "battleEndBonusExp", "expValue": 3, "goldPenalty": 3 }
   },
   "upset_strike": {
     "id": "upset_strike",

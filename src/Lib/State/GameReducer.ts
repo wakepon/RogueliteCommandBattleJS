@@ -25,7 +25,7 @@ import {
   getRepairableWeapons,
 } from '../Core/EventLogic'
 import { generateMapNodes } from '../Core/MapGenerator'
-import { getInterestCapBonus, getPotionEffectMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
+import { getPotionEffectMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
 import { addExpAndProcessLevelUp } from '../Core/LevelUpCalculator'
 import {
   processExecuteCommand,
@@ -147,14 +147,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.battleState.isGameOver) return state
 
       if (action.result === 'victory') {
-        const interestCapBonus = getInterestCapBonus(state.run.relics)
-        const hasPiggyBank = interestCapBonus > 0
-
         const reward = calculateReward(
           state.battleState.enemies,
           state.run.gold,
           state.battleState.stolenGold,
-          hasPiggyBank
         )
 
         const killCount = state.battleState.enemies.length
@@ -406,6 +402,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!explorer) return state
       const spell = explorer.spells[action.spellIndex]
       if (!spell) return state
+      if (spell.price === 0) return state
 
       const sellPrice = getSellPriceItem(spell)
       const updatedExplorer: ExplorerState = {
