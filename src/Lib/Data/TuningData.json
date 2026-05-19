@@ -45,6 +45,7 @@
   "gold_reward_normal": 6,
   "gold_reward_elite": 10,
   "gold_reward_boss": 20,
+  "gold_reward_boss_minor": 10,
   "interest_cap_default": 5,
   "store_category_slots": 3,
   "base_reroll_cost": 3,

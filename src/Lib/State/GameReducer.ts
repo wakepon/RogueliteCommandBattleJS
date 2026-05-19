@@ -167,6 +167,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           state.battleState.enemies,
           state.run.gold,
           state.battleState.stolenGold,
+          state.run.currentStage,
         )
 
         const killCount = state.battleState.enemies.length

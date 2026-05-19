@@ -2,11 +2,14 @@ import { EnemyInstance, EnemyType } from '../Types/Enemy'
 import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 敵タイプ別の基本報酬（Tuning対応） */
-function getBaseGoldByType(): Record<EnemyType, number> {
+function getBaseGoldByType(stage?: number): Record<EnemyType, number> {
+  const isMajorBossStage = stage !== undefined && (stage === 7 || stage === 14 || stage === 21)
   return {
     normal: getTuningValue('gold_reward_normal', 3),
     elite: getTuningValue('gold_reward_elite', 5),
-    boss: getTuningValue('gold_reward_boss', 10),
+    boss: isMajorBossStage
+      ? getTuningValue('gold_reward_boss', 10)
+      : getTuningValue('gold_reward_boss_minor', 10),
   }
 }
 
@@ -58,11 +61,13 @@ function getStrongestEnemyType(enemies: EnemyInstance[]): EnemyType {
  * @param enemies - 戦闘で倒した敵の配列
  * @param currentGold - 現在の所持ゴールド
  * @param stolenGold - ゴールドラッシュで盗んだゴールド
+ * @param stage - 現在のステージ番号
  */
 export function calculateReward(
   enemies: EnemyInstance[],
   currentGold: number,
   stolenGold: number,
+  stage?: number,
 ): {
   baseGold: number
   interestGold: number
@@ -70,7 +75,7 @@ export function calculateReward(
   total: number
 } {
   const strongestType = getStrongestEnemyType(enemies)
-  const baseGold = getBaseGoldByType()[strongestType]
+  const baseGold = getBaseGoldByType(stage)[strongestType]
   const interestCap = getTuningValue('interest_cap_default', 5)
   const interestGold = calculateInterest(currentGold, interestCap)
   const total = baseGold + interestGold + stolenGold

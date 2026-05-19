@@ -57,6 +57,7 @@ export interface TuningConfig {
   readonly gold_reward_normal: number
   readonly gold_reward_elite: number
   readonly gold_reward_boss: number
+  readonly gold_reward_boss_minor: number
   readonly interest_cap_default: number
   readonly store_category_slots: number
   readonly base_reroll_cost: number
