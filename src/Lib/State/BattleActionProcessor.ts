@@ -1,10 +1,11 @@
 import { GameState } from '../Types/Game'
+import { ENHANCEMENT_WEAKNESS_VALUE } from '../Types/Enhancement'
 import { RunState } from '../Types/Run'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { BattleCommand, BattleState, ExpPopup, BonusGain, PlayerDamagePopup, DamagePopup } from '../Types/Battle'
 import type { DamageContributor } from '../Core/DamageCalculator'
-import { SpellData } from '../Types/Spell'
+import { SpellInstance } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
 import { battleReducer, BattleAction, createPlayerDamagePopup, createExpPopup, createDamagePopup } from './BattleReducer'
 import {
@@ -268,6 +269,21 @@ function consumeCommandCost(
       updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - command.hpCost) }
     }
 
+    // 強化デメリットのコスト処理
+    if (isWeaponInstance(command) && command.enhancements.length > 0) {
+      for (const enh of command.enhancements) {
+        if (enh.demerit.type === 'hpCost') {
+          updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - enh.demerit.value) }
+        }
+        if (enh.demerit.type === 'goldCost') {
+          newGold = Math.max(0, newGold - enh.demerit.value)
+        }
+        if (enh.demerit.type === 'mpCost') {
+          updatedExplorer = { ...updatedExplorer, mp: Math.max(0, updatedExplorer.mp - enh.demerit.value) }
+        }
+      }
+    }
+
     return {
       updatedExplorer,
       updatedGold: newGold,
@@ -275,10 +291,24 @@ function consumeCommandCost(
   }
 
   if (isSpell(command)) {
-    return {
-      updatedExplorer: { ...explorer, mp: explorer.mp - command.mpCost },
-      updatedGold: gold,
+    let updatedExplorer: ExplorerState = { ...explorer, mp: explorer.mp - command.mpCost }
+    let updatedGold = gold
+
+    // 強化デメリットのコスト処理（mpCostは既にbase mpCostに含まれている）
+    if ('enhancements' in command && (command as SpellInstance).enhancements.length > 0) {
+      for (const enh of (command as SpellInstance).enhancements) {
+        if (enh.demerit.subValue !== undefined) {
+          if (enh.demerit.type === 'hpCostMpUp') {
+            updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - enh.demerit.subValue) }
+          }
+          if (enh.demerit.type === 'goldCostMpUp') {
+            updatedGold = Math.max(0, updatedGold - enh.demerit.subValue)
+          }
+        }
+      }
     }
+
+    return { updatedExplorer, updatedGold }
   }
 
   return { updatedExplorer: explorer, updatedGold: gold }
@@ -484,6 +514,57 @@ function executeAttackCommand(
     }
   }
 
+  // 強化メリット効果の処理
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.enhancements.length > 0) {
+    for (const enh of selectedCommand.enhancements) {
+      if (enh.merit.type === 'lifesteal') {
+        finalExplorer = {
+          ...finalExplorer,
+          hp: Math.min(finalExplorer.hp + enh.merit.value, finalExplorer.maxHp),
+        }
+      }
+      if (enh.merit.type === 'mpRecovery') {
+        finalExplorer = {
+          ...finalExplorer,
+          mp: Math.min(finalExplorer.mp + enh.merit.value, finalExplorer.maxMp),
+        }
+      }
+    }
+    // 強化デメリット: attackDown
+    const hasAttackDown = selectedCommand.enhancements.some(e => e.demerit.type === 'attackDown')
+    if (hasAttackDown) {
+      finalExplorer = {
+        ...finalExplorer,
+        battleDebuffs: [...finalExplorer.battleDebuffs, { type: 'weakness' as const, value: ENHANCEMENT_WEAKNESS_VALUE, duration: 1, justApplied: true }],
+      }
+    }
+  }
+
+  if (isSpell(selectedCommand) && 'enhancements' in selectedCommand) {
+    const spellEnhancements = (selectedCommand as SpellInstance).enhancements
+    if (spellEnhancements.length > 0) {
+      for (const enh of spellEnhancements) {
+        if (enh.merit.type === 'goldOnUse') {
+          extraGold += enh.merit.value
+        }
+        if (enh.merit.type === 'healOnUse') {
+          finalExplorer = {
+            ...finalExplorer,
+            hp: Math.min(finalExplorer.hp + enh.merit.value, finalExplorer.maxHp),
+          }
+        }
+      }
+      // attackDown デメリット
+      const hasSpellAttackDown = spellEnhancements.some(e => e.demerit.type === 'attackDownMpUp')
+      if (hasSpellAttackDown) {
+        finalExplorer = {
+          ...finalExplorer,
+          battleDebuffs: [...finalExplorer.battleDebuffs, { type: 'weakness' as const, value: ENHANCEMENT_WEAKNESS_VALUE, duration: 1, justApplied: true }],
+        }
+      }
+    }
+  }
+
   // 攻撃後にnextActionバフ（精密など）を消費
   finalExplorer = {
     ...finalExplorer,
@@ -517,6 +598,16 @@ function executeAttackCommand(
       extraBonusToAll = selectedCommand.effect.expAmount * defeatedCount
     }
 
+    // 強化メリット: killBonusExp（魔法のトドメ時EXPボーナス）
+    let extraKillerBonus = 0
+    if (isSpell(selectedCommand) && 'enhancements' in selectedCommand) {
+      for (const enh of (selectedCommand as SpellInstance).enhancements) {
+        if (enh.merit.type === 'killBonusExp') {
+          extraKillerBonus += enh.merit.value * defeatedCount
+        }
+      }
+    }
+
     // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
     const guidance = consumeGuidanceBuff(finalExplorer)
     finalExplorer = guidance.updatedExplorer
@@ -524,9 +615,10 @@ function executeAttackCommand(
     updatedRun = updatePartyMember(updatedRun, finalExplorer)
 
     // パーティー全員にEXP配分（止めキャラにボーナス）
+    const totalKillerBonus = guidance.extraKillerBonus + extraKillerBonus
     const { updatedParty, allLevelUps } = distributeExpToParty(
       updatedRun.party, finalExplorer.id, defeatedCount,
-      { extraBonusToAll, extraKillerBonus: guidance.extraKillerBonus }
+      { extraBonusToAll, extraKillerBonus: totalKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
@@ -535,7 +627,7 @@ function executeAttackCommand(
     const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
     newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
       extraBonusToAll,
-      extraKillerBonus: guidance.extraKillerBonus,
+      extraKillerBonus: totalKillerBonus,
     })
 
     if (newLevelUps.length > 0) {
@@ -568,7 +660,7 @@ function executeSpellAllAttack(
   state: GameState,
   battleAction: BattleAction & { type: 'EXECUTE_COMMAND' },
   relics: RelicInstance[],
-  spell: SpellData
+  spell: SpellInstance
 ): GameState {
   if (!state.battleState || !state.run) return state
   const partySnapshot = state.run.party
@@ -622,6 +714,29 @@ function executeSpellAllAttack(
     }
   }
 
+  // 強化メリット効果の処理（全体魔法）
+  let extraGoldFromEnh = 0
+  if (spell.enhancements.length > 0) {
+    for (const enh of spell.enhancements) {
+      if (enh.merit.type === 'goldOnUse') {
+        extraGoldFromEnh += enh.merit.value
+      }
+      if (enh.merit.type === 'healOnUse') {
+        finalExplorer = {
+          ...finalExplorer,
+          hp: Math.min(finalExplorer.hp + enh.merit.value, finalExplorer.maxHp),
+        }
+      }
+    }
+    const hasSpellAttackDown = spell.enhancements.some(e => e.demerit.type === 'attackDownMpUp')
+    if (hasSpellAttackDown) {
+      finalExplorer = {
+        ...finalExplorer,
+        battleDebuffs: [...finalExplorer.battleDebuffs, { type: 'weakness' as const, value: ENHANCEMENT_WEAKNESS_VALUE, duration: 1, justApplied: true }],
+      }
+    }
+  }
+
   // 攻撃後にnextActionバフ（精密など）を消費
   finalExplorer = {
     ...finalExplorer,
@@ -633,10 +748,18 @@ function executeSpellAllAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold,
+    gold: updatedGold + extraGoldFromEnh,
   }
 
   if (defeatedCount > 0) {
+    // 強化メリット: killBonusExp
+    let extraKillerBonusFromEnh = 0
+    for (const enh of spell.enhancements) {
+      if (enh.merit.type === 'killBonusExp') {
+        extraKillerBonusFromEnh += enh.merit.value * defeatedCount
+      }
+    }
+
     // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
     const guidance = consumeGuidanceBuff(finalExplorer)
     finalExplorer = guidance.updatedExplorer
@@ -644,9 +767,10 @@ function executeSpellAllAttack(
     updatedRun = updatePartyMember(updatedRun, finalExplorer)
 
     // パーティー全員にEXP配分（止めキャラにボーナス）
+    const totalKillerBonus = guidance.extraKillerBonus + extraKillerBonusFromEnh
     const { updatedParty, allLevelUps } = distributeExpToParty(
       updatedRun.party, finalExplorer.id, defeatedCount,
-      { extraKillerBonus: guidance.extraKillerBonus }
+      { extraKillerBonus: totalKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
@@ -654,7 +778,7 @@ function executeSpellAllAttack(
     // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
     const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
     newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
-      extraKillerBonus: guidance.extraKillerBonus,
+      extraKillerBonus: totalKillerBonus,
     })
 
     if (newLevelUps.length > 0) {
@@ -726,6 +850,31 @@ function executeEnemyAllAttack(
     finalExplorer = {
       ...finalExplorer,
       hp: Math.min(finalExplorer.hp + lifestealValue, finalExplorer.maxHp),
+    }
+  }
+
+  // 強化メリット効果の処理（全体武器攻撃）
+  if (weapon.enhancements.length > 0) {
+    for (const enh of weapon.enhancements) {
+      if (enh.merit.type === 'lifesteal') {
+        finalExplorer = {
+          ...finalExplorer,
+          hp: Math.min(finalExplorer.hp + enh.merit.value, finalExplorer.maxHp),
+        }
+      }
+      if (enh.merit.type === 'mpRecovery') {
+        finalExplorer = {
+          ...finalExplorer,
+          mp: Math.min(finalExplorer.mp + enh.merit.value, finalExplorer.maxMp),
+        }
+      }
+    }
+    const hasAttackDown = weapon.enhancements.some(e => e.demerit.type === 'attackDown')
+    if (hasAttackDown) {
+      finalExplorer = {
+        ...finalExplorer,
+        battleDebuffs: [...finalExplorer.battleDebuffs, { type: 'weakness' as const, value: ENHANCEMENT_WEAKNESS_VALUE, duration: 1, justApplied: true }],
+      }
     }
   }
 
@@ -870,6 +1019,31 @@ function executeEnemyRandomAttack(
     finalExplorer = {
       ...finalExplorer,
       hp: Math.min(finalExplorer.hp + lifestealValue, finalExplorer.maxHp),
+    }
+  }
+
+  // 強化メリット効果の処理（ランダム武器攻撃）
+  if (weapon.enhancements.length > 0) {
+    for (const enh of weapon.enhancements) {
+      if (enh.merit.type === 'lifesteal') {
+        finalExplorer = {
+          ...finalExplorer,
+          hp: Math.min(finalExplorer.hp + enh.merit.value, finalExplorer.maxHp),
+        }
+      }
+      if (enh.merit.type === 'mpRecovery') {
+        finalExplorer = {
+          ...finalExplorer,
+          mp: Math.min(finalExplorer.mp + enh.merit.value, finalExplorer.maxMp),
+        }
+      }
+    }
+    const hasAttackDown = weapon.enhancements.some(e => e.demerit.type === 'attackDown')
+    if (hasAttackDown) {
+      finalExplorer = {
+        ...finalExplorer,
+        battleDebuffs: [...finalExplorer.battleDebuffs, { type: 'weakness' as const, value: ENHANCEMENT_WEAKNESS_VALUE, duration: 1, justApplied: true }],
+      }
     }
   }
 
@@ -1089,6 +1263,7 @@ function executeAllySpellCommand(
       ...updatedTarget,
       weapons: updatedTarget.weapons.map(w => {
         if (w.currentUses === null || w.maxUses === null) return w
+        if ('noRepair' in w && (w as WeaponInstance).noRepair) return w
         return { ...w, currentUses: Math.min(w.currentUses + repairValue, w.maxUses) } as typeof w
       }),
     }

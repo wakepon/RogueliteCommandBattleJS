@@ -4,7 +4,7 @@ import { RelicInstance } from './Relic'
 import { PotionInstance } from './Potion'
 
 // セーブデータバージョン（パーティー制導入で互換性破壊）
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 4
 
 // 統計情報
 export interface RunStats {

@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useCallback, useEffect, useState
 import { GameState, createInitialGameState } from '../Lib/Types/Game'
 import { gameReducer, GameAction } from '../Lib/State/GameReducer'
 import { ExplorerWeapon, WeaponData } from '../Lib/Types/Weapon'
-import { SpellData } from '../Lib/Types/Spell'
+import { SpellData, SpellInstance } from '../Lib/Types/Spell'
 import { RelicData } from '../Lib/Types/Relic'
 import { PotionData } from '../Lib/Types/Potion'
 import { SaveManager } from '../Lib/Storage'
@@ -30,7 +30,7 @@ interface GameContextType {
   undoBuyRelic: (shopSlotIndex: number, item: RelicData, relicIndex: number) => void
   undoBuyPotion: (shopSlotIndex: number, item: PotionData, potionIndex: number) => void
   undoSellWeapon: (weapon: ExplorerWeapon, memberIndex: number, sellPrice: number) => void
-  undoSellSpell: (spell: SpellData, memberIndex: number, sellPrice: number) => void
+  undoSellSpell: (spell: SpellInstance, memberIndex: number, sellPrice: number) => void
   undoSellRelic: (relic: RelicData, sellPrice: number) => void
   undoSellPotion: (potion: PotionData, sellPrice: number) => void
   transferWeapon: (fromMemberIndex: number, weaponIndex: number, toMemberIndex: number) => void
@@ -111,7 +111,7 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'UNDO_BUY_POTION', shopSlotIndex, item, potionIndex }), [])
   const undoSellWeapon = useCallback((weapon: ExplorerWeapon, memberIndex: number, sellPrice: number) =>
     dispatch({ type: 'UNDO_SELL_WEAPON', weapon, memberIndex, sellPrice }), [])
-  const undoSellSpell = useCallback((spell: SpellData, memberIndex: number, sellPrice: number) =>
+  const undoSellSpell = useCallback((spell: SpellInstance, memberIndex: number, sellPrice: number) =>
     dispatch({ type: 'UNDO_SELL_SPELL', spell, memberIndex, sellPrice }), [])
   const undoSellRelic = useCallback((relic: RelicData, sellPrice: number) =>
     dispatch({ type: 'UNDO_SELL_RELIC', relic, sellPrice }), [])

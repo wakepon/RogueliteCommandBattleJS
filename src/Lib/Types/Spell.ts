@@ -2,6 +2,7 @@ import { IItem } from './Item'
 import { IPurchasable } from './Purchasable'
 import { ICommandable, ITargetable, TargetType } from './Command'
 import { IMpCost } from './Consumable'
+import { SpellEnhancement } from './Enhancement'
 
 /** 魔法効果 */
 export type SpellEffect =
@@ -27,5 +28,7 @@ export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetabl
   effect?: SpellEffect | null
 }
 
-/** 魔法インスタンス（状態を持たないためデータと同一） */
-export type SpellInstance = SpellData
+/** 魔法インスタンス */
+export interface SpellInstance extends SpellData {
+  enhancements: SpellEnhancement[]
+}

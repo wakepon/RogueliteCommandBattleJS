@@ -2,6 +2,7 @@ import { IItem } from './Item'
 import { IPurchasable } from './Purchasable'
 import { ICommandable, ITargetable } from './Command'
 import { IUseLimited } from './Consumable'
+import { WeaponEnhancement } from './Enhancement'
 import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 武器効果 */
@@ -26,6 +27,8 @@ export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetab
 /** 武器インスタンス */
 export interface WeaponInstance extends WeaponData {
   currentUses: number | null  // nullは無制限使用
+  enhancements: WeaponEnhancement[]
+  noRepair?: boolean  // 強化デメリット: 耐久値回復不可
 }
 
 /** パンチ */

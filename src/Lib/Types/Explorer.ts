@@ -56,6 +56,7 @@ export function createWeaponInstance(weaponId: string): WeaponInstance {
   return {
     ...data,
     currentUses: data.maxUses === null ? null : data.maxUses,
+    enhancements: [],
   } as WeaponInstance
 }
 
@@ -74,7 +75,7 @@ export function createSpellInstance(spellId: string): SpellInstance {
     variance = getTuningValue('magic_bullet_variance', data.variance)
   }
 
-  return { ...data, power, variance }
+  return { ...data, power, variance, enhancements: [] }
 }
 
 // クラス別初期ステータス

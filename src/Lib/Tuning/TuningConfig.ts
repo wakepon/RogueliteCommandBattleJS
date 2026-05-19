@@ -73,6 +73,11 @@ export interface TuningConfig {
   readonly floor_2_hp_multiplier: number
   readonly floor_2_damage_multiplier: number
   readonly floor_2_rare_rate: number
+
+  // 第三階層
+  readonly floor_3_hp_multiplier: number
+  readonly floor_3_damage_multiplier: number
+  readonly floor_3_rare_rate: number
 }
 
 /** BroadcastChannelメッセージ型 */

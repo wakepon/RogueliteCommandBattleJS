@@ -1,6 +1,7 @@
 import { MapContent } from '../Common/MapContent'
 import { MapNode } from '../../Lib/Types/Game'
 import { Button } from '../Common/Button'
+import { TOTAL_STAGES } from '../../Lib/Core/StageManager'
 
 interface MapOverlayProps {
   nodes: MapNode[]
@@ -15,7 +16,7 @@ export function MapOverlay({ nodes, currentStage, onClose }: MapOverlayProps) {
       <div className="p-4 text-center border-b border-gray-700">
         <h1 className="text-xl font-bold text-white">マップ</h1>
         <p className="text-sm text-gray-400 mt-1">
-          ステージ {currentStage} / 7
+          ステージ {currentStage} / {TOTAL_STAGES}
         </p>
       </div>
 

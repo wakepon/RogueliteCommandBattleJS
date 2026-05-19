@@ -1,10 +1,11 @@
-import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
+import { ExplorerWeapon, WeaponData, WeaponInstance } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { getPassiveEffectDescription } from '../../Lib/Utils/ItemDescription'
 import { MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
+import { getWeaponEnhancementSummary, getSpellEnhancementSummary } from '../../Lib/Core/EnhancementLogic'
 
 type AnyItem = WeaponData | ExplorerWeapon | SpellData | SpellInstance | RelicData | RelicInstance | PotionData | BattleCommand
 
@@ -133,6 +134,12 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     if ('targetType' in weapon && weapon.targetType === 'allySingle') {
       lines.push({ label: '対象', value: '味方単体', color: 'text-green-300' })
     }
+    if ('enhancements' in weapon && (weapon as WeaponInstance).enhancements.length > 0) {
+      const summaries = getWeaponEnhancementSummary((weapon as WeaponInstance).enhancements)
+      for (const s of summaries) {
+        lines.push({ label: '強化', value: s.text, color: s.isMerit ? 'text-green-400' : 'text-red-400' })
+      }
+    }
     return lines
   }
 
@@ -193,6 +200,12 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     }
     if (spell.targetType === 'allyAll') {
       lines.push({ label: '対象', value: '味方全体', color: 'text-green-300' })
+    }
+    if ('enhancements' in spell && (spell as SpellInstance).enhancements.length > 0) {
+      const summaries = getSpellEnhancementSummary((spell as SpellInstance).enhancements)
+      for (const s of summaries) {
+        lines.push({ label: '強化', value: s.text, color: s.isMerit ? 'text-green-400' : 'text-red-400' })
+      }
     }
     return lines
   }

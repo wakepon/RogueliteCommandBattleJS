@@ -52,6 +52,11 @@ function isRepairable(weapon: ExplorerWeapon): boolean {
 
   const weaponInstance = weapon as WeaponInstance
 
+  // 強化デメリットで修復不可になった武器
+  if (weaponInstance.noRepair) {
+    return false
+  }
+
   // 無制限使用の武器は修理不可
   if (weaponInstance.maxUses === null || weaponInstance.currentUses === null) {
     return false

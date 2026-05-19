@@ -1,5 +1,5 @@
-import { WeaponData, ExplorerWeapon } from '../Types/Weapon'
-import { SpellData } from '../Types/Spell'
+import { WeaponData, WeaponInstance, ExplorerWeapon } from '../Types/Weapon'
+import { SpellData, SpellInstance } from '../Types/Spell'
 import { RelicData, RelicInstance } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
 import { PassiveEffectType } from '../Types/Passive'
@@ -7,8 +7,14 @@ import { BattleCommand } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isWeapon, isSpell, isPotion } from '../Core/CommandValidator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, type DamagePredictOptions } from './DamagePredictor'
+import { getWeaponEnhancementSummary, getSpellEnhancementSummary } from '../Core/EnhancementLogic'
 
 type ItemType = WeaponData | SpellData | RelicData | PotionData | ExplorerWeapon
+
+function formatEnhancementText(summary: { text: string; isMerit: boolean }[]): string {
+  if (summary.length === 0) return ''
+  return '[強化] ' + summary.map(s => s.text).join(' / ')
+}
 
 /** ダメージ予測表示用コンテキスト */
 export interface DamageContext {
@@ -116,6 +122,10 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       const hitCount = 'hits' in weapon && weapon.hits ? weapon.hits : 3
       desc += ` | ランダムな敵に攻撃（${hitCount}回）`
     }
+    if ('enhancements' in weapon && (weapon as WeaponInstance).enhancements.length > 0) {
+      const enhText = formatEnhancementText(getWeaponEnhancementSummary((weapon as WeaponInstance).enhancements))
+      if (enhText) desc += ` | ${enhText}`
+    }
     return desc
   }
 
@@ -157,6 +167,10 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       } else if (spell.effect.type === 'targetRateUp') {
         desc += ` | 被ターゲット率UP(${spell.effect.value}%)`
       }
+    }
+    if ('enhancements' in spell && (spell as SpellInstance).enhancements.length > 0) {
+      const enhText = formatEnhancementText(getSpellEnhancementSummary((spell as SpellInstance).enhancements))
+      if (enhText) desc += ` | ${enhText}`
     }
     return desc
   }
@@ -326,6 +340,10 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       const hitCount = 'hits' in command && command.hits ? command.hits : 3
       desc += ` ランダム(${hitCount}回)`
     }
+    if ('enhancements' in command && (command as WeaponInstance).enhancements.length > 0) {
+      const enhText = formatEnhancementText(getWeaponEnhancementSummary((command as WeaponInstance).enhancements))
+      if (enhText) desc += ` ${enhText}`
+    }
     return desc
   }
   if (isSpell(command)) {
@@ -364,6 +382,10 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       } else if (command.effect.type === 'targetRateUp') {
         desc += ` 被弾率+${command.effect.value}%`
       }
+    }
+    if ('enhancements' in command && (command as unknown as SpellInstance).enhancements.length > 0) {
+      const enhText = formatEnhancementText(getSpellEnhancementSummary((command as unknown as SpellInstance).enhancements))
+      if (enhText) desc += ` ${enhText}`
     }
     return desc
   }

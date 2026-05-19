@@ -131,7 +131,9 @@ function generateShopOption(
 /** ストア状態を生成（2択ショップ） */
 export function createStoreState(seed: number, stage: number = 1): StoreState {
   const floor = getFloor(stage)
-  const rareRate = floor >= 2 ? getTuningValue('floor_2_rare_rate', 0.5) : 0
+  const rareRate = floor === 3 ? getTuningValue('floor_3_rare_rate', 0.7)
+                 : floor === 2 ? getTuningValue('floor_2_rare_rate', 0.5)
+                 : 0
 
   // 4カテゴリをシャッフルして2+2に分割
   const allCategories: StoreCategory[] = ['weapon', 'spell', 'relic', 'potion']
@@ -151,6 +153,7 @@ export function createStoreState(seed: number, stage: number = 1): StoreState {
   return {
     shopOptions: [shopA, shopB],
     selectedShopIndex: null,
+    enhancementState: null,
     rerollCost: getTuningValue('base_reroll_cost', 3),
     rareRate,
   }
