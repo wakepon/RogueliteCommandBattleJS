@@ -1061,7 +1061,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
-      const enhancedKey = `${selectedTarget.memberIndex}_${selectedTarget.itemType}_${selectedTarget.itemIndex}`
       const updatedParty = state.run.party.map((m, i) =>
         i === selectedTarget.memberIndex ? updatedMember : m
       )
@@ -1076,7 +1075,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             phase: 'selectItem',
             selectedTarget: null,
             options: null,
-            enhancedKeys: [...enhState.enhancedKeys, enhancedKey],
             enhancementsUsed: enhState.enhancementsUsed + 1,
           },
         },

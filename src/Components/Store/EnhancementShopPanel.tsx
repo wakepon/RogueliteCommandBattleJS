@@ -338,11 +338,8 @@ function EnhancementCharacterPanel({
         {/* 武器 */}
         {member.weapons.map((w, wIdx) => {
           const isEnhanceable = canEnhanceWeapon(w)
-          const enhancementKey = `${memberIndex}_weapon_${wIdx}`
-          const alreadyEnhanced = enhState.enhancedKeys.includes(enhancementKey)
           const remaining = isEnhanceable ? getRemainingEnhancements((w as WeaponInstance).enhancements) : 0
           const canClick = isEnhanceable
-            && !alreadyEnhanced
             && !isMaxed
             && !insufficientGold
             && remaining > 0
@@ -385,14 +382,10 @@ function EnhancementCharacterPanel({
               </div>
               {isEnhanceable && (
                 <div className="flex items-center gap-1 mt-0.5">
-                  {alreadyEnhanced ? (
-                    <span className="text-gray-500 text-[10px]">強化済み</span>
-                  ) : (
-                    <span className={`text-[10px] ${remaining > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
-                      残り強化回数 {remaining}
-                    </span>
-                  )}
-                  {insufficientGold && !alreadyEnhanced && remaining > 0 && (
+                  <span className={`text-[10px] ${remaining > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                    残り強化回数 {remaining}
+                  </span>
+                  {insufficientGold && remaining > 0 && (
                     <span className="text-red-400 text-[10px]">G不足</span>
                   )}
                 </div>
@@ -421,11 +414,8 @@ function EnhancementCharacterPanel({
         {/* 魔法 */}
         {member.spells.map((s, sIdx) => {
           const isEnhanceable = canEnhanceSpell(s)
-          const enhancementKey = `${memberIndex}_spell_${sIdx}`
-          const alreadyEnhanced = enhState.enhancedKeys.includes(enhancementKey)
           const remaining = isEnhanceable ? getRemainingEnhancements(s.enhancements) : 0
           const canClick = isEnhanceable
-            && !alreadyEnhanced
             && !isMaxed
             && !insufficientGold
             && remaining > 0
@@ -469,14 +459,10 @@ function EnhancementCharacterPanel({
               </div>
               {isEnhanceable && (
                 <div className="flex items-center gap-1 mt-0.5">
-                  {alreadyEnhanced ? (
-                    <span className="text-gray-500 text-[10px]">強化済み</span>
-                  ) : (
-                    <span className={`text-[10px] ${remaining > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
-                      残り強化回数 {remaining}
-                    </span>
-                  )}
-                  {insufficientGold && !alreadyEnhanced && remaining > 0 && (
+                  <span className={`text-[10px] ${remaining > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                    残り強化回数 {remaining}
+                  </span>
+                  {insufficientGold && remaining > 0 && (
                     <span className="text-red-400 text-[10px]">G不足</span>
                   )}
                 </div>
