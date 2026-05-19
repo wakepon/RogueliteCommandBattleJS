@@ -39,6 +39,20 @@ export function createEnemyInstance(enemyId: string): EnemyInstance {
   }
 }
 
+// 階層ごとのHP倍率を取得
+function getFloorHpMultiplier(floor: number): number {
+  if (floor === 3) return getTuningValue('floor_3_hp_multiplier', 3.0)
+  if (floor === 2) return getTuningValue('floor_2_hp_multiplier', 1.5)
+  return 1.0
+}
+
+// 階層ごとの攻撃力倍率を取得
+function getFloorDamageMultiplier(floor: number): number {
+  if (floor === 3) return getTuningValue('floor_3_damage_multiplier', 2.5)
+  if (floor === 2) return getTuningValue('floor_2_damage_multiplier', 1.8)
+  return 1.0
+}
+
 // ステージに応じた敵を生成（第二階層以降はHP倍率を適用）
 function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
   const stageKey = `stage_${stage}`
@@ -58,8 +72,8 @@ function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
   const instances = selectedPattern.enemies.map(enemyId => createEnemyInstance(enemyId))
 
   const floor = getFloor(stage)
-  if (floor >= 2) {
-    const mult = getTuningValue('floor_2_hp_multiplier', 1.6)
+  const mult = getFloorHpMultiplier(floor)
+  if (mult !== 1.0) {
     return instances.map(e => ({
       ...e,
       hp: Math.floor(e.hp * mult),
@@ -177,8 +191,8 @@ export function createBattleState(
   const turnLimit = getTurnLimitForStage(stage)
   const commandSlots = createCommandSlots(adjustedParty)
   const floor = getFloor(stage)
-  const hpMult = floor >= 2 ? getTuningValue('floor_2_hp_multiplier', 1.6) : 1.0
-  const damageMult = floor >= 2 ? getTuningValue('floor_2_damage_multiplier', 2.0) : 1.0
+  const hpMult = getFloorHpMultiplier(floor)
+  const damageMult = getFloorDamageMultiplier(floor)
   const enemyIntents = generateEnemyIntents(enemies, adjustedParty, damageMult)
 
   return {
