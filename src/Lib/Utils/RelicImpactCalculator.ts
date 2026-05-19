@@ -16,7 +16,7 @@ export interface MemberAttackImpact {
  * - 怒りの炎（HP<=閾値で倍率）→ HP を閾値以下に下げる
  * - 集中の水晶（MP<=閾値で倍率）→ MP を閾値以下に下げる
  * - 血の契約（開始時HP削減+STR+3）→ STRバフを battleBuffs に追加
- * - 不死鳥の残り火（武器破壊蓄積）→ weaponBreakMultiplier を 1 回分セット
+ * - 努力の証（武器破壊蓄積）→ weaponBreakMultiplier を 1 回分セット
  * - 鍛冶師の金槌（武器破壊後の次武器+Power）→ weaponPowerBonus バフを追加
  *
  * 現在条件を満たしていなくても「発動した時の最大攻撃力」を見せるのが目的

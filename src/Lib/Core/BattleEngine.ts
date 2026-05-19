@@ -1,19 +1,7 @@
 import { EnemyInstance } from '../Types/Enemy'
 import { ExplorerState } from '../Types/Explorer'
 import { BattleResult } from '../Types/Battle'
-import { getChargeMultiplier, processPoisonDamage, decrementBuffDurations, decrementWeaknessDuration } from './BuffProcessor'
-
-/**
- * 敵の攻撃ダメージを計算
- * damage = enemy.attack × 力溜め倍率（getChargeMultiplier）
- * @param enemy - 攻撃する敵インスタンス
- * @returns 計算されたダメージ量
- */
-export function calculateEnemyDamage(enemy: EnemyInstance): number {
-  const chargeMultiplier = getChargeMultiplier(enemy.battleBuffs)
-  const damage = Math.floor(enemy.attack * chargeMultiplier)
-  return damage
-}
+import { processPoisonDamage, decrementBuffDurations, decrementWeaknessDuration } from './BuffProcessor'
 
 /**
  * 勝敗を判定
@@ -50,7 +38,7 @@ export function checkBattleResult(
  * @param explorer - プレイヤーの状態
  * @returns { updatedExplorer, poisonDamage }
  */
-export function processTurnEnd(
+function processTurnEnd(
   explorer: ExplorerState
 ): { updatedExplorer: ExplorerState; poisonDamage: number } {
   // 毒ダメージ処理

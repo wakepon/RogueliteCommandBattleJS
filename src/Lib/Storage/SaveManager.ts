@@ -1,4 +1,4 @@
-import { RunState } from '../Types/Run'
+import { RunState, SAVE_VERSION } from '../Types/Run'
 
 /** セーブデータの構造 */
 interface SaveData {
@@ -8,7 +8,6 @@ interface SaveData {
 }
 
 const STORAGE_KEY = 'roguelite-save'
-const CURRENT_VERSION = 2  // パーティー制導入で互換性破壊
 
 /** セーブデータの基本的な構造を検証 */
 function isValidSaveData(data: unknown): data is SaveData {
@@ -41,7 +40,7 @@ export const SaveManager = {
     try {
       // battleStartSnapshot は非永続（バトル中のみ有効）
       const data: SaveData = {
-        version: CURRENT_VERSION,
+        version: SAVE_VERSION,
         run: { ...run, battleStartSnapshot: null },
         savedAt: Date.now(),
       }
@@ -67,7 +66,7 @@ export const SaveManager = {
       }
 
       // バージョンチェック
-      if (data.version !== CURRENT_VERSION) {
+      if (data.version !== SAVE_VERSION) {
         return null
       }
 

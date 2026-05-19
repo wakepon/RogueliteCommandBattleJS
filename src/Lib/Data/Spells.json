@@ -1,4 +1,31 @@
 {
+  "magic_bullet": {
+    "id": "magic_bullet",
+    "name": "魔力弾",
+    "rarity": "Common",
+    "price": 0,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 0,
+    "power": 1,
+    "variance": 2,
+    "effect": null
+  },
+  "prayer": {
+    "id": "prayer",
+    "name": "祈り",
+    "rarity": "Common",
+    "price": 0,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 0,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "targetRateUp",
+      "value": 25
+    }
+  },
   "fire": {
     "id": "fire",
     "name": "ファイア",
@@ -27,15 +54,15 @@
     "id": "heal",
     "name": "ヒール",
     "rarity": "Common",
-    "price": 8,
+    "price": 6,
     "commandCategory": "spell",
     "targetType": "allySingle",
-    "mpCost": 5,
+    "mpCost": 3,
     "power": 0,
     "variance": 0,
     "effect": {
       "type": "heal",
-      "value": 30
+      "value": 15
     }
   },
   "ice_bolt": {
@@ -101,8 +128,7 @@
     "variance": 0,
     "effect": {
       "type": "hpToMp",
-      "hpCost": 10,
-      "mpGain": 8
+      "hpCostRate": 0.25
     }
   },
   "gold_hex": {
@@ -112,7 +138,7 @@
     "price": 6,
     "commandCategory": "spell",
     "targetType": "enemySingle",
-    "mpCost": 5,
+    "mpCost": 7,
     "power": 2,
     "variance": 3,
     "effect": {
@@ -127,12 +153,11 @@
     "price": 9,
     "commandCategory": "spell",
     "targetType": "enemySingle",
-    "mpCost": 5,
+    "mpCost": 7,
     "power": 0,
-    "variance": 3,
+    "variance": 0,
     "effect": {
       "type": "goldDamage",
-      "rate": 0.2,
       "multiplier": 3
     }
   },
@@ -193,7 +218,7 @@
     "mpCost": 3,
     "power": 0,
     "variance": 0,
-    "effect": { "type": "guidanceBuff" }
+    "effect": { "type": "guidanceBuff", "bonusExp": 3 }
   },
   "education_bullet": {
     "id": "education_bullet",
@@ -205,7 +230,7 @@
     "mpCost": 5,
     "power": 3,
     "variance": 4,
-    "effect": { "type": "killBonusExpToAll" }
+    "effect": { "type": "killBonusExpToAll", "expAmount": 2 }
   },
   "healing_wind": {
     "id": "healing_wind",
@@ -219,7 +244,22 @@
     "variance": 0,
     "effect": {
       "type": "heal",
-      "value": 15
+      "value": 8
+    }
+  },
+  "greater_heal": {
+    "id": "greater_heal",
+    "name": "大ヒール",
+    "rarity": "Uncommon",
+    "price": 8,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 6,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "heal",
+      "value": 25
     }
   }
 }

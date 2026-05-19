@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { EnemyData, EnemyType } from '../../Lib/Types/Enemy'
-import { isEventStage, TOTAL_STAGES } from '../../Lib/Core/StageManager'
+import { isEventStage, getFloor, TOTAL_STAGES } from '../../Lib/Core/StageManager'
+import { getTuningValue } from '../../Lib/Tuning/TuningStore'
 import { ResourceBar, Tooltip } from '../Common'
 import StagePatternsData from '../../Lib/Data/StagePatterns.json'
 import EnemiesData from '../../Lib/Data/Enemies.json'
@@ -60,7 +61,7 @@ function getEnemyTypeTextColor(type: EnemyType): string {
   }
 }
 
-/** 次ステージの敵情報を取得 */
+/** 次ステージの敵情報を取得（階層倍率を適用） */
 function getNextStageEnemies(stage: number, seed: number): NextEnemyInfo[] {
   const stageKey = `stage_${stage}`
   const pattern = stagePatternsData[stageKey]
@@ -72,12 +73,18 @@ function getNextStageEnemies(stage: number, seed: number): NextEnemyInfo[] {
   const patternIndex = seed % pattern.patterns.length
   const selectedPattern = pattern.patterns[patternIndex]
 
+  const floor = getFloor(stage)
+  const hpMult = floor === 3 ? getTuningValue('floor_3_hp_multiplier', 3.0)
+               : floor === 2 ? getTuningValue('floor_2_hp_multiplier', 1.5)
+               : 1.0
+
   const enemyIds = selectedPattern.enemies ?? []
   return enemyIds.map(enemyId => {
     const data = enemiesData[enemyId]
+    const baseHp = data?.hp ?? 0
     return {
       name: data?.name ?? enemyId,
-      hp: data?.hp ?? 0,
+      hp: Math.floor(baseHp * hpMult),
       attack: data?.attack ?? 0,
       type: (data?.type as EnemyType) ?? 'normal',
     }

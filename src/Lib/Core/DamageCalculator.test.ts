@@ -60,6 +60,7 @@ function createMockWeapon(overrides: Partial<WeaponInstance> = {}): WeaponInstan
     variance: 5,
     maxUses: 10,
     currentUses: 10,
+    enhancements: [],
     ...overrides,
   }
 }
@@ -89,6 +90,7 @@ function createMockSpell(overrides: Partial<SpellInstance> = {}): SpellInstance 
     power: 8,
     variance: 5,
     effect: null,
+    enhancements: [],
     ...overrides,
   }
 }

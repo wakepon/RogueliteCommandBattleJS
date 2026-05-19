@@ -10,8 +10,8 @@
     * 特定行動回数（レベルアップ、吸血、ポーション使用など）に応じた効果。
     * 戦闘後のHP/MP回復、配当（不労所得）。
     * 死亡/復活時に効果発動（強化、回復、敵に大ダメージ）。
-* **MVP実装済みレリック（24種）:** 戦士の腕輪、鋭い砥石、貯金箱、魔術師の指輪、壊れかけの鎧、武器お手入れ用油、ストレス発散、研ぎ師の名刺、集中の水晶、反撃の棘、再生のコケ、錬金術の触媒、血の契約、苦痛のリング、商人の護符、金の指輪、不死鳥の残り火、鍛冶師の金槌、怒りの炎、闘気の腕輪、修羅の証、番狂わせの一撃、強い者いじめ、身代わりの人形。
-* **効果タイプ:** statBonus, weaponDamageBonus, interestCap, firstHitShield, weaponDurabilitySave, weaponAttackMpRecover, lastStrikeDamageMultiplier, lowMpDamageBonus, thornsDamage, regenPerTurn, potionEffectMultiplier, lowHpDamageMultiplier, battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus, levelUpDamageBoost, battleEndBonusExp, lowestLevelDamageMultiplier, highHpTargetRateBonus, deathProtection, killStreakBonus。
+* **MVP実装済みレリック（24種）:** 戦士の腕輪、鋭い砥石、貯金箱、魔術師の指輪、壊れかけの鎧、武器お手入れ用油、ストレス発散、研ぎ師の名刺、集中の水晶、反撃の棘、再生のコケ、錬金術の触媒、血の契約、苦痛のリング、商人の護符、金の指輪、努力の証、鍛冶師の金槌、怒りの炎、闘気の腕輪、修羅の証、番狂わせの一撃、強い者いじめ、身代わりの人形。
+* **効果タイプ:** statBonus, weaponDamageBonus, interestCap, firstHitShield, weaponDurabilitySave, weaponAttackMpRecover, lastStrikeDamageMultiplier, lowMpDamageBonus, thornsDamage, regenPerTurn, potionEffectMultiplier, lowHpDamageMultiplier, battleStartHpReduction, damageTakenToMp, goldPerKill, weaponBreakDamageMultiplier, weaponBreakNextAttackBonus, levelUpDamageBoost, battleEndBonusExp, lowestLevelDamageMultiplier, highHpTargetRateBonus, deathProtection。（killStreakBonusはレリックデータに存在しないため未使用）
 ## 3 **武器**
 * 武器は使用回数制限がある
 * キャンプで休憩することで使用回数復活
@@ -31,6 +31,11 @@
   * ShopOption B: カテゴリ2種 × 3枠 = 計6枠
 * 品揃え変更(リロール): 初期コスト3G、使用ごとに1G増加
 * 商品を購入した枠は売り切れ表示となり、品揃え変更してもその枠に新たな商品は出現しない
+* **第二階層でのRare出現率補正:** 第二階層（Stage 8-11）ではRareアイテムが高確率で出現する（Tuning Editorで調整可能）。
+
+## 6.x **武器売却価格**
+* 計算式: `floor((購入価格 - 最低売値) * (現在の使用回数 / 最大使用回数) * 0.5 + 最低売値)`
+* 最低売値: 購入価格10G以上なら2G、10G未満なら1G（耐久0でも最低売値を保証）。
 
 > **バランス調整:** 各枠数、リロールコスト、レリック上限、ポーション上限はTuning Editorで調整可能である。
 ## 7. **初期アイテム**

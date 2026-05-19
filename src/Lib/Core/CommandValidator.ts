@@ -80,36 +80,6 @@ function isSpellAvailable(spell: SpellInstance, explorer: ExplorerState): boolea
 }
 
 /**
- * コマンド（武器または魔法）が使用可能かどうかを判定する
- *
- * @param command - 判定対象のコマンド（武器または魔法）
- * @param explorer - 探索者の状態
- * @param gold - 所持ゴールド（RunState から渡す）
- * @returns 使用可能な場合 true
- */
-export function isCommandAvailable(
-  command: BattleCommand,
-  explorer: ExplorerState,
-  gold: number
-): boolean {
-  if (isWeapon(command)) {
-    return isWeaponAvailable(command, gold)
-  }
-
-  if (isSpell(command)) {
-    return isSpellAvailable(command, explorer)
-  }
-
-  if (isPotion(command)) {
-    // ポーションは所持していれば常に使用可能
-    return true
-  }
-
-  // ここには到達しないはず
-  return false
-}
-
-/**
  * 使用可能なコマンド一覧を取得する
  *
  * @param explorer - 探索者の状態

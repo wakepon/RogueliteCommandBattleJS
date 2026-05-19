@@ -38,3 +38,20 @@
 * リザルト/UI演出強化: 戦闘前後差分逐次アニメ（BattleStartSnapshot + MemberAnimationPhase）、味方丸アイコン、行動アニメ、HPバー統合、ゲームオーバーオーバーレイ（isGameOver）（スライス13）
 * パーティーポジション動的化（PositionUtils 新設、ExplorerState.position 削除）（スライス13）
 * ポーション即時発動（USE_POTION_INSTANT）・修復ポーション（repair_potion）追加（スライス13）
+* HP回復量・敵ステータスの再調整（スライス14相当のバランス調整）
+* 武器の売値設定（各武器に適切な売値を設定）
+* stage 1 のパターン変更（初期難易度の調整）
+* ヒール魔法のMP消費軽減
+
+## フェーズ6：第二階層追加（実施済み）
+第一階層クリア後の第二セットを追加する。以下が実施済み:
+* stage_8〜stage_11 の StagePatterns.json 追加（stage_9 はイベントステージ）
+* BattleState に enemyHpMultiplier / enemyDamageMultiplier フィールド追加
+* StoreState に rareRate フィールド追加（第二階層でRare率上昇）
+* createStoreState に stage 引数追加、pickWithRarity 関数追加
+* generateEnemyIntents に damageMultiplier 引数追加
+* EnemyEffectProcessor.applySummonEnemy で enemyHpMultiplier を参照してHP倍率適用
+* isEventStage で stage 4 と stage 9 の両方をイベントステージと判定
+* TuningConfig に floor カテゴリ追加（7カテゴリ化）
+* BattleResultDiff.ts 新規追加（戦闘結果差分計算）
+* ResultState 型を全フィールド記載に拡張

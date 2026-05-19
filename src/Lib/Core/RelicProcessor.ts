@@ -1,11 +1,7 @@
 import { RelicInstance } from '../Types/Relic'
 import { PassiveEffectType } from '../Types/Passive'
 import { ExplorerState } from '../Types/Explorer'
-
-/** 全レリックの効果一覧を取得 */
-export function getRelicEffects(relics: RelicInstance[]): PassiveEffectType[] {
-  return relics.map(r => r.passiveEffect)
-}
+import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 特定効果の所持判定 */
 export function hasRelicEffect(
@@ -28,6 +24,13 @@ export function getStatBonus(
   }, 0)
 }
 
+/** 武器ダメージボーナス（鋭い砥石）の対象かどうか判定（INT武器・パンチは対象外） */
+export function isWeaponDamageBonusApplicable(weapon: { id: string; scaleStat?: 'str' | 'int' }): boolean {
+  if (weapon.id === 'punch') return false
+  if (weapon.scaleStat === 'int') return false
+  return true
+}
+
 /** 武器ダメージボーナス合算 */
 export function getWeaponDamageBonus(relics: RelicInstance[]): number {
   return relics.reduce((sum, r) => {
@@ -36,16 +39,6 @@ export function getWeaponDamageBonus(relics: RelicInstance[]): number {
     }
     return sum
   }, 0)
-}
-
-/** interestCap値を取得（未所持なら0） */
-export function getInterestCapBonus(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'interestCap') {
-      return r.passiveEffect.value
-    }
-  }
-  return 0
 }
 
 /** 条件付きダメージ倍率を計算（lowHpDamageMultiplier） */
@@ -140,23 +133,12 @@ export function getWeaponDurabilitySaveChance(relics: RelicInstance[]): number {
   return 0
 }
 
-/** weaponAttackMpRecover の値を取得 */
-export function getWeaponAttackMpRecover(relics: RelicInstance[]): { value: number; excludeWeaponId?: string } | null {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'weaponAttackMpRecover') {
-      return {
-        value: r.passiveEffect.value,
-        excludeWeaponId: r.passiveEffect.excludeWeaponId,
-      }
-    }
-  }
-  return null
-}
-
-/** 不死鳥の残り火: 武器破壊時の蓄積increment */
+/** 努力の証: 武器破壊時の蓄積increment */
 export function getWeaponBreakIncrement(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'weaponBreakDamageMultiplier') return r.passiveEffect.increment
+    if (r.passiveEffect.type === 'weaponBreakDamageMultiplier') {
+      return getTuningValue('phoenix_ember_increment', r.passiveEffect.increment)
+    }
   }
   return 0
 }
@@ -169,19 +151,10 @@ export function getWeaponBreakAttackBonus(relics: RelicInstance[]): number {
   return 0
 }
 
-/** 商人の護符: キル時ゴールド */
-export function getGoldPerKill(relics: RelicInstance[]): number {
-  let total = 0
+/** 苦痛のリング: 被ダメ→MP固定回復値 */
+export function getDamageTakenToMpValue(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'goldPerKill') total += r.passiveEffect.value
-  }
-  return total
-}
-
-/** 苦痛のリング: 被ダメ→MP変換率 */
-export function getDamageTakenToMpRate(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'damageTakenToMp') return r.passiveEffect.rate
+    if (r.passiveEffect.type === 'damageTakenToMp') return r.passiveEffect.value
   }
   return 0
 }

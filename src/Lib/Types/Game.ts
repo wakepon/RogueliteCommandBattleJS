@@ -6,6 +6,7 @@ import { RelicData } from './Relic'
 import { PotionData } from './Potion'
 import { EnemyType } from './Enemy'
 import { CharacterClass } from './Explorer'
+import { EnhancementOption } from './Enhancement'
 
 // ゲームフェーズ
 export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result' | 'map'
@@ -135,11 +136,29 @@ export interface ShopOption {
   slots: ShopSlot[]  // 6枠（上段3 + 下段3）
 }
 
+/** 強化ショップの対象アイテム指定 */
+export interface EnhancementTarget {
+  memberIndex: number
+  itemType: 'weapon' | 'spell'
+  itemIndex: number
+}
+
+/** 強化ショップ状態 */
+export interface EnhancementShopState {
+  phase: 'selectItem' | 'confirmEnhance' | 'chooseOption'
+  enhancedKeys: string[]
+  selectedTarget: EnhancementTarget | null
+  options: [EnhancementOption, EnhancementOption] | null
+  enhancementsUsed: number
+}
+
 /** ストア状態 */
 export interface StoreState {
   shopOptions: [ShopOption, ShopOption]  // 2択
   selectedShopIndex: number | null       // 未選択=null, 選択後=0or1
+  enhancementState: EnhancementShopState | null  // null=通常, non-null=強化ショップ
   rerollCost: number
+  rareRate: number                       // 第二階層以降のRare出現率
 }
 
 // ゲーム全体の状態

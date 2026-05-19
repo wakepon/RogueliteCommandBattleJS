@@ -44,13 +44,18 @@ export function applyRest(explorer: ExplorerState): ExplorerState {
  * @param weapon - 判定する武器
  * @returns 修理可能ならtrue
  */
-export function isRepairable(weapon: ExplorerWeapon): boolean {
+function isRepairable(weapon: ExplorerWeapon): boolean {
   // パンチは修理不可
   if (weapon.id === 'punch') {
     return false
   }
 
   const weaponInstance = weapon as WeaponInstance
+
+  // 強化デメリットで修復不可になった武器
+  if (weaponInstance.noRepair) {
+    return false
+  }
 
   // 無制限使用の武器は修理不可
   if (weaponInstance.maxUses === null || weaponInstance.currentUses === null) {
@@ -86,7 +91,7 @@ export function canRepairWeapons(explorers: ExplorerState[]): boolean {
  * @param weapon - 修理する武器
  * @returns 修理後の武器
  */
-export function repairWeapon(weapon: WeaponInstance): WeaponInstance {
+function repairWeapon(weapon: WeaponInstance): WeaponInstance {
   return {
     ...weapon,
     currentUses: weapon.maxUses,

@@ -3,6 +3,7 @@ import { useGame } from './UseGame'
 import { PotionInstance } from '../Lib/Types/Potion'
 import { BattleAction } from '../Lib/State/BattleReducer'
 import { getAvailableCommands, selectEnemyAction, processPartyTurnEnd, calculateTargetRates, selectTargetByRate } from '../Lib/Core'
+import { isWeapon } from '../Lib/Core/CommandValidator'
 import { generateEnemyIntents } from '../Lib/State/BattleStateFactory'
 import { BattleState, BattleCommand, BattlePhase, CommandSlot, PlayerDamagePopup, LevelUpPopup, DamagePopup, ExpPopup } from '../Lib/Types/Battle'
 import { ExplorerState } from '../Lib/Types/Explorer'
@@ -119,7 +120,22 @@ export function useBattle(): UseBattleResult | null {
     if (!slot?.command) return
     const explorer = run.party.find(e => e.id === slot.explorerId)
     if (!explorer || explorer.hp <= 0) return  // 戦闘不能チェック
-    dispatchBattle({ type: 'EXECUTE_COMMAND', explorer })
+
+    // enemyRandom武器の場合、ランダムターゲットを事前に決定
+    let randomEnemyTargets: string[] | undefined
+    if (isWeapon(slot.command) && slot.command.targetType === 'enemyRandom') {
+      const aliveEnemies = battleState.enemies.filter(e => e.currentHp > 0)
+      if (aliveEnemies.length > 0) {
+        const hits = ('hits' in slot.command && slot.command.hits) ? slot.command.hits : 3
+        randomEnemyTargets = []
+        for (let i = 0; i < hits; i++) {
+          const randomIndex = Math.floor(Math.random() * aliveEnemies.length)
+          randomEnemyTargets.push(aliveEnemies[randomIndex].instanceId)
+        }
+      }
+    }
+
+    dispatchBattle({ type: 'EXECUTE_COMMAND', explorer, randomEnemyTargets })
   }, [battleState, run, dispatchBattle])
 
   const advancePartyAction = useCallback(() => {
@@ -129,7 +145,7 @@ export function useBattle(): UseBattleResult | null {
   // 敵行動
   const enemyAction = useCallback((enemyIndex: number) => {
     if (!battleState || !run) return
-    const aliveEnemies = battleState.enemies.filter(e => e.currentHp > 0)
+    const aliveEnemies = battleState.enemies.filter(e => e.currentHp > 0 && !e.justSummoned)
     const enemy = aliveEnemies[enemyIndex]
     if (!enemy) return
 
@@ -148,7 +164,22 @@ export function useBattle(): UseBattleResult | null {
     if (!storedIntent) {
       console.warn(`No stored intent for enemy ${enemy.instanceId}, re-rolling action`)
     }
-    const actionResult = storedIntent?.storedAction ?? selectEnemyAction(enemy, targetMember)
+    let actionResult = storedIntent?.storedAction ?? selectEnemyAction(enemy, targetMember)
+    if (!storedIntent?.storedAction && battleState.enemyDamageMultiplier !== 1.0) {
+      actionResult = { ...actionResult, damage: Math.floor(actionResult.damage * battleState.enemyDamageMultiplier) }
+    }
+
+    // ランダムターゲット: 各hitごとにターゲット率に基づいて選出
+    let randomTargetHits: Array<{ targetExplorerId: string }> | undefined
+    if (actionResult.isRandomTarget && actionResult.hits > 1) {
+      randomTargetHits = []
+      for (let i = 0; i < actionResult.hits; i++) {
+        const hitRates = calculateTargetRates(run.party, run.relics)
+        const hitTargetId = selectTargetByRate(hitRates)
+        if (!hitTargetId) break
+        randomTargetHits.push({ targetExplorerId: hitTargetId })
+      }
+    }
 
     dispatchBattle({
       type: 'ENEMY_ACTION',
@@ -169,6 +200,9 @@ export function useBattle(): UseBattleResult | null {
       isAoe: actionResult.isAoe,
       applyWeakness: actionResult.applyWeakness,
       applySelfDefense: actionResult.applySelfDefense,
+      transformName: actionResult.transformName,
+      isRandomTarget: actionResult.isRandomTarget,
+      randomTargetHits,
     })
   }, [battleState, run, dispatchBattle])
 
@@ -194,7 +228,7 @@ export function useBattle(): UseBattleResult | null {
       .filter(m => m.hp > 0)
       .map(m => ({ explorerId: m.id, command: null, targetId: null }))
     // 敵行動予告を再生成
-    const newIntents = generateEnemyIntents(battleState.enemies, run.party)
+    const newIntents = generateEnemyIntents(battleState.enemies, run.party, battleState.enemyDamageMultiplier)
     dispatchBattle({ type: 'START_NEW_TURN', commandSlots: newSlots, enemyIntents: newIntents })
   }, [run, battleState, dispatchBattle])
 

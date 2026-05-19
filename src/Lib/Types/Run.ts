@@ -4,7 +4,7 @@ import { RelicInstance } from './Relic'
 import { PotionInstance } from './Potion'
 
 // セーブデータバージョン（パーティー制導入で互換性破壊）
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 4
 
 // 統計情報
 export interface RunStats {
@@ -31,7 +31,7 @@ export interface RunState {
   party: ExplorerState[]
   stats: RunStats
   battleLevelUps: LevelUpInfo[]  // 戦闘中のレベルアップ情報（一時保存）
-  weaponBreakMultiplier: number  // 不死鳥の残り火: 武器破壊時の蓄積倍率
+  weaponBreakMultiplier: number  // 努力の証: 武器破壊時の蓄積倍率
   battleStartSnapshot: BattleStartSnapshot | null  // リザルト画面の変化量表示用
 }
 

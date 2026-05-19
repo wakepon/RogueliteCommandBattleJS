@@ -18,9 +18,11 @@ export const TUNING_CATEGORIES: Record<string, string> = {
   character: 'キャラクター',
   levelup: 'レベルアップ',
   weapon: '武器・基本攻撃',
+  spell: '魔法',
   battle: 'バトル',
   economy: '報酬・経済',
   event: 'イベント',
+  floor: '階層倍率',
 }
 
 /** 全調整項目のスキーマ定義 */
@@ -65,12 +67,16 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   { key: 'cleric_growth_maxMp', label: '僧侶 MP成長', category: 'levelup', defaultValue: 3, control: { type: 'number', min: 0, max: 30, step: 1 } },
   { key: 'cleric_growth_str', label: '僧侶 STR成長', category: 'levelup', defaultValue: 1, control: { type: 'number', min: 0, max: 10, step: 1 } },
   { key: 'cleric_growth_int', label: '僧侶 INT成長', category: 'levelup', defaultValue: 1, control: { type: 'number', min: 0, max: 10, step: 1 } },
+  { key: 'levelup_required_kills_cap', label: '必要討伐数 上限(0=なし)', category: 'levelup', defaultValue: 0, control: { type: 'number', min: 0, max: 30, step: 1 } },
+  // レベルアップ回復率
+  { key: 'levelup_hp_recovery_rate', label: 'LvUP HP回復率', category: 'levelup', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
+  { key: 'levelup_mp_recovery_rate', label: 'LvUP MP回復率', category: 'levelup', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
 
   // === 武器・基本攻撃 ===
   { key: 'punch_power', label: 'パンチ 威力', category: 'weapon', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
   { key: 'punch_variance', label: 'パンチ ブレ幅', category: 'weapon', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
-  { key: 'magic_bullet_power', label: '魔力弾 威力', category: 'weapon', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
-  { key: 'magic_bullet_variance', label: '魔力弾 ブレ幅', category: 'weapon', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
+  { key: 'magic_bullet_power', label: '魔力弾 威力', category: 'spell', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
+  { key: 'magic_bullet_variance', label: '魔力弾 ブレ幅', category: 'spell', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
 
   // === バトルメカニクス ===
   { key: 'poison_damage_per_tick', label: '毒ダメージ/tick', category: 'battle', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 1 } },
@@ -82,9 +88,9 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   // === 報酬・経済 ===
   { key: 'gold_reward_normal', label: '通常敵 報酬G', category: 'economy', defaultValue: 3, control: { type: 'number', min: 0, max: 50, step: 1 } },
   { key: 'gold_reward_elite', label: 'エリート敵 報酬G', category: 'economy', defaultValue: 5, control: { type: 'number', min: 0, max: 50, step: 1 } },
-  { key: 'gold_reward_boss', label: 'ボス 報酬G', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 100, step: 1 } },
+  { key: 'gold_reward_boss', label: 'ボス 報酬G(主要)', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 100, step: 1 } },
+  { key: 'gold_reward_boss_minor', label: 'ボス 報酬G(その他)', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 100, step: 1 } },
   { key: 'interest_cap_default', label: '利子上限(通常)', category: 'economy', defaultValue: 5, control: { type: 'number', min: 0, max: 30, step: 1 } },
-  { key: 'interest_cap_piggybank', label: '利子上限(貯金箱)', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 30, step: 1 } },
   { key: 'store_category_slots', label: 'ショップ各カテゴリ枠数', category: 'economy', defaultValue: 3, control: { type: 'number', min: 1, max: 6, step: 1 } },
   { key: 'base_reroll_cost', label: 'リロール基本コスト', category: 'economy', defaultValue: 3, control: { type: 'number', min: 0, max: 20, step: 1 } },
   { key: 'max_relic_count', label: 'レリック所持上限', category: 'economy', defaultValue: 5, control: { type: 'number', min: 1, max: 20, step: 1 } },
@@ -92,4 +98,15 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
 
   // === イベント ===
   { key: 'rest_heal_percent', label: '休憩回復率', category: 'event', defaultValue: 0.5, control: { type: 'slider', min: 0.1, max: 1.0, step: 0.05 } },
+
+  // === レリック ===
+  { key: 'phoenix_ember_increment', label: '努力の証 蓄積倍率', category: 'battle', defaultValue: 0.25, control: { type: 'number', min: 0.05, max: 1.0, step: 0.05 } },
+
+  // === 階層倍率 ===
+  { key: 'floor_2_hp_multiplier', label: 'F2 敵HP倍率', category: 'floor', defaultValue: 1.5, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
+  { key: 'floor_2_damage_multiplier', label: 'F2 敵攻撃力倍率', category: 'floor', defaultValue: 1.8, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
+  { key: 'floor_2_rare_rate', label: 'F2 ショップRare率', category: 'floor', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
+  { key: 'floor_3_hp_multiplier', label: 'F3 敵HP倍率', category: 'floor', defaultValue: 3.0, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
+  { key: 'floor_3_damage_multiplier', label: 'F3 敵攻撃力倍率', category: 'floor', defaultValue: 2.5, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
+  { key: 'floor_3_rare_rate', label: 'F3 ショップRare率', category: 'floor', defaultValue: 0.7, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
 ]

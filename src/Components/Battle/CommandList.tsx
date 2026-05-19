@@ -3,9 +3,11 @@ import { PotionInstance } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
+import { WeaponInstance } from '../../Lib/Types/Weapon'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
 import { getCommandTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
+import { getWeaponEnhancementSummary, getSpellEnhancementSummary } from '../../Lib/Core/EnhancementLogic'
 
 interface CommandListProps {
   commands: BattleCommand[]
@@ -162,17 +164,30 @@ export function CommandList({
           // ダメージ予測値の計算
           let damageDisplay: string | null = null
           let isBoosted = false
+          let isWeakened = false
           if (explorer) {
             const opts = { relics, killStreakActive, includeConditionalRelics: true, party }
             if (isWeapon(command)) {
               const range = predictWeaponDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)
               isBoosted = range.isBoosted
+              isWeakened = range.isWeakened ?? false
             } else if (isSpell(command) && command.power > 0) {
               const range = predictSpellDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)
               isBoosted = range.isBoosted
+              isWeakened = range.isWeakened ?? false
             }
+          }
+
+          let enhancementTitle = ''
+          if (isWeapon(command) && 'enhancements' in command && (command as WeaponInstance).enhancements.length > 0) {
+            const summaries = getWeaponEnhancementSummary((command as WeaponInstance).enhancements)
+            if (summaries.length > 0) enhancementTitle = '\n強化: ' + summaries.map(s => s.text).join(', ')
+          }
+          if (isSpell(command) && command.enhancements.length > 0) {
+            const summaries = getSpellEnhancementSummary(command.enhancements)
+            if (summaries.length > 0) enhancementTitle = '\n強化: ' + summaries.map(s => s.text).join(', ')
           }
 
           return (
@@ -184,7 +199,7 @@ export function CommandList({
                   onSelectCommand(command)
                 }
               }}
-              title={getCommandTooltip(command, damageContext)}
+              title={getCommandTooltip(command, damageContext) + enhancementTitle}
               className={`
                 flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-sm
                 ${isCursor ? 'bg-yellow-600 text-white' : 'text-gray-300'}
@@ -210,11 +225,21 @@ export function CommandList({
                 {command.targetType === 'enemyAll' && (
                   <span className="text-[10px] bg-red-700 text-white px-1 rounded ml-1">全体</span>
                 )}
+                {isWeapon(command) && 'enhancements' in command && (command as WeaponInstance).enhancements.length > 0 && (
+                  <span className="text-[9px] bg-yellow-700/80 text-yellow-200 px-0.5 rounded ml-1">
+                    強化({(command as WeaponInstance).enhancements.length})
+                  </span>
+                )}
+                {isSpell(command) && command.enhancements.length > 0 && (
+                  <span className="text-[9px] bg-yellow-700/80 text-yellow-200 px-0.5 rounded ml-1">
+                    強化({command.enhancements.length})
+                  </span>
+                )}
               </span>
 
               {/* ダメージ予測値 */}
               {damageDisplay && (
-                <span className={`text-xs ${isBoosted ? 'text-orange-400' : 'text-gray-400'}`}>
+                <span className={`text-xs ${isWeakened ? 'text-red-400' : isBoosted ? 'text-orange-400' : 'text-gray-400'}`}>
                   {damageDisplay}
                 </span>
               )}

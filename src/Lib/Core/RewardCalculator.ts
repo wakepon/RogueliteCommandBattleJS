@@ -2,11 +2,14 @@ import { EnemyInstance, EnemyType } from '../Types/Enemy'
 import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 敵タイプ別の基本報酬（Tuning対応） */
-function getBaseGoldByType(): Record<EnemyType, number> {
+function getBaseGoldByType(stage?: number): Record<EnemyType, number> {
+  const isMajorBossStage = stage !== undefined && (stage === 7 || stage === 14 || stage === 21)
   return {
     normal: getTuningValue('gold_reward_normal', 3),
     elite: getTuningValue('gold_reward_elite', 5),
-    boss: getTuningValue('gold_reward_boss', 10),
+    boss: isMajorBossStage
+      ? getTuningValue('gold_reward_boss', 10)
+      : getTuningValue('gold_reward_boss_minor', 10),
   }
 }
 
@@ -22,7 +25,7 @@ const TYPE_STRENGTH: Record<EnemyType, number> = {
  * 利子 = min(floor(currentGold / 5), maxInterest)
  *
  * @param currentGold - 現在の所持ゴールド
- * @param maxInterest - 利子上限（通常5G、貯金箱所持時10G）
+ * @param maxInterest - 利子上限（通常5G）
  */
 function calculateInterest(currentGold: number, maxInterest: number): number {
   return Math.min(Math.floor(currentGold / 5), maxInterest)
@@ -53,18 +56,18 @@ function getStrongestEnemyType(enemies: EnemyInstance[]): EnemyType {
  *
  * Interest計算ルール:
  * - 利子 = min(floor(currentGold / 5), maxInterest)
- * - 通常は最大5Gまで、貯金箱レリック所持時は10Gまで
+ * - 通常は最大5Gまで
  *
  * @param enemies - 戦闘で倒した敵の配列
  * @param currentGold - 現在の所持ゴールド
  * @param stolenGold - ゴールドラッシュで盗んだゴールド
- * @param hasPiggyBank - 貯金箱レリックを所持しているか
+ * @param stage - 現在のステージ番号
  */
 export function calculateReward(
   enemies: EnemyInstance[],
   currentGold: number,
   stolenGold: number,
-  hasPiggyBank: boolean = false
+  stage?: number,
 ): {
   baseGold: number
   interestGold: number
@@ -72,10 +75,8 @@ export function calculateReward(
   total: number
 } {
   const strongestType = getStrongestEnemyType(enemies)
-  const baseGold = getBaseGoldByType()[strongestType]
-  const interestCap = hasPiggyBank
-    ? getTuningValue('interest_cap_piggybank', 10)
-    : getTuningValue('interest_cap_default', 5)
+  const baseGold = getBaseGoldByType(stage)[strongestType]
+  const interestCap = getTuningValue('interest_cap_default', 5)
   const interestGold = calculateInterest(currentGold, interestCap)
   const total = baseGold + interestGold + stolenGold
 

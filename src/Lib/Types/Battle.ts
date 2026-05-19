@@ -40,6 +40,10 @@ export interface DamagePopup {
   damage: number
   timestamp: number
   contributors?: DamageContributor[]
+  delayMs?: number        // 表示開始までの遅延（マルチヒット順次表示用）
+  fadeAfterMs?: number    // 作成時刻からフェード開始までのms
+  fadeDurationMs?: number // フェードアウトの長さ（ms）
+  hitIndex?: number       // マルチヒットの何番目か（Y座標オフセット用）
 }
 
 /** プレイヤーへのダメージポップアップ */
@@ -80,7 +84,6 @@ export interface EnemyIntent {
 
 /** レリック戦闘内状態 */
 export interface RelicBattleState {
-  shieldActive: boolean      // 壊れかけの鎧
   killStreakActive: boolean   // 血染めの手袋
 }
 
@@ -130,6 +133,10 @@ export interface BattleState {
   // 後方互換: actionQueue（Phase 2移行期間は維持。TurnIndicator等で使用）
   actionQueue: ActorId[]
   currentActorIndex: number
+
+  // 階層倍率（第二階層以降で使用）
+  enemyHpMultiplier: number
+  enemyDamageMultiplier: number
 
   // ゲームオーバー状態（敗北時にオーバーレイを表示する）
   isGameOver?: boolean

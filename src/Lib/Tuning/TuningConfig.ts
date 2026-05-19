@@ -36,6 +36,9 @@ export interface TuningConfig {
   readonly cleric_growth_maxMp: number
   readonly cleric_growth_str: number
   readonly cleric_growth_int: number
+  readonly levelup_required_kills_cap: number
+  readonly levelup_hp_recovery_rate: number
+  readonly levelup_mp_recovery_rate: number
 
   // 武器・基本攻撃
   readonly punch_power: number
@@ -54,8 +57,8 @@ export interface TuningConfig {
   readonly gold_reward_normal: number
   readonly gold_reward_elite: number
   readonly gold_reward_boss: number
+  readonly gold_reward_boss_minor: number
   readonly interest_cap_default: number
-  readonly interest_cap_piggybank: number
   readonly store_category_slots: number
   readonly base_reroll_cost: number
   readonly max_relic_count: number
@@ -63,6 +66,19 @@ export interface TuningConfig {
 
   // イベント
   readonly rest_heal_percent: number
+
+  // レリック
+  readonly phoenix_ember_increment: number
+
+  // 第二階層
+  readonly floor_2_hp_multiplier: number
+  readonly floor_2_damage_multiplier: number
+  readonly floor_2_rare_rate: number
+
+  // 第三階層
+  readonly floor_3_hp_multiplier: number
+  readonly floor_3_damage_multiplier: number
+  readonly floor_3_rare_rate: number
 }
 
 /** BroadcastChannelメッセージ型 */

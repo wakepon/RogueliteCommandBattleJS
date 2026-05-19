@@ -7,6 +7,7 @@ import { isWeapon, isSpell } from '../Core/CommandValidator'
 import {
   getStatBonus,
   getWeaponDamageBonus,
+  isWeaponDamageBonusApplicable,
   getLowHpDamageMultiplier,
   getKillStreakMultiplier,
   getLastStrikeMultiplier,
@@ -19,6 +20,7 @@ export interface DamageRange {
   min: number
   max: number
   isBoosted: boolean
+  isWeakened?: boolean
 }
 
 /** 乗算レリック効果の情報 */
@@ -57,7 +59,7 @@ export interface DamagePredictOptions {
   killStreakActive?: boolean
   includeConditionalRelics?: boolean
   hasPrecision?: boolean  // 精密バフでブレ幅→0
-  weaponBreakMultiplier?: number  // 不死鳥の残り火: 武器破壊蓄積倍率
+  weaponBreakMultiplier?: number  // 努力の証: 武器破壊蓄積倍率
   party?: ExplorerState[]  // 番狂わせの一撃: パーティ全体のレベル比較
 }
 
@@ -79,7 +81,7 @@ export function predictWeaponDamage(
   // scaleStat対応（魔力弾はINT依存）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
   const statBonus = getStatBonus(relics, scaleStat)
-  const weaponDmgBonus = getWeaponDamageBonus(relics)
+  const weaponDmgBonus = isWeaponDamageBonusApplicable(weapon) ? getWeaponDamageBonus(relics) : 0
   const effectiveStat = (scaleStat === 'int' ? explorer.int : explorer.str) + statBonus
   const buffMultiplier = calculateBuffMultiplier(explorer, scaleStat)
 
@@ -100,7 +102,7 @@ export function predictWeaponDamage(
   const effectivePower = weapon.power + weaponDmgBonus + conditionalPowerBonus + weaponPowerBonusValue
   let baseDamage = effectiveStat * effectivePower * buffMultiplier
 
-  // 不死鳥の残り火: 武器破壊蓄積倍率
+  // 努力の証: 武器破壊蓄積倍率
   if (weaponBreakMultiplier > 0) {
     baseDamage *= (1 + weaponBreakMultiplier)
   }
@@ -129,6 +131,12 @@ export function predictWeaponDamage(
     baseDamage *= levelUpBoostBuff.value
   }
 
+  // 弱体デバフによるダメージ低下
+  const weaknessDebuff = explorer.battleDebuffs.find(d => d.type === 'weakness')
+  if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
+    baseDamage *= (1.0 - weaknessDebuff.value)
+  }
+
   const base = Math.floor(baseDamage)
   // 精密バフ: ブレ幅→0、最大ブレ値で固定
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
@@ -145,7 +153,9 @@ export function predictWeaponDamage(
     || weaponBreakMultiplier > 0
     || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
-  return { min, max, isBoosted }
+  const isWeakened = weaknessDebuff !== undefined
+
+  return { min, max, isBoosted, isWeakened }
 }
 
 /** 魔法ダメージ予測 */
@@ -180,6 +190,12 @@ export function predictSpellDamage(
     baseDamage *= levelUpBoostBuff.value
   }
 
+  // 弱体デバフによるダメージ低下
+  const spellWeakness = explorer.battleDebuffs.find(d => d.type === 'weakness')
+  if (spellWeakness && spellWeakness.type === 'weakness') {
+    baseDamage *= (1.0 - spellWeakness.value)
+  }
+
   const base = Math.floor(baseDamage)
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
   const isPrecise = hasPrecision || explorerHasPrecision
@@ -191,7 +207,9 @@ export function predictSpellDamage(
     || relicMultiplier > 1.0
     || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
-  return { min, max, isBoosted }
+  const isWeakened = spellWeakness !== undefined
+
+  return { min, max, isBoosted, isWeakened }
 }
 
 /** ダメージ範囲を文字列にフォーマット */
@@ -262,7 +280,7 @@ function detectActiveMultipliers(
         multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
       }
     }
-    // 不死鳥の残り火: 武器破壊蓄積倍率
+    // 努力の証: 武器破壊蓄積倍率
     if (effect.type === 'weaponBreakDamageMultiplier' && weaponBreakMultiplier > 0 && isWeapon(command)) {
       multipliers.push({ relicName: relic.name, multiplier: 1 + weaponBreakMultiplier })
     }
@@ -291,6 +309,12 @@ function detectActiveMultipliers(
     }
   }
 
+  // 弱体デバフ
+  const weaknessDebuff = explorer.battleDebuffs.find(d => d.type === 'weakness')
+  if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
+    multipliers.push({ relicName: '攻撃ダウン', multiplier: 1.0 - weaknessDebuff.value })
+  }
+
   return multipliers
 }
 
@@ -300,7 +324,8 @@ export function calculateDetailedDamagePreview(
   targetEnemyId: string,
   party: ExplorerState[],
   options: DamagePredictOptions = {},
-  tentative?: TentativeCommand | null
+  tentative?: TentativeCommand | null,
+  aliveEnemyCount?: number
 ): DetailedDamagePreview {
   let totalMin = 0
   let totalMax = 0
@@ -333,8 +358,9 @@ export function calculateDetailedDamagePreview(
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
     const isEnemyAllSpell = isSpell(slot.command) && slot.command.targetType === 'enemyAll'
     const isEnemyAll = isEnemyAllWeapon || isEnemyAllSpell
+    const isEnemyRandom = isWeapon(slot.command) && slot.command.targetType === 'enemyRandom'
 
-    if (!targetsThisEnemy && !isEnemyAll) continue
+    if (!targetsThisEnemy && !isEnemyAll && !isEnemyRandom) continue
 
     let range: DamageRange | null = null
 
@@ -344,6 +370,14 @@ export function calculateDetailedDamagePreview(
     } else if (isSpell(slot.command)) {
       if (slot.command.targetType === 'allySingle' || slot.command.targetType === 'allyAll') continue
       range = predictSpellDamage(explorer, slot.command, slotOptions)
+    }
+
+    if (range && isEnemyRandom && isWeapon(slot.command)) {
+      const hits = ('hits' in slot.command && slot.command.hits) ? slot.command.hits : 3
+      const multipleEnemies = (aliveEnemyCount ?? 1) > 1
+      range = multipleEnemies
+        ? { min: 0, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
+        : { min: range.min * hits, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
     }
 
     if (range) {
@@ -373,14 +407,3 @@ export function calculateDetailedDamagePreview(
   return { totalMin, totalMax, isBoosted: anyBoosted, segments }
 }
 
-/** 特定の敵への累計ダメージプレビュー（全コマンドスロット + 仮想コマンドから） */
-export function calculateCumulativeDamagePreview(
-  commandSlots: CommandSlot[],
-  targetEnemyId: string,
-  party: ExplorerState[],
-  options: DamagePredictOptions = {},
-  tentative?: TentativeCommand | null
-): DamageRange {
-  const detailed = calculateDetailedDamagePreview(commandSlots, targetEnemyId, party, options, tentative)
-  return { min: detailed.totalMin, max: detailed.totalMax, isBoosted: detailed.isBoosted }
-}

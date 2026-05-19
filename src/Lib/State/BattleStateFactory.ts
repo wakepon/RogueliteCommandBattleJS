@@ -2,8 +2,10 @@ import { BattleState, ActorId, RelicBattleState, CommandSlot, EnemyIntent } from
 import { EnemyInstance, EnemyData } from '../Types/Enemy'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { RelicInstance } from '../Types/Relic'
-import { hasRelicEffect, getBattleStartHpReduction } from '../Core/RelicProcessor'
+import { getBattleStartHpReduction } from '../Core/RelicProcessor'
 import { selectEnemyAction } from '../Core/EnemyAI'
+import { getFloor } from '../Core/StageManager'
+import { getTuningValue } from '../Tuning/TuningStore'
 import EnemiesData from '../Data/Enemies.json'
 import StagePatternsData from '../Data/StagePatterns.json'
 
@@ -37,13 +39,27 @@ export function createEnemyInstance(enemyId: string): EnemyInstance {
   }
 }
 
-// ステージに応じた敵を生成
+// 階層ごとのHP倍率を取得
+function getFloorHpMultiplier(floor: number): number {
+  if (floor === 3) return getTuningValue('floor_3_hp_multiplier', 3.0)
+  if (floor === 2) return getTuningValue('floor_2_hp_multiplier', 1.5)
+  return 1.0
+}
+
+// 階層ごとの攻撃力倍率を取得
+function getFloorDamageMultiplier(floor: number): number {
+  if (floor === 3) return getTuningValue('floor_3_damage_multiplier', 2.5)
+  if (floor === 2) return getTuningValue('floor_2_damage_multiplier', 1.8)
+  return 1.0
+}
+
+// ステージに応じた敵を生成（第二階層以降はHP倍率を適用）
 function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
   const stageKey = `stage_${stage}`
   const pattern = stagePatternsData[stageKey]
 
   if (!pattern) {
-    return [createEnemyInstance('slime')]
+    return [createEnemyInstance('slime'), createEnemyInstance('slime')]
   }
 
   if (pattern.patterns.length === 0) {
@@ -53,7 +69,18 @@ function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
   const patternIndex = seed % pattern.patterns.length
   const selectedPattern = pattern.patterns[patternIndex]
 
-  return selectedPattern.enemies.map(enemyId => createEnemyInstance(enemyId))
+  const instances = selectedPattern.enemies.map(enemyId => createEnemyInstance(enemyId))
+
+  const floor = getFloor(stage)
+  const mult = getFloorHpMultiplier(floor)
+  if (mult !== 1.0) {
+    return instances.map(e => ({
+      ...e,
+      hp: Math.floor(e.hp * mult),
+      currentHp: Math.floor(e.currentHp * mult),
+    }))
+  }
+  return instances
 }
 
 // デフォルトのターン制限
@@ -87,29 +114,33 @@ export function createActionQueue(
   return [...explorerActors, ...enemyActors]
 }
 
-/** 敵行動予告を生成 */
+/** 敵行動予告を生成（damageMultiplierで攻撃力倍率を適用） */
 export function generateEnemyIntents(
   enemies: EnemyInstance[],
-  party: ExplorerState[]
+  party: ExplorerState[],
+  damageMultiplier: number = 1.0
 ): EnemyIntent[] {
   return enemies
-    .filter(e => e.currentHp > 0)
+    .filter(e => e.currentHp > 0 && !e.justSummoned)
     .map(enemy => {
       const dummyTarget = party.find(m => m.hp > 0) ?? party[0]
       const action = selectEnemyAction(enemy, dummyTarget)
+      const scaledDamage = damageMultiplier !== 1.0
+        ? Math.floor(action.damage * damageMultiplier)
+        : action.damage
+      const storedAction = { ...action, damage: scaledDamage }
       return {
         enemyInstanceId: enemy.instanceId,
-        actionName: action.actionName,
-        damage: action.damage,
-        storedAction: action,
+        actionName: storedAction.actionName,
+        damage: storedAction.damage,
+        storedAction,
       }
     })
 }
 
 /** レリック戦闘状態を初期化 */
-function createRelicBattleState(relics: RelicInstance[]): RelicBattleState {
+function createRelicBattleState(): RelicBattleState {
   return {
-    shieldActive: hasRelicEffect(relics, 'firstHitShield'),
     killStreakActive: false,
   }
 }
@@ -159,7 +190,10 @@ export function createBattleState(
   const actionQueue = createActionQueue(adjustedParty, enemies)
   const turnLimit = getTurnLimitForStage(stage)
   const commandSlots = createCommandSlots(adjustedParty)
-  const enemyIntents = generateEnemyIntents(enemies, adjustedParty)
+  const floor = getFloor(stage)
+  const hpMult = getFloorHpMultiplier(floor)
+  const damageMult = getFloorDamageMultiplier(floor)
+  const enemyIntents = generateEnemyIntents(enemies, adjustedParty, damageMult)
 
   return {
     turn: 1,
@@ -180,7 +214,7 @@ export function createBattleState(
 
     // 共有
     stolenGold: 0,
-    relicState: createRelicBattleState(relics),
+    relicState: createRelicBattleState(),
     bonusGains: [],
 
     // UI
@@ -196,5 +230,9 @@ export function createBattleState(
     // 後方互換
     actionQueue,
     currentActorIndex: 0,
+
+    // 階層倍率
+    enemyHpMultiplier: hpMult,
+    enemyDamageMultiplier: damageMult,
   }
 }

@@ -3,10 +3,12 @@ import { ExplorerWeapon } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { EnemyInstance } from '../Types/Enemy'
 import { RelicInstance } from '../Types/Relic'
+import { DamageContributor } from '../Types/Battle'
 import { getTuningValue } from '../Tuning/TuningStore'
 import {
   getStatBonus,
   getWeaponDamageBonus,
+  isWeaponDamageBonusApplicable,
   getLowHpDamageMultiplier,
   getKillStreakMultiplier,
   getLastStrikeMultiplier,
@@ -14,11 +16,8 @@ import {
   getLowestLevelDamageMultiplier,
 } from './RelicProcessor'
 
-/** ダメージ寄与者（ポップアップ表示用） */
-export interface DamageContributor {
-  name: string
-  label: string  // "+15", "×1.5", "（確定）" など
-}
+// DamageContributor を再エクスポート（後方互換）
+export type { DamageContributor }
 
 /**
  * ダメージ計算結果
@@ -34,7 +33,7 @@ interface DamageOptions {
   varianceOffset?: number  // ブレのオフセット値（テスト用に固定値を指定）
   relics?: RelicInstance[]
   killStreakActive?: boolean
-  weaponBreakMultiplier?: number  // 不死鳥の残り火: 武器破壊蓄積倍率
+  weaponBreakMultiplier?: number  // 努力の証: 武器破壊蓄積倍率
   party?: ExplorerState[]  // 番狂わせの一撃用: パーティ全体のレベル比較
 }
 
@@ -104,15 +103,15 @@ export function calculateWeaponDamage(
     contributors.push({ name: '武器強化', label: `+${weaponPowerBonusValue}` })
   }
 
-  // レリックによる武器ダメージボーナス
-  const weaponDmgBonus = getWeaponDamageBonus(relics)
+  // レリックによる武器ダメージボーナス（INT武器・パンチは対象外）
+  const weaponDmgBonus = isWeaponDamageBonusApplicable(weapon) ? getWeaponDamageBonus(relics) : 0
 
   // 寄与者: ステータスボーナスと武器ダメージボーナス
   for (const relic of relics) {
     if (relic.passiveEffect.type === 'statBonus' && relic.passiveEffect.stat === scaleStat) {
       contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
     }
-    if (relic.passiveEffect.type === 'weaponDamageBonus') {
+    if (relic.passiveEffect.type === 'weaponDamageBonus' && isWeaponDamageBonusApplicable(weapon)) {
       contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
     }
   }
@@ -127,10 +126,10 @@ export function calculateWeaponDamage(
   const effectivePower = weapon.power + weaponDmgBonus + conditionalPowerBonus + weaponPowerBonusValue
   let rawDamage = effectiveStat * effectivePower * buffMultiplier
 
-  // 不死鳥の残り火: 武器破壊蓄積倍率
+  // 努力の証: 武器破壊蓄積倍率
   if (weaponBreakMultiplier > 0) {
     rawDamage *= (1 + weaponBreakMultiplier)
-    contributors.push({ name: '不死鳥の残り火', label: `×${(1 + weaponBreakMultiplier).toFixed(1)}` })
+    contributors.push({ name: '努力の証', label: `×${(1 + weaponBreakMultiplier).toFixed(1)}` })
   }
 
   // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
@@ -183,7 +182,7 @@ export function calculateWeaponDamage(
   const weaknessDebuff = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
     rawDamage *= (1.0 - weaknessDebuff.value)
-    contributors.push({ name: '弱体', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
+    contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
   }
 
   // 基本ダメージを切り捨て後にブレを加算
@@ -276,7 +275,7 @@ export function calculateSpellDamage(
   const spellWeakness = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (spellWeakness && spellWeakness.type === 'weakness') {
     rawDamage *= (1.0 - spellWeakness.value)
-    contributors.push({ name: '弱体', label: `×${(1.0 - spellWeakness.value).toFixed(2)}` })
+    contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - spellWeakness.value).toFixed(2)}` })
   }
 
   // 基本ダメージを切り捨て後にブレを加算

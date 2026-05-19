@@ -176,7 +176,7 @@
 
 | # | タスク | 説明 | ステータス |
 |---|--------|------|:----------:|
-| 11.1 | TuningConfig型定義 | 6カテゴリの型定義（enemy, player, reward, store, levelup, battle） | ✅ 完了 |
+| 11.1 | TuningConfig型定義 | 7カテゴリの型定義（character, levelup, weapon, battle, economy, event, floor） | ✅ 完了 |
 | 11.2 | TuningSchema | デフォルト値・バリデーション | ✅ 完了 |
 | 11.3 | TuningStore | 現在のTuningConfigを保持・参照 | ✅ 完了 |
 | 11.4 | TuningSerializer | TuningConfig ↔ JSON変換 | ✅ 完了 |
@@ -241,6 +241,35 @@
 
 ---
 
+## スライス14: 第二階層実装
+**動作確認**: 第一階層クリア後に第二階層（ステージ8-11）へ進み、強化された敵と戦える
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|:----------:|
+| 14.1 | StagePatterns.json 拡張 | stage_8〜stage_11 を追加。stage_9 はイベントステージ | ✅ 完了 |
+| 14.2 | isEventStage 更新 | stage 4 と stage 9 の両方をイベントステージと判定 | ✅ 完了 |
+| 14.3 | StageManager 定数追加 | TOTAL_STAGES = 11、getFloor(stage)、isBossStage(stage) 実装 | ✅ 完了 |
+| 14.4 | BattleState 拡張 | enemyHpMultiplier / enemyDamageMultiplier / currentActorIndex / bonusGains フィールド追加 | ✅ 完了 |
+| 14.5 | generateEnemyIntents 拡張 | damageMultiplier 引数追加 | ✅ 完了 |
+| 14.6 | EnemyEffectProcessor 更新 | applySummonEnemy で enemyHpMultiplier 参照。applyHealAlly 引数をオブジェクト型に変更 | ✅ 完了 |
+| 14.7 | StoreState rareRate 追加 | rareRate フィールド追加。createStoreState に stage 引数追加。pickWithRarity 関数追加 | ✅ 完了 |
+| 14.8 | TuningConfig floor カテゴリ追加 | 7カテゴリ化（floor: 階層倍率調整） | ✅ 完了 |
+| 14.9 | BattleResultDiff.ts 追加 | Lib/Core/ に戦闘結果差分計算を追加 | ✅ 完了 |
+| 14.10 | ResultState 型拡張 | 全フィールド（result, goldEarned, baseGold, interestGold, stolenGold, bonusEntries, killCount, memberDiffs, goldDiff）を追加 | ✅ 完了 |
+| 14.11 | WeaponUsesDiff 型更新 | weaponName, currentUses, maxUses, usesDiff, broken フィールドを追加 | ✅ 完了 |
+| 14.12 | MemberBattleDiff 型更新 | 現在値 + 差分値 + 戦闘前値の構造に更新 | ✅ 完了 |
+| 14.13 | EnemyActionResult 拡張 | transformName / isRandomTarget フィールド追加 | ✅ 完了 |
+| 14.14 | PlayerDamagePopup 拡張 | shielded フィールド追加 | ✅ 完了 |
+| 14.15 | Debuff weakness 拡張 | justApplied フィールド追加 | ✅ 完了 |
+| 14.16 | ShopSlot/ShopOption 型更新 | ShopSlot をタグ付きユニオン型（単一 item）に変更。ShopOption に categories フィールド追加 | ✅ 完了 |
+| 14.17 | EventState 型拡張 | revealedRelic / selectedWeaponIds フィールド追加 | ✅ 完了 |
+| 14.18 | GameReducer イベントアクション追加 | CONFIRM_TREASURE, CANCEL_TREASURE, REPLACE_RELIC, TOGGLE_REPAIR_WEAPON, CONFIRM_REPAIR, CLOSE_EVENT | ✅ 完了 |
+| 14.19 | BattleReducer アクション追加 | ADD_EXP_POPUPS, REMOVE_EXP_POPUP | ✅ 完了 |
+| 14.20 | PassiveEffectType パラメータ追加 | levelUpDamageBoost.multiplier, battleEndBonusExp.expValue/goldPenalty | ✅ 完了 |
+| 14.21 | バランス調整各種 | HP調整、敵改善、売値設定、stage1変更、ヒールMP軽減 | ✅ 完了 |
+
+---
+
 ## 進捗サマリー
 
 | スライス | 完了タスク | 総タスク | 進捗 |
@@ -258,7 +287,8 @@
 | 11: Tuning Editor | 11 | 11 | 100% |
 | 12: 3アーキタイプ+ショップ2択制 | 18 | 18 | 100% |
 | 13: EXP/防御系アーキタイプ+リザルトアニメ+ポジション動的化 | 17 | 17 | 100% |
-| **合計** | **102** | **102** | **100%** |
+| 14: 第二階層実装 | 21 | 21 | 100% |
+| **合計** | **123** | **123** | **100%** |
 
 ---
 
@@ -322,6 +352,7 @@ src/
 │   │   ├── MapGenerator.ts
 │   │   ├── RelicProcessor.ts
 │   │   ├── TargetingSystem.ts   # 前衛/後衛ターゲット率計算
+│   │   ├── BattleResultDiff.ts  # 戦闘結果差分計算
 │   │   └── index.ts
 │   ├── State/           # 状態管理
 │   │   ├── BattleReducer.ts

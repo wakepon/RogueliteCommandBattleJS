@@ -25,7 +25,7 @@ export function BuffIcon({ buff, debuff }: BuffIconProps) {
     }
     if (debuff.type === 'weakness') {
       return (
-        <div className="inline-flex items-center justify-center w-6 h-6 bg-yellow-700 rounded text-xs text-white" title={`弱体: ${Math.round(debuff.value * 100)}%低下 残${debuff.duration}T`}>
+        <div className="inline-flex items-center justify-center w-6 h-6 bg-yellow-700 rounded text-xs text-white" title={`攻撃ダウン: ${Math.round(debuff.value * 100)}%低下 残${debuff.duration}T`}>
           W
         </div>
       )
