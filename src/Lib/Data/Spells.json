@@ -9,7 +9,8 @@
     "mpCost": 0,
     "power": 1,
     "variance": 2,
-    "effect": null
+    "effect": null,
+    "slotFree": true
   },
   "prayer": {
     "id": "prayer",
@@ -24,7 +25,8 @@
     "effect": {
       "type": "targetRateUp",
       "value": 25
-    }
+    },
+    "slotFree": true
   },
   "fire": {
     "id": "fire",
@@ -172,6 +174,21 @@
     "variance": 10,
     "hpCost": 16,
     "effect": null
+  },
+  "heal": {
+    "id": "heal",
+    "name": "ヒール",
+    "rarity": "Common",
+    "price": 0,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 3,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "heal",
+      "value": 15
+    }
   },
   "greater_heal": {
     "id": "greater_heal",

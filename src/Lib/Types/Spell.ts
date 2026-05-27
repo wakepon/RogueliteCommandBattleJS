@@ -32,6 +32,7 @@ export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetabl
   effect?: SpellEffect | null
   mpCostRate?: number  // 最大MP割合コスト（0.5 = 50%消費、1.0 = 全消費）
   hpCost?: number     // HP消費（反動魔法用）
+  slotFree?: boolean  // trueなら魔法枠を消費しない（魔力弾・祈り等、パンチ相当）
 }
 
 /** 魔法インスタンス */

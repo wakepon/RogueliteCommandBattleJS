@@ -407,7 +407,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!explorer) return state
       const spell = explorer.spells[action.spellIndex]
       if (!spell) return state
-      if (spell.price === 0) return state
+      if (spell.price === 0 || spell.slotFree) return state
 
       const sellPrice = getSellPriceItem(spell)
       const updatedExplorer: ExplorerState = {
@@ -626,6 +626,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!fromExplorer || !toExplorer) return state
       const spell = fromExplorer.spells[spellIndex]
       if (!spell) return state
+      // slotFree魔法（魔力弾・祈り等）は移動不可
+      if (spell.slotFree) return state
 
       const updatedFrom: ExplorerState = { ...fromExplorer, spells: fromExplorer.spells.filter((_, i) => i !== spellIndex) }
       const updatedTo: ExplorerState = { ...toExplorer, spells: [...toExplorer.spells, spell] }

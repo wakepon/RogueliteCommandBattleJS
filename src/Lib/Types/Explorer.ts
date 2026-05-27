@@ -130,7 +130,7 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
       weaponSlotCount: getTuningValue('cleric_weaponSlotCount', 1),
       magicSlotCount: getTuningValue('cleric_magicSlotCount', 3),
       weapons: () => [],
-      spells: () => [createSpellInstance('prayer'), createSpellInstance('greater_heal')],
+      spells: () => [createSpellInstance('prayer'), createSpellInstance('heal')],
     },
   }
 }

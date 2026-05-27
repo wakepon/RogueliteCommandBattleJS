@@ -291,7 +291,9 @@ function StoreCharacterPanel({
   const purchasedWeapons = member.weapons.filter(w => w.maxUses !== null)
   const infiniteWeapons = member.weapons.filter(w => w.maxUses === null)
   const weaponEmptyCount = Math.max(0, member.weaponSlotCount - purchasedWeapons.length)
-  const spellEmptyCount = Math.max(0, member.magicSlotCount - member.spells.length)
+  const purchasedSpells = member.spells.filter(s => !s.slotFree)
+  const slotFreeSpells = member.spells.filter(s => s.slotFree)
+  const spellEmptyCount = Math.max(0, member.magicSlotCount - purchasedSpells.length)
 
   const requiredKills = getRequiredKillsForNextLevel(member.level)
   const expProgress = requiredKills > 0 ? member.exp : 0
@@ -383,7 +385,8 @@ function StoreCharacterPanel({
           )
         })}
 
-        {member.spells.map((s, i) => {
+        {purchasedSpells.map((s, i) => {
+          const realIndex = member.spells.indexOf(s)
           const sellPrice = getSellPriceItem(s)
           const isMoved = movedKeys.has(`spell-${memberIndex}-${s.id}`)
           const isNew = newPurchaseKeys.has(`spell-${memberIndex}-${s.id}`)
@@ -391,8 +394,8 @@ function StoreCharacterPanel({
           const dmg = s.power > 0 ? formatDamageRange(range) : null
           return (
             <Tooltip key={`s-${i}`} content={<TooltipCard item={s} damageText={dmg || undefined} />} position="bottom">
-              <DraggableShopItem id={`inv-spell-${memberIndex}-${i}`}
-                data={{ source: 'inv-spell', memberIndex, spellIndex: i, spell: s }}>
+              <DraggableShopItem id={`inv-spell-${memberIndex}-${realIndex}`}
+                data={{ source: 'inv-spell', memberIndex, spellIndex: realIndex, spell: s }}>
                 <div className={`relative border rounded p-1.5 text-base border-purple-500/50 bg-purple-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
                   {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
                   <div className="flex items-center gap-1">
@@ -414,6 +417,21 @@ function StoreCharacterPanel({
             <EmptySlot label="魔法 空き" />
           </DroppableSlot>
         ))}
+        {slotFreeSpells.map((s, i) => {
+          const range = predictSpellDamage(member, s, opts)
+          const dmg = s.power > 0 ? formatDamageRange(range) : null
+          return (
+            <Tooltip key={`sf-${i}`} content={<TooltipCard item={s} damageText={dmg || undefined} />} position="bottom">
+              <div className="border rounded p-1.5 text-base border-gray-600/50 bg-gray-800/30 opacity-60">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 truncate flex-1">{s.name}</span>
+                  {s.targetType === 'enemyAll' && <span className="text-[10px] bg-red-700 text-white px-1 rounded flex-shrink-0">全体</span>}
+                </div>
+                {dmg && <div className="text-gray-500 text-sm">{dmg}</div>}
+              </div>
+            </Tooltip>
+          )
+        })}
       </div>
     </div>
   )
@@ -691,7 +709,7 @@ export function StoreScreen() {
       }
       if (data.source === 'inv-spell') {
         const spell = run.party[data.memberIndex]?.spells[data.spellIndex]
-        if (spell && spell.price > 0) {
+        if (spell && spell.price > 0 && !spell.slotFree) {
           setSoldItems(prev => [...prev, { name: spell.name, type: 'spell', sellPrice: getSellPriceItem(spell), memberIndex: data.memberIndex, spell }])
           sellSpell(data.spellIndex, data.memberIndex)
         }

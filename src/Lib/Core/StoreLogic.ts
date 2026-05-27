@@ -106,10 +106,10 @@ function generateWeaponItems(seed: number, count: number, rareRate: number = 0, 
   return pickWithRarity(filtered, count, seed, rareRate)
 }
 
-/** カテゴリ別アイテム生成: 魔法（基本魔法=MP0かつ割合消費なしを除外） */
+/** カテゴリ別アイテム生成: 魔法（slotFree魔法・基本魔法=MP0かつ割合消費なしを除外） */
 function generateSpellItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): SpellData[] {
   const allSpells = Object.values(spellsData).filter(s =>
-    s.mpCost > 0 || (s.mpCostRate !== undefined && s.mpCostRate > 0)
+    !s.slotFree && (s.mpCost > 0 || (s.mpCostRate !== undefined && s.mpCostRate > 0))
   )
   const filtered = applyFloorFilter(allSpells, floor, count)
   return pickWithRarity(filtered, count, seed + 50, rareRate)
@@ -238,9 +238,10 @@ export function canBuyWeapon(explorer: ExplorerState): boolean {
   return purchasedWeapons.length < explorer.weaponSlotCount
 }
 
-/** 魔法枠に空きがあるかチェック */
+/** 魔法枠に空きがあるかチェック（slotFree魔法は枠を消費しない） */
 export function canBuySpell(explorer: ExplorerState): boolean {
-  return explorer.spells.length < explorer.magicSlotCount
+  const purchasedSpells = explorer.spells.filter(s => !s.slotFree)
+  return purchasedSpells.length < explorer.magicSlotCount
 }
 
 /** レリック枠に空きがあるかチェック */
