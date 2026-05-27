@@ -16,8 +16,8 @@ interface DraggableCommandProps {
 /** コマンドカテゴリに応じたアイコン */
 function getCommandStyle(command: BattleCommand): { bgColor: string; label: string } {
   if (isWeapon(command)) {
-    // 祈り/守護の盾（味方対象武器）
-    if (command.targetType === 'allySingle') return { bgColor: 'bg-green-600', label: '祈' }
+    // 味方対象武器（祈り/守護の盾/護りの壁）
+    if (command.targetType === 'allySingle' || command.targetType === 'allyAll') return { bgColor: 'bg-green-600', label: '護' }
     return { bgColor: 'bg-orange-600', label: '剣' }
   }
   if (isSpell(command)) {

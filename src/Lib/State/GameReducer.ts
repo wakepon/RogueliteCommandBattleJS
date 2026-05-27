@@ -1,24 +1,15 @@
-import { GameState, ResultState, EventState, MapState, StoreState, ShopOption, EnhancementTarget, EnhancementShopState, createInitialGameState } from '../Types/Game'
+import { GameState, ResultState, EventState, MapState, StoreState, ShopOption, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
 import { SpellData, SpellInstance } from '../Types/Spell'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
+import { GrowthTypeName } from '../Types/GrowthType'
 import { createBattleState, applyBloodPact, createActionQueue } from './BattleStateFactory'
 import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
+import { applyGrowthType, applyLevelUpRecovery } from '../Core/GrowthTypeCalculator'
 import { calculateReward } from '../Core/RewardCalculator'
-import {
-  generateWeaponEnhancementOptions,
-  generateSpellEnhancementOptions,
-  applyWeaponEnhancement,
-  applySpellEnhancement,
-  canEnhanceWeapon,
-  canEnhanceSpell,
-  ENHANCEMENT_COST,
-  MAX_ENHANCEMENTS_PER_ITEM,
-} from '../Core/EnhancementLogic'
-import { WeaponEnhancement, SpellEnhancement, MAX_ENHANCEMENTS_PER_SHOP } from '../Types/Enhancement'
 import {
   createStoreState,
   rerollStore,
@@ -36,7 +27,7 @@ import {
   getRepairableWeapons,
 } from '../Core/EventLogic'
 import { generateMapNodes } from '../Core/MapGenerator'
-import { getPotionEffectMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
+import { getPotionEffectMultiplier, getPotionDurationMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
 import { addExpAndProcessLevelUp } from '../Core/LevelUpCalculator'
 import {
   processExecuteCommand,
@@ -101,11 +92,7 @@ export type GameAction =
   | { type: 'ADVANCE_FROM_MAP' }
   | { type: 'REORDER_PARTY'; fromIndex: number; toIndex: number }
   | { type: 'USE_POTION_INSTANT'; potionId: string; targetId: string }
-  | { type: 'SELECT_ENHANCEMENT_SHOP' }
-  | { type: 'SELECT_ENHANCEMENT_TARGET'; target: EnhancementTarget }
-  | { type: 'CANCEL_ENHANCEMENT_TARGET' }
-  | { type: 'CONFIRM_ENHANCEMENT' }
-  | { type: 'CHOOSE_ENHANCEMENT'; optionIndex: 0 | 1 }
+  | { type: 'SUBMIT_GROWTH_CHOICE'; explorerId: string; growthType: GrowthTypeName }
 
 /** 次のステージへ進みマップ画面に遷移する共通ヘルパー */
 function advanceToMapPhase(state: GameState, run: RunState): GameState {
@@ -872,6 +859,43 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...w, currentUses: newUses } as typeof w
           }),
         }
+      } else if (effect.type === 'taunt' || effect.type === 'statBoost' || effect.type === 'damageReduction' || effect.type === 'aoeConvert') {
+        // バフ付与ポーション共通: 持続ターン計算
+        const buffDuration = effect.type === 'aoeConvert'
+          ? 'nextAction' as const
+          : Math.floor(1 * getPotionDurationMultiplier(state.run.relics))
+
+        if (effect.type === 'taunt') {
+          // 挑発: 被弾率100%
+          updatedTarget = {
+            ...updatedTarget,
+            battleBuffs: [...updatedTarget.battleBuffs, { type: 'taunt', value: 1, duration: buffDuration as number }],
+          }
+        } else if (effect.type === 'statBoost') {
+          // 興奮: STR+N, INT+N
+          const strBoost = Math.floor(effect.strValue * potionMultiplier)
+          const intBoost = Math.floor(effect.intValue * potionMultiplier)
+          updatedTarget = {
+            ...updatedTarget,
+            battleBuffs: [
+              ...updatedTarget.battleBuffs,
+              { type: 'str', value: strBoost, duration: buffDuration as number },
+              { type: 'int', value: intBoost, duration: buffDuration as number },
+            ],
+          }
+        } else if (effect.type === 'damageReduction') {
+          // 防御: 被ダメ×rate軽減
+          updatedTarget = {
+            ...updatedTarget,
+            battleBuffs: [...updatedTarget.battleBuffs, { type: 'damageReduction', value: effect.rate, duration: buffDuration as number }],
+          }
+        } else {
+          // 全体化: 次の単体攻撃を全体化（nextAction）
+          updatedTarget = {
+            ...updatedTarget,
+            battleBuffs: [...updatedTarget.battleBuffs, { type: 'aoeConvert', value: 1, duration: 'nextAction' as const }],
+          }
+        }
       }
 
       // ポーションを1個消費
@@ -920,164 +944,40 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
     }
 
-    // === 強化ショップ ===
+    case 'SUBMIT_GROWTH_CHOICE': {
+      if (!state.battleState || !state.run) return state
 
-    case 'SELECT_ENHANCEMENT_SHOP': {
-      if (!state.storeState) return state
-      const enhancementState: EnhancementShopState = {
-        phase: 'selectItem',
-        enhancedKeys: [],
-        selectedTarget: null,
-        options: null,
-        enhancementsUsed: 0,
-      }
-      return {
-        ...state,
-        storeState: { ...state.storeState, enhancementState },
-      }
-    }
+      const { explorerId, growthType } = action
+      const explorer = state.run.party.find(e => e.id === explorerId)
+      if (!explorer) return state
 
-    case 'SELECT_ENHANCEMENT_TARGET': {
-      if (!state.storeState?.enhancementState) return state
-      return {
-        ...state,
-        storeState: {
-          ...state.storeState,
-          enhancementState: {
-            ...state.storeState.enhancementState,
-            phase: 'confirmEnhance',
-            selectedTarget: action.target,
-            options: null,
-          },
-        },
-      }
-    }
-
-    case 'CANCEL_ENHANCEMENT_TARGET': {
-      if (!state.storeState?.enhancementState) return state
-      return {
-        ...state,
-        storeState: {
-          ...state.storeState,
-          enhancementState: {
-            ...state.storeState.enhancementState,
-            phase: 'selectItem',
-            selectedTarget: null,
-            options: null,
-          },
-        },
-      }
-    }
-
-    case 'CONFIRM_ENHANCEMENT': {
-      if (!state.run || !state.storeState?.enhancementState) return state
-      const enhStateCE = state.storeState.enhancementState
-      const { selectedTarget } = enhStateCE
-      if (!selectedTarget || state.run.gold < ENHANCEMENT_COST) return state
-      if (enhStateCE.enhancementsUsed >= MAX_ENHANCEMENTS_PER_SHOP) return state
-
-      const member = state.run.party[selectedTarget.memberIndex]
-      if (!member) return state
-
-      if (selectedTarget.itemType === 'weapon') {
-        const w = member.weapons[selectedTarget.itemIndex]
-        if (!w || !canEnhanceWeapon(w)) return state
-        if ((w as WeaponInstance).enhancements.length >= MAX_ENHANCEMENTS_PER_ITEM) return state
-      } else {
-        const s = member.spells[selectedTarget.itemIndex]
-        if (!s || !canEnhanceSpell(s)) return state
-        if (s.enhancements.length >= MAX_ENHANCEMENTS_PER_ITEM) return state
-      }
-
-      const seed = state.run.seed + state.run.currentStage * 100 + enhStateCE.enhancementsUsed * 37
-
-      let options: [
-        { merit: WeaponEnhancement['merit']; demerit: WeaponEnhancement['demerit'] },
-        { merit: WeaponEnhancement['merit']; demerit: WeaponEnhancement['demerit'] }
-      ] | [
-        { merit: SpellEnhancement['merit']; demerit: SpellEnhancement['demerit'] },
-        { merit: SpellEnhancement['merit']; demerit: SpellEnhancement['demerit'] }
-      ]
-
-      if (selectedTarget.itemType === 'weapon') {
-        options = generateWeaponEnhancementOptions(seed)
-      } else {
-        const spell = member.spells[selectedTarget.itemIndex]
-        if (!spell) return state
-        options = generateSpellEnhancementOptions(spell, seed)
-      }
-
-      return {
-        ...state,
-        run: { ...state.run, gold: state.run.gold - ENHANCEMENT_COST },
-        storeState: {
-          ...state.storeState,
-          enhancementState: {
-            ...state.storeState.enhancementState,
-            phase: 'chooseOption',
-            options,
-          },
-        },
-      }
-    }
-
-    case 'CHOOSE_ENHANCEMENT': {
-      if (!state.run || !state.storeState?.enhancementState) return state
-      const enhState = state.storeState.enhancementState
-      const { selectedTarget, options } = enhState
-      if (!selectedTarget || !options) return state
-
-      const chosen = options[action.optionIndex]
-      const member = state.run.party[selectedTarget.memberIndex]
-      if (!member) return state
-
-      let updatedMember: ExplorerState
-
-      if (selectedTarget.itemType === 'weapon') {
-        const weapon = member.weapons[selectedTarget.itemIndex]
-        if (!weapon || !('enhancements' in weapon)) return state
-        const enhanced = applyWeaponEnhancement(
-          weapon as WeaponInstance,
-          chosen as WeaponEnhancement
-        )
-        updatedMember = {
-          ...member,
-          weapons: member.weapons.map((w, i) =>
-            i === selectedTarget.itemIndex ? enhanced : w
-          ),
-        }
-      } else {
-        const spell = member.spells[selectedTarget.itemIndex]
-        if (!spell) return state
-        const enhanced = applySpellEnhancement(
-          spell,
-          chosen as SpellEnhancement
-        )
-        updatedMember = {
-          ...member,
-          spells: member.spells.map((s, i) =>
-            i === selectedTarget.itemIndex ? enhanced : s
-          ),
-        }
-      }
-
-      const updatedParty = state.run.party.map((m, i) =>
-        i === selectedTarget.memberIndex ? updatedMember : m
+      // キューに保存された選択肢から取得（モーダルに表示された値と一致を保証）
+      const pendingChoice = state.battleState.pendingGrowthChoices.find(
+        c => c.explorerId === explorerId
       )
+      if (!pendingChoice) return state
+      const selectedOption = pendingChoice.options.find(o => o.type === growthType)
+      if (!selectedOption) return state
+
+      // ステータス成長を適用
+      let updatedExplorer = applyGrowthType(explorer, selectedOption)
+      // HP/MP回復を適用
+      updatedExplorer = applyLevelUpRecovery(updatedExplorer)
+
+      const updatedParty = state.run.party.map(e =>
+        e.id === explorerId ? updatedExplorer : e
+      )
+
+      // BattleReducerでpendingGrowthChoicesから除去
+      const newBattleState = battleReducer(state.battleState, {
+        type: 'REMOVE_GROWTH_CHOICE',
+        explorerId,
+      })
 
       return {
         ...state,
         run: { ...state.run, party: updatedParty },
-        storeState: {
-          ...state.storeState,
-          enhancementState: {
-            ...enhState,
-            phase: 'selectItem',
-            selectedTarget: null,
-            options: null,
-            enhancementsUsed: enhState.enhancementsUsed + 1,
-          },
-        },
+        battleState: newBattleState,
       }
     }
 

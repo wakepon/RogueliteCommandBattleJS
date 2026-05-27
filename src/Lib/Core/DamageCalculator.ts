@@ -178,6 +178,16 @@ export function calculateWeaponDamage(
     contributors.push({ name: relic?.name ?? '闘気の腕輪', label: `×${levelUpBoostBuff.value}` })
   }
 
+  // シールドバッシュ: 攻撃者のシールド値をダメージに加算
+  let shieldBashBonus = 0
+  if ('effect' in weapon && weapon.effect?.type === 'shieldBash') {
+    const shieldBuff = attacker.battleBuffs.find(b => b.type === 'shield')
+    if (shieldBuff) {
+      shieldBashBonus = shieldBuff.value
+      contributors.push({ name: 'シールドバッシュ', label: `+${shieldBashBonus}` })
+    }
+  }
+
   // 弱体デバフによるダメージ低下
   const weaknessDebuff = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
@@ -185,8 +195,8 @@ export function calculateWeaponDamage(
     contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
   }
 
-  // 基本ダメージを切り捨て後にブレを加算
-  const damage = Math.floor(rawDamage) + offset
+  // 基本ダメージを切り捨て後にブレ+シールドバッシュボーナスを加算
+  const damage = Math.floor(rawDamage) + offset + shieldBashBonus
 
   return {
     damage: Math.max(0, damage),

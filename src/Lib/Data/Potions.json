@@ -25,5 +25,41 @@
     "commandCategory": "potion",
     "targetType": "allySingle",
     "effect": { "type": "repairWeapons", "value": 2 }
+  },
+  "taunt_potion": {
+    "id": "taunt_potion",
+    "name": "挑発ポーション",
+    "rarity": "Uncommon",
+    "price": 3,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "taunt" }
+  },
+  "excitement_potion": {
+    "id": "excitement_potion",
+    "name": "興奮ポーション",
+    "rarity": "Uncommon",
+    "price": 4,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "statBoost", "strValue": 4, "intValue": 4 }
+  },
+  "defense_potion": {
+    "id": "defense_potion",
+    "name": "防御ポーション",
+    "rarity": "Uncommon",
+    "price": 3,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "damageReduction", "rate": 0.5 }
+  },
+  "aoe_potion": {
+    "id": "aoe_potion",
+    "name": "全体化ポーション",
+    "rarity": "Rare",
+    "price": 5,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "aoeConvert" }
   }
 }

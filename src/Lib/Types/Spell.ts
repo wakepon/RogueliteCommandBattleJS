@@ -18,6 +18,10 @@ export type SpellEffect =
   | { type: 'guidanceBuff'; bonusExp: number }  // 師弟の絆: 次のトドメでボーナスEXP
   | { type: 'killBonusExpToAll'; expAmount: number }  // 教育の魔弾: トドメで全員にボーナスEXP
   | { type: 'targetRateUp'; value: number }   // 祈り: 被ターゲット率UP
+  | { type: 'mpPercentShield'; rate: number }  // 魔力の盾: 最大MP×rate のシールド付与
+  | { type: 'mpAllDamage' }                    // 魔力放出: 現在MP全消費→MPぶんのダメージ
+  | { type: 'mpPercentHeal'; rate: number }    // 魔力治癒: 最大MP×rate のHP回復
+  | { type: 'thorns'; value: number }           // 棘付与: 味方に棘バフ付与（バトル中持続、蓄積、被弾時に反撃）
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {
@@ -26,6 +30,7 @@ export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetabl
   power: number
   variance: number  // ダメージブレ幅（±variance の加算ブレ）
   effect?: SpellEffect | null
+  mpCostRate?: number  // 最大MP割合コスト（0.5 = 50%消費、1.0 = 全消費）
 }
 
 /** 魔法インスタンス */

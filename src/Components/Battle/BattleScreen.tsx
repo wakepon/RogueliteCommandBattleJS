@@ -22,6 +22,7 @@ import { DroppableTarget } from './DroppableTarget'
 import { TooltipCard } from '../Common/TooltipCard'
 import { NextStagePreview } from './NextStagePreview'
 import { GameOverOverlay } from './GameOverOverlay'
+import { GrowthSelectModal } from './GrowthSelectModal'
 import { ExpPopupEffect } from './ExpPopupEffect'
 import { PlayerDamagePopupEffect } from './PlayerDamagePopupEffect'
 import { PartyAvatars, AvatarActingType, CLASS_ICONS, AvatarVisual } from './PartyAvatars'
@@ -377,6 +378,8 @@ export function BattleScreen() {
     levelUpPopups,
     expPopups,
     potions,
+    pendingGrowthChoices,
+    submitGrowthChoice,
     cancelCommand,
     selectTarget,
     changeActiveExplorer,
@@ -477,6 +480,8 @@ export function BattleScreen() {
 
   useEffect(() => {
     if (battleState.isGameOver) return
+    // 成長方向選択が残っている間はバトル終了しない
+    if (battleState.pendingGrowthChoices.length > 0) return
     const result = checkBattleResult(enemies, party)
     if (result === 'ongoing') return
     // HPバーアニメーション(300ms) + 余韻(500ms) を待ってから遷移
@@ -484,7 +489,7 @@ export function BattleScreen() {
     const delay = levelUpPopups.length > 0 ? 1800 : 800
     const timer = setTimeout(() => endBattle(result), delay)
     return () => clearTimeout(timer)
-  }, [enemies, party, endBattle, battleState.isGameOver, levelUpPopups.length])
+  }, [enemies, party, endBattle, battleState.isGameOver, battleState.pendingGrowthChoices.length, levelUpPopups.length])
 
   // 経験値ポップアップ追加検知: 新しい popup の amount を pendingExpByMember に積む
   // （popup がメンバーに到達するまで EXP バーに反映させない）
@@ -943,6 +948,21 @@ export function BattleScreen() {
         {expPopups.map(popup => (
           <ExpPopupEffect key={popup.id} popup={popup} onComplete={() => handleExpPopupComplete(popup)} />
         ))}
+
+        {/* 成長方向選択モーダル（レベルアップ時） */}
+        {pendingGrowthChoices.length > 0 && !battleState.isGameOver && (() => {
+          const currentChoice = pendingGrowthChoices[0]
+          const explorerForGrowth = party.find(e => e.id === currentChoice.explorerId)
+          if (!explorerForGrowth) return null
+          return (
+            <GrowthSelectModal
+              key={`${currentChoice.explorerId}-${currentChoice.options[0].type}-${currentChoice.options[1].type}`}
+              choice={currentChoice}
+              explorer={explorerForGrowth}
+              onSelect={(growthType) => submitGrowthChoice(currentChoice.explorerId, growthType)}
+            />
+          )
+        })()}
 
         {battleState.isGameOver && <GameOverOverlay onReturnTitle={returnToTitle} />}
       </div>

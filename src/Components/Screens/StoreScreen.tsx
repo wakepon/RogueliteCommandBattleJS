@@ -5,7 +5,6 @@ import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
 import { ResourceBar, Tooltip, TooltipCard } from '../Common'
 import { MapOverlay } from '../Store/MapOverlay'
-import { EnhancementShopPanel } from '../Store/EnhancementShopPanel'
 import { ExplorerState, CharacterClass } from '../../Lib/Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
@@ -13,7 +12,6 @@ import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { getSellPrice, getSellPriceItem, isWeaponData, isSpellData, STORE_CATEGORY_LABELS } from '../../Lib/Core/StoreLogic'
 import { ShopSlot, ShopOption } from '../../Lib/Types/Game'
-import { ENHANCEMENT_COST } from '../../Lib/Types/Enhancement'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 import { calculateRelicAttackImpacts, MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
@@ -561,7 +559,6 @@ export function StoreLeftPanel({
 export function StoreScreen() {
   const {
     state,
-    dispatch,
     buyWeapon, buySpell, buyRelic, buyPotion,
     sellWeapon, sellSpell, sellRelic, sellPotion,
     undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion,
@@ -821,20 +818,8 @@ export function StoreScreen() {
     setDraggingLabel(null)
   }, [])
 
-  if (storeState.enhancementState) {
-    return (
-      <EnhancementShopPanel
-        run={run} storeState={storeState} dispatch={dispatch}
-        gold={gold} initialGold={initialGold}
-        movedKeys={movedKeys} newPurchaseKeys={newPurchaseKeys}
-        mapState={mapState} showMap={showMap} setShowMap={setShowMap}
-        closeStore={closeStore}
-      />
-    )
-  }
-
   // ショップ選択画面
-  if (storeState.selectedShopIndex === null && !storeState.enhancementState) {
+  if (storeState.selectedShopIndex === null) {
     return (
       <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
 
@@ -879,13 +864,6 @@ export function StoreScreen() {
                 </button>
               ))}
             </div>
-            <button
-              className="w-full bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 rounded-lg p-3 flex flex-col items-center gap-1 transition-colors cursor-pointer mt-2"
-              onClick={() => dispatch({ type: 'SELECT_ENHANCEMENT_SHOP' })}
-            >
-              <div className="text-yellow-300 font-bold text-sm">武器・魔法強化</div>
-              <div className="text-gray-500 text-[10px]">所持アイテムを強化（{ENHANCEMENT_COST}G/回）</div>
-            </button>
           </div>
 
           {/* ===== キャラ欄3等分（3キャラ。共有枠はサイドバーへ移動） ===== */}

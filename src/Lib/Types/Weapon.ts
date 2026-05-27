@@ -11,6 +11,10 @@ export type WeaponEffect =
   | { type: 'conditionalPower'; hpThreshold: number; bonusPower: number }  // HP条件でPower増加
   | { type: 'shield'; value: number }  // 守護の盾: 対象に被ダメ軽減シールド付与
   | { type: 'killPreserveDurability' }  // 魂喰いの剣: トドメを刺すと耐久を消費しない
+  | { type: 'hpPercentDamage'; rate: number }  // 生命の拳: 最大HP×rate のダメージ
+  | { type: 'hpPercentShieldAll'; rate: number }  // 護りの壁: 味方全員に最大HP×rate のシールド
+  | { type: 'currentHpDamage' }  // 捨て身の一撃: 現在HP-1 のダメージ、HPが1になる
+  | { type: 'shieldBash' }  // シールドバッシュ: 攻撃者のシールド値をダメージに加算し、シールドを消費
 
 /** 武器データ（マスター） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {

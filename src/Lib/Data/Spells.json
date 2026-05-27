@@ -261,5 +261,67 @@
       "type": "heal",
       "value": 25
     }
+  },
+  "mana_shield": {
+    "id": "mana_shield",
+    "name": "魔力の盾",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 0,
+    "mpCostRate": 0.5,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "mpPercentShield",
+      "rate": 0.5
+    }
+  },
+  "mana_release": {
+    "id": "mana_release",
+    "name": "魔力放出",
+    "rarity": "Rare",
+    "price": 9,
+    "commandCategory": "spell",
+    "targetType": "enemySingle",
+    "mpCost": 0,
+    "mpCostRate": 1.0,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "mpAllDamage"
+    }
+  },
+  "mana_cure": {
+    "id": "mana_cure",
+    "name": "魔力治癒",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 0,
+    "mpCostRate": 0.5,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "mpPercentHeal",
+      "rate": 0.5
+    }
+  },
+  "thorns_grant": {
+    "id": "thorns_grant",
+    "name": "棘の護り",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "spell",
+    "targetType": "allySingle",
+    "mpCost": 4,
+    "power": 0,
+    "variance": 0,
+    "effect": {
+      "type": "thorns",
+      "value": 10
+    }
   }
 }

@@ -27,6 +27,15 @@ export function calculateTargetRates(
   const alive = party.filter(m => m.hp > 0)
   if (alive.length === 0) return []
 
+  // 挑発バフ: tauntバフを持つメンバーが被弾率100%、他は0%
+  const tauntMember = alive.find(m => m.battleBuffs.some(b => b.type === 'taunt'))
+  if (tauntMember) {
+    return alive.map(m => ({
+      explorerId: m.id,
+      rate: m.id === tauntMember.id ? 1.0 : 0,
+    }))
+  }
+
   // 基本ウェイト: 前衛/後衛（Tuning対応）
   const frontWeight = getTuningValue('front_position_weight', 2)
   const backWeight = getTuningValue('back_position_weight', 1)

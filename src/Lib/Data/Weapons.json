@@ -212,5 +212,53 @@
     "variance": 8,
     "maxUses": 5,
     "goldCost": 2
+  },
+  "life_fist": {
+    "id": "life_fist",
+    "name": "生命の拳",
+    "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 0,
+    "variance": 0,
+    "maxUses": 3,
+    "effect": { "type": "hpPercentDamage", "rate": 0.3 }
+  },
+  "guardian_wall": {
+    "id": "guardian_wall",
+    "name": "護りの壁",
+    "rarity": "Rare",
+    "price": 9,
+    "commandCategory": "weapon",
+    "targetType": "allyAll",
+    "power": 0,
+    "variance": 0,
+    "maxUses": 3,
+    "effect": { "type": "hpPercentShieldAll", "rate": 0.2 }
+  },
+  "desperate_strike": {
+    "id": "desperate_strike",
+    "name": "捨て身の一撃",
+    "rarity": "Rare",
+    "price": 8,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 0,
+    "variance": 0,
+    "maxUses": 2,
+    "effect": { "type": "currentHpDamage" }
+  },
+  "shield_bash": {
+    "id": "shield_bash",
+    "name": "シールドバッシュ",
+    "rarity": "Rare",
+    "price": 9,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 2,
+    "variance": 3,
+    "maxUses": 4,
+    "effect": { "type": "shieldBash" }
   }
 }

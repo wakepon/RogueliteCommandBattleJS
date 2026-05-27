@@ -106,14 +106,23 @@ export function processShieldDamageReduction(
   buffs: Buff[],
   incomingDamage: number
 ): { reducedDamage: number; updatedBuffs: Buff[] } {
-  const shieldBuff = buffs.find(b => b.type === 'shield')
+  let currentDamage = incomingDamage
 
-  if (!shieldBuff || incomingDamage <= 0) {
-    return { reducedDamage: incomingDamage, updatedBuffs: buffs }
+  // 1. 防御ポーションのダメージ軽減バフ（シールドより先に適用）
+  const reductionBuff = buffs.find(b => b.type === 'damageReduction')
+  if (reductionBuff && currentDamage > 0) {
+    currentDamage = Math.max(0, Math.floor(currentDamage * (1 - reductionBuff.value)))
   }
 
-  const absorbed = Math.min(shieldBuff.value, incomingDamage)
-  const reducedDamage = Math.max(0, incomingDamage - absorbed)
+  // 2. シールドによる吸収
+  const shieldBuff = buffs.find(b => b.type === 'shield')
+
+  if (!shieldBuff || currentDamage <= 0) {
+    return { reducedDamage: currentDamage, updatedBuffs: buffs }
+  }
+
+  const absorbed = Math.min(shieldBuff.value, currentDamage)
+  const reducedDamage = Math.max(0, currentDamage - absorbed)
 
   // シールドを消費（1回使い切り）
   const updatedBuffs = buffs.filter(b => b.type !== 'shield')

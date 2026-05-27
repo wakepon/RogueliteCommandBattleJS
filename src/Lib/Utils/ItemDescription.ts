@@ -1,5 +1,5 @@
-import { WeaponData, WeaponInstance, ExplorerWeapon } from '../Types/Weapon'
-import { SpellData, SpellInstance } from '../Types/Spell'
+import { WeaponData, ExplorerWeapon } from '../Types/Weapon'
+import { SpellData } from '../Types/Spell'
 import { RelicData, RelicInstance } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
 import { PassiveEffectType } from '../Types/Passive'
@@ -7,14 +7,8 @@ import { BattleCommand } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isWeapon, isSpell, isPotion } from '../Core/CommandValidator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, type DamagePredictOptions } from './DamagePredictor'
-import { getWeaponEnhancementSummary, getSpellEnhancementSummary } from '../Core/EnhancementLogic'
 
 type ItemType = WeaponData | SpellData | RelicData | PotionData | ExplorerWeapon
-
-function formatEnhancementText(summary: { text: string; isMerit: boolean }[]): string {
-  if (summary.length === 0) return ''
-  return '[強化] ' + summary.map(s => s.text).join(' / ')
-}
 
 /** ダメージ予測表示用コンテキスト */
 export interface DamageContext {
@@ -80,6 +74,21 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
       return `最もHPが多いキャラの被弾率+${effect.value}%`
     case 'deathProtection':
       return '致死ダメージでHP1で耐える（1ランに1回消滅）'
+    case 'growthGuarantee': {
+      const typeLabels: Record<string, string> = {
+        attack: '攻撃', hp: '生命力', mp: '魔力', balance: 'バランス', allBonus: '覚醒',
+      }
+      return `レベルアップ時「${typeLabels[effect.growthType] ?? effect.growthType}」が必ず出現`
+    }
+    // ビルドパス拡張
+    case 'thornsMultiplier':
+      return `棘バフの実効値${effect.multiplier}倍`
+    case 'comboBonus':
+      return `同ターン2人以上武器攻撃でダメージ×${effect.multiplier}`
+    case 'potionSlotBonus':
+      return `ポーション所持上限+${effect.value}`
+    case 'potionDurationMultiplier':
+      return `ポーションのバフ効果ターン×${effect.multiplier}`
   }
 }
 
@@ -111,6 +120,18 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       if (weapon.effect.type === 'killPreserveDurability') {
         desc += ' | トドメ時に耐久消費なし'
       }
+      if (weapon.effect.type === 'hpPercentDamage') {
+        desc += ` | 最大HP${Math.floor(weapon.effect.rate * 100)}%のダメージ`
+      }
+      if (weapon.effect.type === 'hpPercentShieldAll') {
+        desc += ` | 味方全員に最大HP${Math.floor(weapon.effect.rate * 100)}%のシールド`
+      }
+      if (weapon.effect.type === 'currentHpDamage') {
+        desc += ' | 現在HP-1のダメージ（HPが1になる）'
+      }
+      if (weapon.effect.type === 'shieldBash') {
+        desc += ' | 自身のシールド値をダメージに加算（シールド消費）'
+      }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       desc += ` | HP${weapon.hpCost}消費`
@@ -122,17 +143,20 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       const hitCount = 'hits' in weapon && weapon.hits ? weapon.hits : 3
       desc += ` | ランダムな敵に攻撃（${hitCount}回）`
     }
-    if ('enhancements' in weapon && (weapon as WeaponInstance).enhancements.length > 0) {
-      const enhText = formatEnhancementText(getWeaponEnhancementSummary((weapon as WeaponInstance).enhancements))
-      if (enhText) desc += ` | ${enhText}`
-    }
     return desc
   }
 
   // 魔法
   if ('commandCategory' in item && item.commandCategory === 'spell') {
     const spell = item as SpellData
-    let desc = `MP: ${spell.mpCost}`
+    let desc: string
+    if (spell.mpCostRate !== undefined && spell.mpCostRate > 0) {
+      desc = spell.mpCostRate >= 1.0
+        ? `MP: 全消費`
+        : `MP: 最大${Math.floor(spell.mpCostRate * 100)}%消費`
+    } else {
+      desc = `MP: ${spell.mpCost}`
+    }
     if (spell.power > 0) {
       if (context) {
         const range = predictSpellDamage(context.explorer, spell, toPredictOptions(context))
@@ -166,11 +190,15 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | トドメ時に全員へ+${spell.effect.expAmount}EXP`
       } else if (spell.effect.type === 'targetRateUp') {
         desc += ` | 被ターゲット率UP(${spell.effect.value}%)`
+      } else if (spell.effect.type === 'mpPercentShield') {
+        desc += ` | 最大MP${Math.floor(spell.effect.rate * 100)}%のシールド付与`
+      } else if (spell.effect.type === 'mpAllDamage') {
+        desc += ' | 現在MP全量をダメージに変換'
+      } else if (spell.effect.type === 'mpPercentHeal') {
+        desc += ` | 最大MP${Math.floor(spell.effect.rate * 100)}%のHP回復`
+      } else if (spell.effect.type === 'thorns') {
+        desc += ` | 棘${spell.effect.value}付与（バトル中蓄積、被弾時に反撃）`
       }
-    }
-    if ('enhancements' in spell && (spell as SpellInstance).enhancements.length > 0) {
-      const enhText = formatEnhancementText(getSpellEnhancementSummary((spell as SpellInstance).enhancements))
-      if (enhText) desc += ` | ${enhText}`
     }
     return desc
   }
@@ -186,6 +214,18 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
     }
     if (potion.effect.type === 'repairWeapons') {
       return `全武器の耐久 +${potion.effect.value} 回復`
+    }
+    if (potion.effect.type === 'taunt') {
+      return '1ターン被弾率100%（挑発）'
+    }
+    if (potion.effect.type === 'statBoost') {
+      return `1ターンSTR+${potion.effect.strValue} / INT+${potion.effect.intValue}`
+    }
+    if (potion.effect.type === 'damageReduction') {
+      return `1ターン被ダメージ${Math.floor(potion.effect.rate * 100)}%カット`
+    }
+    if (potion.effect.type === 'aoeConvert') {
+      return '次の1回の単体攻撃を全体攻撃化'
     }
     return ''
   }
@@ -218,6 +258,14 @@ export function getItemSpecialEffect(item: ItemType): string {
         parts.push(`シールド${weapon.effect.value}付与`)
       } else if (weapon.effect.type === 'killPreserveDurability') {
         parts.push('トドメ時に耐久消費なし')
+      } else if (weapon.effect.type === 'hpPercentDamage') {
+        parts.push(`最大HP${Math.floor(weapon.effect.rate * 100)}%のダメージ`)
+      } else if (weapon.effect.type === 'hpPercentShieldAll') {
+        parts.push(`味方全員に最大HP${Math.floor(weapon.effect.rate * 100)}%のシールド`)
+      } else if (weapon.effect.type === 'currentHpDamage') {
+        parts.push('現在HP-1のダメージ（HPが1になる）')
+      } else if (weapon.effect.type === 'shieldBash') {
+        parts.push('シールド値をダメージに加算（シールド消費）')
       }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
@@ -262,6 +310,14 @@ export function getItemSpecialEffect(item: ItemType): string {
         return `トドメ時に全員へ+${spell.effect.expAmount}EXP`
       case 'targetRateUp':
         return `被ターゲット率UP(${spell.effect.value}%)`
+      case 'mpPercentShield':
+        return `最大MP${Math.floor(spell.effect.rate * 100)}%のシールド付与`
+      case 'mpAllDamage':
+        return '現在MP全量をダメージに変換'
+      case 'mpPercentHeal':
+        return `最大MP${Math.floor(spell.effect.rate * 100)}%のHP回復`
+      case 'thorns':
+        return `棘${spell.effect.value}付与（バトル中蓄積、被弾時反撃）`
       default:
         return ''
     }
@@ -273,6 +329,10 @@ export function getItemSpecialEffect(item: ItemType): string {
     if (potion.effect.type === 'healHp') return `HP+${potion.effect.value}回復`
     if (potion.effect.type === 'healMp') return `MP+${potion.effect.value}回復`
     if (potion.effect.type === 'repairWeapons') return `全武器耐久+${potion.effect.value}回復`
+    if (potion.effect.type === 'taunt') return '1ターン被弾率100%（挑発）'
+    if (potion.effect.type === 'statBoost') return `1ターンSTR+${potion.effect.strValue}/INT+${potion.effect.intValue}`
+    if (potion.effect.type === 'damageReduction') return `1ターン被ダメ${Math.floor(potion.effect.rate * 100)}%カット`
+    if (potion.effect.type === 'aoeConvert') return '次の単体攻撃を全体化'
     return ''
   }
 
@@ -340,14 +400,20 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       const hitCount = 'hits' in command && command.hits ? command.hits : 3
       desc += ` ランダム(${hitCount}回)`
     }
-    if ('enhancements' in command && (command as WeaponInstance).enhancements.length > 0) {
-      const enhText = formatEnhancementText(getWeaponEnhancementSummary((command as WeaponInstance).enhancements))
-      if (enhText) desc += ` ${enhText}`
+    if ('targetType' in command && command.targetType === 'allyAll') {
+      desc += ' 味方全体'
     }
     return desc
   }
   if (isSpell(command)) {
-    let desc = `「魔法」${command.name} - MP:${command.mpCost}`
+    let desc: string
+    if (command.mpCostRate !== undefined && command.mpCostRate > 0) {
+      desc = command.mpCostRate >= 1.0
+        ? `「魔法」${command.name} - MP:全消費`
+        : `「魔法」${command.name} - MP:最大${Math.floor(command.mpCostRate * 100)}%`
+    } else {
+      desc = `「魔法」${command.name} - MP:${command.mpCost}`
+    }
     if (command.power > 0) {
       if (context) {
         const range = predictSpellDamage(context.explorer, command, toPredictOptions(context))
@@ -381,11 +447,15 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ` 全員+${command.effect.expAmount}EXP`
       } else if (command.effect.type === 'targetRateUp') {
         desc += ` 被弾率+${command.effect.value}%`
+      } else if (command.effect.type === 'mpPercentShield') {
+        desc += ` 最大MP${Math.floor(command.effect.rate * 100)}%シールド`
+      } else if (command.effect.type === 'mpAllDamage') {
+        desc += ' 現在MP→ダメージ'
+      } else if (command.effect.type === 'mpPercentHeal') {
+        desc += ` 最大MP${Math.floor(command.effect.rate * 100)}%回復`
+      } else if (command.effect.type === 'thorns') {
+        desc += ` 棘${command.effect.value}付与`
       }
-    }
-    if ('enhancements' in command && (command as unknown as SpellInstance).enhancements.length > 0) {
-      const enhText = formatEnhancementText(getSpellEnhancementSummary((command as unknown as SpellInstance).enhancements))
-      if (enhText) desc += ` ${enhText}`
     }
     return desc
   }
@@ -398,6 +468,18 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
     }
     if (command.effect.type === 'repairWeapons') {
       return `「ポーション」${command.name} - 全武器の耐久 +${command.effect.value} 回復`
+    }
+    if (command.effect.type === 'taunt') {
+      return `「ポーション」${command.name} - 1ターン被弾率100%`
+    }
+    if (command.effect.type === 'statBoost') {
+      return `「ポーション」${command.name} - STR+${command.effect.strValue}/INT+${command.effect.intValue} (1ターン)`
+    }
+    if (command.effect.type === 'damageReduction') {
+      return `「ポーション」${command.name} - 被ダメ${Math.floor(command.effect.rate * 100)}%カット (1ターン)`
+    }
+    if (command.effect.type === 'aoeConvert') {
+      return `「ポーション」${command.name} - 次の単体攻撃を全体化`
     }
   }
   return command.name

@@ -24,6 +24,12 @@ export type PassiveEffectType =
   | { type: 'lowestLevelDamageMultiplier'; multiplier: number }  // 番狂わせの一撃: パーティ最低レベル者のダメージ倍率
   | { type: 'highHpTargetRateBonus'; value: number }  // 強い者いじめ: HP最大者の被弾率+N%
   | { type: 'deathProtection' }  // 身代わりの人形: 致死ダメージでHP1耐え、1ラン1回消滅
+  | { type: 'growthGuarantee'; growthType: 'attack' | 'hp' | 'mp' | 'balance' | 'allBonus' }  // 成長方向保証: レベルアップ時に指定タイプを1枠確定
+  // ビルドパス拡張
+  | { type: 'thornsMultiplier'; multiplier: number }  // 棘の書: 棘バフの実効値を倍化
+  | { type: 'comboBonus'; multiplier: number }  // 連携の紋章: 同ターン2人以上武器攻撃で全武器ダメ×multiplier
+  | { type: 'potionSlotBonus'; value: number }  // 薬師の鞄: ポーション所持上限+N
+  | { type: 'potionDurationMultiplier'; multiplier: number }  // ポーション効果ターンを倍化
 
 /** パッシブ効果を持つアイテム */
 export interface IPassiveEffect {

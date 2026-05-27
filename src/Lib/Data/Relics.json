@@ -138,5 +138,54 @@
     "rarity": "Uncommon",
     "price": 7,
     "passiveEffect": { "type": "deathProtection" }
+  },
+  "book_of_valor": {
+    "id": "book_of_valor",
+    "name": "闘志の書",
+    "rarity": "Uncommon",
+    "price": 6,
+    "passiveEffect": { "type": "growthGuarantee", "growthType": "attack" }
+  },
+  "book_of_life": {
+    "id": "book_of_life",
+    "name": "生命の書",
+    "rarity": "Uncommon",
+    "price": 6,
+    "passiveEffect": { "type": "growthGuarantee", "growthType": "hp" }
+  },
+  "book_of_sorcery": {
+    "id": "book_of_sorcery",
+    "name": "魔導の書",
+    "rarity": "Uncommon",
+    "price": 6,
+    "passiveEffect": { "type": "growthGuarantee", "growthType": "mp" }
+  },
+  "thorns_tome": {
+    "id": "thorns_tome",
+    "name": "棘の書",
+    "rarity": "Rare",
+    "price": 10,
+    "passiveEffect": { "type": "thornsMultiplier", "multiplier": 2 }
+  },
+  "combo_crest": {
+    "id": "combo_crest",
+    "name": "連携の紋章",
+    "rarity": "Rare",
+    "price": 10,
+    "passiveEffect": { "type": "comboBonus", "multiplier": 1.3 }
+  },
+  "herbalist_bag": {
+    "id": "herbalist_bag",
+    "name": "薬師の鞄",
+    "rarity": "Rare",
+    "price": 8,
+    "passiveEffect": { "type": "potionSlotBonus", "value": 2 }
+  },
+  "potion_duration_ring": {
+    "id": "potion_duration_ring",
+    "name": "持続の指輪",
+    "rarity": "Rare",
+    "price": 9,
+    "passiveEffect": { "type": "potionDurationMultiplier", "multiplier": 2 }
   }
 }

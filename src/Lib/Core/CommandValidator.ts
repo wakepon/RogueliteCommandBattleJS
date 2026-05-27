@@ -39,12 +39,14 @@ export function isPotion(command: BattleCommand): command is PotionInstance {
  * - currentUses が null の場合は無制限（常に使用可能）
  * - currentUses > 0 の場合は使用可能
  * - goldCost がある場合は gold >= goldCost をチェック
+ * - currentHpDamage の場合は HP > 1 をチェック（HP1だとダメージ0のため）
  *
  * @param weapon - 判定対象の武器
  * @param gold - 所持ゴールド
+ * @param explorer - 探索者の状態（HP依存武器の判定に必要）
  * @returns 使用可能な場合 true
  */
-function isWeaponAvailable(weapon: ExplorerWeapon, gold: number): boolean {
+function isWeaponAvailable(weapon: ExplorerWeapon, gold: number, explorer?: ExplorerState): boolean {
   // currentUses が null の場合は無制限（パンチなど）
   if (weapon.currentUses === null) {
     return true
@@ -60,6 +62,10 @@ function isWeaponAvailable(weapon: ExplorerWeapon, gold: number): boolean {
     if (weapon.goldCost !== undefined && gold < weapon.goldCost) {
       return false
     }
+    // 捨て身の一撃: HP1だとダメージ0なので使用不可
+    if (weapon.effect?.type === 'currentHpDamage' && explorer && explorer.hp <= 1) {
+      return false
+    }
   }
 
   return true
@@ -69,13 +75,22 @@ function isWeaponAvailable(weapon: ExplorerWeapon, gold: number): boolean {
  * 魔法が使用可能かどうかを判定する
  *
  * 判定条件:
- * - explorer.mp >= spell.mpCost
+ * - mpCostRate がある場合: rate >= 1.0 なら mp > 0、それ以外は mp >= floor(maxMp × rate)
+ * - mpCostRate がない場合: explorer.mp >= spell.mpCost
  *
  * @param spell - 判定対象の魔法
  * @param explorer - 探索者の状態
  * @returns 使用可能な場合 true
  */
 function isSpellAvailable(spell: SpellInstance, explorer: ExplorerState): boolean {
+  if (spell.mpCostRate !== undefined && spell.mpCostRate > 0) {
+    // 全MP消費型（rate >= 1.0）: MP残量があれば使用可能
+    if (spell.mpCostRate >= 1.0) {
+      return explorer.mp > 0
+    }
+    // 割合消費型: 最大MP×rate 以上のMPが必要
+    return explorer.mp >= Math.floor(explorer.maxMp * spell.mpCostRate)
+  }
   return explorer.mp >= spell.mpCost
 }
 
@@ -92,7 +107,7 @@ export function getAvailableCommands(
   potions: PotionInstance[] = []
 ): BattleCommand[] {
   const availableWeapons = explorer.weapons.filter(weapon =>
-    isWeaponAvailable(weapon, gold)
+    isWeaponAvailable(weapon, gold, explorer)
   )
 
   const availableSpells = explorer.spells.filter(spell =>
