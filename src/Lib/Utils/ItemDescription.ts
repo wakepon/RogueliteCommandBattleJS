@@ -132,6 +132,15 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       if (weapon.effect.type === 'shieldBash') {
         desc += ' | 自身のシールド値をダメージに加算（シールド消費）'
       }
+      if (weapon.effect.type === 'goldOnHit') {
+        desc += ` | ヒット時+${weapon.effect.value}G`
+      }
+      if (weapon.effect.type === 'selfVulnerability') {
+        desc += ` | 使用後${weapon.effect.duration}T被ダメ×${weapon.effect.multiplier}`
+      }
+      if (weapon.effect.type === 'killBonusExpToAll') {
+        desc += ` | トドメ時に全員へ+${weapon.effect.expAmount}EXP`
+      }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       desc += ` | HP${weapon.hpCost}消費`
@@ -200,6 +209,9 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 棘${spell.effect.value}付与（バトル中蓄積、被弾時に反撃）`
       }
     }
+    if (spell.hpCost) {
+      desc += ` | HP${spell.hpCost}消費`
+    }
     return desc
   }
 
@@ -266,6 +278,12 @@ export function getItemSpecialEffect(item: ItemType): string {
         parts.push('現在HP-1のダメージ（HPが1になる）')
       } else if (weapon.effect.type === 'shieldBash') {
         parts.push('シールド値をダメージに加算（シールド消費）')
+      } else if (weapon.effect.type === 'goldOnHit') {
+        parts.push(`ヒット時+${weapon.effect.value}G獲得`)
+      } else if (weapon.effect.type === 'selfVulnerability') {
+        parts.push(`使用後${weapon.effect.duration}T被ダメ×${weapon.effect.multiplier}`)
+      } else if (weapon.effect.type === 'killBonusExpToAll') {
+        parts.push(`トドメ時に全員へ+${weapon.effect.expAmount}EXP`)
       }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
@@ -284,7 +302,11 @@ export function getItemSpecialEffect(item: ItemType): string {
   // 魔法
   if ('commandCategory' in item && item.commandCategory === 'spell') {
     const spell = item as SpellData
-    if (!spell.effect) return ''
+    if (!spell.effect) {
+      // 効果なしでもhpCostがあれば表示（反動魔法）
+      if (spell.hpCost) return `HP${spell.hpCost}消費`
+      return ''
+    }
     switch (spell.effect.type) {
       case 'heal':
         return `HP+${spell.effect.value}回復`
@@ -389,6 +411,15 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       if (command.effect.type === 'conditionalPower') {
         desc += ` HP${Math.floor(command.effect.hpThreshold * 100)}%以下P+${command.effect.bonusPower}`
       }
+      if (command.effect.type === 'goldOnHit') {
+        desc += ` +${command.effect.value}G`
+      }
+      if (command.effect.type === 'selfVulnerability') {
+        desc += ` ${command.effect.duration}T被ダメ×${command.effect.multiplier}`
+      }
+      if (command.effect.type === 'killBonusExpToAll') {
+        desc += ` 全員+${command.effect.expAmount}EXP`
+      }
     }
     if ('hpCost' in command && command.hpCost) {
       desc += ` HP${command.hpCost}消費`
@@ -456,6 +487,9 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       } else if (command.effect.type === 'thorns') {
         desc += ` 棘${command.effect.value}付与`
       }
+    }
+    if ('hpCost' in command && command.hpCost) {
+      desc += ` HP${command.hpCost}消費`
     }
     return desc
   }

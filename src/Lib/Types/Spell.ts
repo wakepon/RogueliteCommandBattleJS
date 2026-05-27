@@ -31,6 +31,7 @@ export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetabl
   variance: number  // ダメージブレ幅（±variance の加算ブレ）
   effect?: SpellEffect | null
   mpCostRate?: number  // 最大MP割合コスト（0.5 = 50%消費、1.0 = 全消費）
+  hpCost?: number     // HP消費（反動魔法用）
 }
 
 /** 魔法インスタンス */

@@ -122,6 +122,18 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (weapon.effect.type === 'currentHpDamage') {
         lines.push({ label: '効果', value: '現在HP-1→ダメージ(HP1化)', color: 'text-red-300' })
       }
+      if (weapon.effect.type === 'goldOnHit') {
+        lines.push({ label: '効果', value: `ヒット時+${weapon.effect.value}G`, color: 'text-yellow-300' })
+      }
+      if (weapon.effect.type === 'selfVulnerability') {
+        lines.push({ label: 'デメリット', value: `${weapon.effect.duration}T被ダメ×${weapon.effect.multiplier}`, color: 'text-red-400' })
+      }
+      if (weapon.effect.type === 'killBonusExpToAll') {
+        lines.push({ label: '効果', value: `トドメ時全員+${weapon.effect.expAmount}EXP`, color: 'text-green-300' })
+      }
+      if (weapon.effect.type === 'shieldBash') {
+        lines.push({ label: '効果', value: 'シールド加算→消費', color: 'text-cyan-300' })
+      }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       lines.push({ label: 'HP消費', value: `${weapon.hpCost}/回`, color: 'text-red-400' })
@@ -211,6 +223,12 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'mpPercentHeal') {
         lines.push({ label: '効果', value: `最大MP${Math.floor(spell.effect.rate * 100)}%回復`, color: 'text-green-300' })
       }
+      if (spell.effect.type === 'thorns') {
+        lines.push({ label: '効果', value: `棘${spell.effect.value}付与`, color: 'text-green-300' })
+      }
+    }
+    if ('hpCost' in spell && (spell as SpellData).hpCost) {
+      lines.push({ label: 'HP消費', value: `${(spell as SpellData).hpCost}/回`, color: 'text-red-400' })
     }
     if (spell.targetType === 'enemyAll') {
       lines.push({ label: '対象', value: '全体攻撃', color: 'text-red-300' })

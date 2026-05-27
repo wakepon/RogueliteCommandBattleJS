@@ -50,6 +50,13 @@ export function BuffIcon({ buff, debuff }: BuffIconProps) {
         </div>
       )
     }
+    if (debuff.type === 'vulnerability') {
+      return (
+        <div className="inline-flex items-center justify-center w-6 h-6 bg-red-700 rounded text-xs text-white" title={`被ダメ増加: ×${debuff.multiplier} 残${debuff.duration}T`}>
+          V
+        </div>
+      )
+    }
   }
 
   return null

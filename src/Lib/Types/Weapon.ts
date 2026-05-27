@@ -15,6 +15,9 @@ export type WeaponEffect =
   | { type: 'hpPercentShieldAll'; rate: number }  // 護りの壁: 味方全員に最大HP×rate のシールド
   | { type: 'currentHpDamage' }  // 捨て身の一撃: 現在HP-1 のダメージ、HPが1になる
   | { type: 'shieldBash' }  // シールドバッシュ: 攻撃者のシールド値をダメージに加算し、シールドを消費
+  | { type: 'goldOnHit'; value: number }  // 打ち出の: 使用時にゴールド獲得
+  | { type: 'selfVulnerability'; multiplier: number; duration: number }  // 後隙の: 使用後被ダメ倍率デバフ
+  | { type: 'killBonusExpToAll'; expAmount: number }  // 稽古の: トドメ時全員EXP付与
 
 /** 武器データ（マスター） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {

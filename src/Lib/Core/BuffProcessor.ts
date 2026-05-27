@@ -96,6 +96,44 @@ export function decrementWeaknessDuration(debuffs: Debuff[]): Debuff[] {
 }
 
 /**
+ * vulnerabilityデバフの持続ターンを減少させ、0以下で削除する
+ * @param debuffs - 現在のデバフ配列
+ * @returns 更新後のデバフ配列
+ */
+export function decrementVulnerabilityDuration(debuffs: Debuff[]): Debuff[] {
+  return debuffs
+    .map(d => {
+      if (d.type === 'vulnerability') {
+        if (d.justApplied) {
+          return { ...d, justApplied: false }
+        }
+        return { ...d, duration: d.duration - 1 }
+      }
+      return d
+    })
+    .filter(d => {
+      if (d.type === 'vulnerability' && d.duration <= 0) {
+        return false
+      }
+      return true
+    })
+}
+
+/**
+ * vulnerabilityデバフによるダメージ倍化
+ * @param debuffs - 対象のデバフ配列
+ * @param damage - 元のダメージ
+ * @returns 倍化後のダメージ
+ */
+export function applyVulnerabilityMultiplier(debuffs: Debuff[], damage: number): number {
+  const vulnDebuff = debuffs.find(d => d.type === 'vulnerability')
+  if (vulnDebuff && vulnDebuff.type === 'vulnerability') {
+    return Math.floor(damage * vulnDebuff.multiplier)
+  }
+  return damage
+}
+
+/**
  * シールドバフによるダメージ軽減処理
  * シールドの value 分だけダメージを吸収し、使用後はシールドを削除する
  * @param buffs - 現在のバフ配列

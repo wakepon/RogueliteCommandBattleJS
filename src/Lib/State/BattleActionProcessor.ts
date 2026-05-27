@@ -37,7 +37,7 @@ import {
   getThornsMultiplier,
   getComboBonus,
 } from '../Core/RelicProcessor'
-import { processShieldDamageReduction } from '../Core/BuffProcessor'
+import { processShieldDamageReduction, applyVulnerabilityMultiplier } from '../Core/BuffProcessor'
 
 /** 連携の紋章: 同ターンに2人以上が敵対象の武器攻撃をしているか判定し倍率を返す */
 function getComboMultiplier(commandSlots: CommandSlot[], relics: RelicInstance[]): number {
@@ -305,7 +305,11 @@ function consumeCommandCost(
         mpToConsume = Math.floor(explorer.maxMp * command.mpCostRate)
       }
     }
-    const updatedExplorer: ExplorerState = { ...explorer, mp: Math.max(0, explorer.mp - mpToConsume) }
+    let updatedExplorer: ExplorerState = { ...explorer, mp: Math.max(0, explorer.mp - mpToConsume) }
+    // hpCost消費（反動魔法など）- HP最低1を保証
+    if (command.hpCost !== undefined && command.hpCost > 0) {
+      updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - command.hpCost) }
+    }
     return { updatedExplorer, updatedGold: gold }
   }
 
@@ -581,7 +585,7 @@ function executeAttackCommand(
     }
   }
 
-  // 魔法の goldOnHit 効果: ゴールド獲得
+  // goldOnHit 効果: ゴールド獲得（魔法/武器共通）
   // ボーナスゴールド獲得記録（リザルト画面の内訳表示用）
   const localBonusGains: BonusGain[] = []
   let extraGold = 0
@@ -589,6 +593,29 @@ function executeAttackCommand(
     extraGold += selectedCommand.effect.value
     if (extraGold > 0) {
       localBonusGains.push({ source: selectedCommand.name, value: extraGold })
+    }
+  }
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'goldOnHit') {
+    extraGold += selectedCommand.effect.value
+    if (selectedCommand.effect.value > 0) {
+      localBonusGains.push({ source: selectedCommand.name, value: selectedCommand.effect.value })
+    }
+  }
+
+  // 後隙の武器: 使用後に自身にvulnerabilityデバフ付与
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'selfVulnerability') {
+    const vulnDebuff = {
+      type: 'vulnerability' as const,
+      multiplier: selectedCommand.effect.multiplier,
+      duration: selectedCommand.effect.duration,
+      justApplied: true,
+    }
+    const hasVuln = finalExplorer.battleDebuffs.some(d => d.type === 'vulnerability')
+    finalExplorer = {
+      ...finalExplorer,
+      battleDebuffs: hasVuln
+        ? finalExplorer.battleDebuffs.map(d => d.type === 'vulnerability' ? vulnDebuff : d)
+        : [...finalExplorer.battleDebuffs, vulnDebuff],
     }
   }
 
@@ -619,9 +646,12 @@ function executeAttackCommand(
       }
     }
 
-    // 教育の魔弾: トドメで全員にボーナスEXP
+    // 教育の魔弾/稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'killBonusExpToAll') {
+      extraBonusToAll = selectedCommand.effect.expAmount * defeatedCount
+    }
+    if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'killBonusExpToAll') {
       extraBonusToAll = selectedCommand.effect.expAmount * defeatedCount
     }
 
@@ -731,6 +761,16 @@ function executeSpellAllAttack(
     }
   }
 
+  // goldOnHit 効果: ゴールド獲得（全体魔法でも適用）
+  const localBonusGainsSpellAoe: BonusGain[] = []
+  let extraGoldSpellAoe = 0
+  if (spell.effect?.type === 'goldOnHit') {
+    extraGoldSpellAoe += spell.effect.value
+    if (spell.effect.value > 0) {
+      localBonusGainsSpellAoe.push({ source: spell.name, value: spell.effect.value })
+    }
+  }
+
   // 攻撃後にnextActionバフ（精密など）を消費
   finalExplorer = {
     ...finalExplorer,
@@ -742,10 +782,27 @@ function executeSpellAllAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold,
+    gold: updatedGold + extraGoldSpellAoe,
   }
 
   if (defeatedCount > 0) {
+    // 商人の護符など: 敵撃破時ゴールド追加（レリックごとに source 名を保持）
+    const goldPerKillRelics = relics.filter(r => r.passiveEffect?.type === 'goldPerKill')
+    for (const relic of goldPerKillRelics) {
+      const perKill = (relic.passiveEffect as { value: number }).value
+      const total = perKill * defeatedCount
+      if (total > 0) {
+        updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
+        localBonusGainsSpellAoe.push({ source: relic.name, value: total })
+      }
+    }
+
+    // 教育の魔弾: トドメで全員にボーナスEXP
+    let extraBonusToAll = 0
+    if (spell.effect?.type === 'killBonusExpToAll') {
+      extraBonusToAll = spell.effect.expAmount * defeatedCount
+    }
+
     // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
     const guidance = consumeGuidanceBuff(finalExplorer)
     finalExplorer = guidance.updatedExplorer
@@ -755,7 +812,7 @@ function executeSpellAllAttack(
     // パーティー全員にEXP配分（止めキャラにボーナス）
     const { updatedParty, allLevelUps } = distributeExpToParty(
       updatedRun.party, finalExplorer.id, defeatedCount,
-      { extraKillerBonus: guidance.extraKillerBonus }
+      { extraBonusToAll, extraKillerBonus: guidance.extraKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
@@ -763,6 +820,7 @@ function executeSpellAllAttack(
     // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
     const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
     newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
+      extraBonusToAll,
       extraKillerBonus: guidance.extraKillerBonus,
     })
 
@@ -771,6 +829,14 @@ function executeSpellAllAttack(
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
       updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+    }
+  }
+
+  // ボーナスゴールド獲得を battleState.bonusGains に反映
+  if (localBonusGainsSpellAoe.length > 0) {
+    newBattleState = {
+      ...newBattleState,
+      bonusGains: [...newBattleState.bonusGains, ...localBonusGainsSpellAoe],
     }
   }
 
@@ -807,6 +873,7 @@ function executeEnemyAllAttack(
     const result = calculateWeaponDamage(battleAction.explorer, weapon, enemy, {
       relics,
       killStreakActive: state.battleState!.relicState.killStreakActive,
+      weaponBreakMultiplier: state.run!.weaponBreakMultiplier ?? 0,
       party: partySnapshot,
     })
     if (i === 0) allContributors = result.contributors
@@ -859,6 +926,33 @@ function executeEnemyAllAttack(
     }
   }
 
+  // 打ち出の武器: ゴールド獲得
+  const localBonusGainsAoe: BonusGain[] = []
+  let extraGoldAoe = 0
+  if (weapon.effect?.type === 'goldOnHit') {
+    extraGoldAoe += weapon.effect.value
+    if (weapon.effect.value > 0) {
+      localBonusGainsAoe.push({ source: weapon.name, value: weapon.effect.value })
+    }
+  }
+
+  // 後隙の武器: 使用後にvulnerabilityデバフ付与
+  if (weapon.effect?.type === 'selfVulnerability') {
+    const vulnDebuff = {
+      type: 'vulnerability' as const,
+      multiplier: weapon.effect.multiplier,
+      duration: weapon.effect.duration,
+      justApplied: true,
+    }
+    const hasVuln = finalExplorer.battleDebuffs.some(d => d.type === 'vulnerability')
+    finalExplorer = {
+      ...finalExplorer,
+      battleDebuffs: hasVuln
+        ? finalExplorer.battleDebuffs.map(d => d.type === 'vulnerability' ? vulnDebuff : d)
+        : [...finalExplorer.battleDebuffs, vulnDebuff],
+    }
+  }
+
   // 血染めの手袋: killStreakActive を1度に決定
   const killedWithWeapon = defeatedCount > 0 && hasRelicEffect(relics, 'killStreakBonus')
   const nextKillStreakActive = killedWithWeapon
@@ -867,6 +961,26 @@ function executeEnemyAllAttack(
       type: 'UPDATE_RELIC_STATE',
       relicState: { killStreakActive: nextKillStreakActive },
     })
+  }
+
+  // 武器破壊検出: 耐久が0になった武器があればレリック効果を適用
+  let updatedWeaponBreakMultiplier = state.run.weaponBreakMultiplier ?? 0
+  const weaponBeforeAoe = battleAction.explorer.weapons.find(w => w.id === weapon.id)
+  const weaponAfterAoe = finalExplorer.weapons.find(w => w.id === weapon.id)
+  if (weaponBeforeAoe && weaponAfterAoe &&
+      weaponBeforeAoe.currentUses !== null && weaponBeforeAoe.currentUses > 0 &&
+      weaponAfterAoe.currentUses !== null && weaponAfterAoe.currentUses <= 0) {
+    const breakIncrement = getWeaponBreakIncrement(relics)
+    if (breakIncrement > 0) {
+      updatedWeaponBreakMultiplier += breakIncrement
+    }
+    const breakBonus = getWeaponBreakAttackBonus(relics)
+    if (breakBonus > 0) {
+      finalExplorer = {
+        ...finalExplorer,
+        battleBuffs: [...finalExplorer.battleBuffs, { type: 'weaponPowerBonus', value: breakBonus, duration: 'nextAction' as const }],
+      }
+    }
   }
 
   // 攻撃後にnextActionバフ（精密など）を消費
@@ -880,10 +994,28 @@ function executeEnemyAllAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold,
+    gold: updatedGold + extraGoldAoe,
+    weaponBreakMultiplier: updatedWeaponBreakMultiplier,
   }
 
   if (defeatedCount > 0) {
+    // 商人の護符など: 敵撃破時ゴールド追加（レリックごとに source 名を保持）
+    const goldPerKillRelics = relics.filter(r => r.passiveEffect?.type === 'goldPerKill')
+    for (const relic of goldPerKillRelics) {
+      const perKill = (relic.passiveEffect as { value: number }).value
+      const total = perKill * defeatedCount
+      if (total > 0) {
+        updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
+        localBonusGainsAoe.push({ source: relic.name, value: total })
+      }
+    }
+
+    // 稽古の武器: トドメで全員にボーナスEXP
+    let extraBonusToAll = 0
+    if (weapon.effect?.type === 'killBonusExpToAll') {
+      extraBonusToAll = weapon.effect.expAmount * defeatedCount
+    }
+
     // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
     const guidance = consumeGuidanceBuff(finalExplorer)
     finalExplorer = guidance.updatedExplorer
@@ -893,7 +1025,7 @@ function executeEnemyAllAttack(
     // パーティー全員にEXP配分（止めキャラにボーナス）
     const { updatedParty, allLevelUps } = distributeExpToParty(
       updatedRun.party, finalExplorer.id, defeatedCount,
-      { extraKillerBonus: guidance.extraKillerBonus }
+      { extraBonusToAll, extraKillerBonus: guidance.extraKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
@@ -901,6 +1033,7 @@ function executeEnemyAllAttack(
     // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
     const defeatedEnemyIds = getDefeatedEnemyIds(state.battleState.enemies, newBattleState.enemies)
     newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
+      extraBonusToAll,
       extraKillerBonus: guidance.extraKillerBonus,
     })
 
@@ -909,6 +1042,14 @@ function executeEnemyAllAttack(
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
       updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+    }
+  }
+
+  // ボーナスゴールド獲得を battleState.bonusGains に反映
+  if (localBonusGainsAoe.length > 0) {
+    newBattleState = {
+      ...newBattleState,
+      bonusGains: [...newBattleState.bonusGains, ...localBonusGainsAoe],
     }
   }
 
@@ -1025,6 +1166,33 @@ function executeEnemyRandomAttack(
     }
   }
 
+  // 打ち出の武器: ゴールド獲得
+  const localBonusGainsRandom: BonusGain[] = []
+  let extraGoldRandom = 0
+  if (weapon.effect?.type === 'goldOnHit') {
+    extraGoldRandom += weapon.effect.value
+    if (weapon.effect.value > 0) {
+      localBonusGainsRandom.push({ source: weapon.name, value: weapon.effect.value })
+    }
+  }
+
+  // 後隙の武器: 使用後にvulnerabilityデバフ付与
+  if (weapon.effect?.type === 'selfVulnerability') {
+    const vulnDebuff = {
+      type: 'vulnerability' as const,
+      multiplier: weapon.effect.multiplier,
+      duration: weapon.effect.duration,
+      justApplied: true,
+    }
+    const hasVuln = finalExplorer.battleDebuffs.some(d => d.type === 'vulnerability')
+    finalExplorer = {
+      ...finalExplorer,
+      battleDebuffs: hasVuln
+        ? finalExplorer.battleDebuffs.map(d => d.type === 'vulnerability' ? vulnDebuff : d)
+        : [...finalExplorer.battleDebuffs, vulnDebuff],
+    }
+  }
+
   // 血染めの手袋: killStreakActive を1度に決定
   const killedWithWeapon = defeatedCount > 0 && hasRelicEffect(relics, 'killStreakBonus')
   const nextKillStreakActive = killedWithWeapon
@@ -1066,7 +1234,7 @@ function executeEnemyRandomAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold,
+    gold: updatedGold + extraGoldRandom,
     weaponBreakMultiplier: updatedWeaponBreakMultiplier,
   }
 
@@ -1078,7 +1246,14 @@ function executeEnemyRandomAttack(
       const total = perKill * defeatedCount
       if (total > 0) {
         updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
+        localBonusGainsRandom.push({ source: relic.name, value: total })
       }
+    }
+
+    // 稽古の武器: トドメで全員にボーナスEXP
+    let extraBonusToAll = 0
+    if (weapon.effect?.type === 'killBonusExpToAll') {
+      extraBonusToAll = weapon.effect.expAmount * defeatedCount
     }
 
     // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
@@ -1089,7 +1264,7 @@ function executeEnemyRandomAttack(
     // パーティー全員にEXP配分（止めキャラにボーナス）
     const { updatedParty, allLevelUps } = distributeExpToParty(
       updatedRun.party, finalExplorer.id, defeatedCount,
-      { extraKillerBonus: guidance.extraKillerBonus }
+      { extraBonusToAll, extraKillerBonus: guidance.extraKillerBonus }
     )
     newLevelUps = allLevelUps
     updatedRun = { ...updatedRun, party: updatedParty }
@@ -1097,6 +1272,7 @@ function executeEnemyRandomAttack(
     // 敵位置→経験値バーへ飛ぶ EXP エフェクトを追加
     const defeatedEnemyIds = getDefeatedEnemyIds(snapshotEnemies, newBattleState.enemies)
     newBattleState = addExpPopupsToBattle(newBattleState, defeatedEnemyIds, updatedRun.party, finalExplorer.id, {
+      extraBonusToAll,
       extraKillerBonus: guidance.extraKillerBonus,
     })
 
@@ -1105,6 +1281,14 @@ function executeEnemyRandomAttack(
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
       updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+    }
+  }
+
+  // ボーナスゴールド獲得を battleState.bonusGains に反映
+  if (localBonusGainsRandom.length > 0) {
+    newBattleState = {
+      ...newBattleState,
+      bonusGains: [...newBattleState.bonusGains, ...localBonusGainsRandom],
     }
   }
 
@@ -1641,7 +1825,9 @@ export function processEnemyAction(
       const member = newRun.party.find(m => m.id === hit.targetExplorerId)
       if (!member || member.hp <= 0) continue
 
-      const { reducedDamage, updatedBuffs } = processShieldDamageReduction(member.battleBuffs, perHitDamage)
+      // vulnerabilityデバフによるダメージ倍化
+      const amplifiedDamage = applyVulnerabilityMultiplier(member.battleDebuffs, perHitDamage)
+      const { reducedDamage, updatedBuffs } = processShieldDamageReduction(member.battleBuffs, amplifiedDamage)
       const dmgToMpValue = getDamageTakenToMpValue(relics)
       const mpRecovery = dmgToMpValue
 
@@ -1653,7 +1839,7 @@ export function processEnemyAction(
       }
       newRun = updatePartyMember(newRun, updatedMember)
       if (reducedDamage > 0) {
-        randomPopups.push(createPlayerDamagePopup(reducedDamage, hit.targetExplorerId, undefined, reducedDamage < perHitDamage))
+        randomPopups.push(createPlayerDamagePopup(reducedDamage, hit.targetExplorerId, undefined, reducedDamage < amplifiedDamage))
       }
     }
 
@@ -1668,11 +1854,13 @@ export function processEnemyAction(
       damage: actualDamage,
     })
 
-    // 全生存パーティーメンバーにダメージ適用（シールドバフ考慮、ポップアップは軽減後の値で作成）
+    // 全生存パーティーメンバーにダメージ適用（vulnerability倍化→シールドバフ考慮、ポップアップは軽減後の値で作成）
     const aliveMembers = newRun.party.filter(m => m.hp > 0)
     const aoePopups = []
     for (const member of aliveMembers) {
-      const { reducedDamage: memberDamage, updatedBuffs: memberBuffs } = processShieldDamageReduction(member.battleBuffs, actualDamage)
+      // vulnerabilityデバフによるダメージ倍化
+      const amplifiedDamage = applyVulnerabilityMultiplier(member.battleDebuffs, actualDamage)
+      const { reducedDamage: memberDamage, updatedBuffs: memberBuffs } = processShieldDamageReduction(member.battleBuffs, amplifiedDamage)
       // 苦痛のリング: 被ダメ→MP固定回復
       const dmgToMpValue = getDamageTakenToMpValue(relics)
       const mpRecovery = dmgToMpValue
@@ -1684,7 +1872,7 @@ export function processEnemyAction(
       }
       newRun = updatePartyMember(newRun, updatedMember)
       // メンバーごとにシールド軽減後のダメージでポップアップ作成（軽減発生時は shielded フラグ）
-      aoePopups.push(createPlayerDamagePopup(memberDamage, member.id, undefined, memberDamage < actualDamage))
+      aoePopups.push(createPlayerDamagePopup(memberDamage, member.id, undefined, memberDamage < amplifiedDamage))
     }
 
     newBattleState = {
@@ -1698,16 +1886,19 @@ export function processEnemyAction(
       damage: actualDamage,
     })
 
+    // vulnerabilityデバフによるダメージ倍化
+    const amplifiedDamage = applyVulnerabilityMultiplier(battleAction.explorer.battleDebuffs, actualDamage)
+
     // シールドバフによるダメージ軽減
-    const { reducedDamage: shieldedDamage, updatedBuffs: shieldedBuffs } = processShieldDamageReduction(battleAction.explorer.battleBuffs, actualDamage)
+    const { reducedDamage: shieldedDamage, updatedBuffs: shieldedBuffs } = processShieldDamageReduction(battleAction.explorer.battleBuffs, amplifiedDamage)
 
     // ダメージポップアップを作成（シールド軽減後の値を使用、軽減発生時は shielded フラグ）
-    if (actualDamage > 0) {
+    if (amplifiedDamage > 0) {
       newBattleState = {
         ...newBattleState,
         playerDamagePopups: [
           ...newBattleState.playerDamagePopups,
-          createPlayerDamagePopup(shieldedDamage, battleAction.targetExplorerId, undefined, shieldedDamage < actualDamage),
+          createPlayerDamagePopup(shieldedDamage, battleAction.targetExplorerId, undefined, shieldedDamage < amplifiedDamage),
         ],
       }
     }
