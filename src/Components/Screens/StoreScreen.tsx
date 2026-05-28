@@ -11,6 +11,8 @@ import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { getSellPrice, getSellPriceItem, isWeaponData, isSpellData, STORE_CATEGORY_LABELS } from '../../Lib/Core/StoreLogic'
+import { getPotionSlotBonus } from '../../Lib/Core/RelicProcessor'
+import { getTuningValue } from '../../Lib/Tuning/TuningStore'
 import { ShopSlot, ShopOption } from '../../Lib/Types/Game'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
@@ -465,8 +467,10 @@ export function StoreLeftPanel({
   dragData: ShopDragData | null
 }) {
   const goldChanged = initialGold !== gold
-  const relicEmptyCount = Math.max(0, 5 - relics.length)
-  const potionEmptyCount = Math.max(0, 2 - potions.length)
+  const maxRelicCount = getTuningValue('max_relic_count', 5)
+  const relicEmptyCount = Math.max(0, maxRelicCount - relics.length)
+  const maxPotionCount = getTuningValue('max_potion_count', 2) + getPotionSlotBonus(relics)
+  const potionEmptyCount = Math.max(0, maxPotionCount - potions.length)
 
   // レリック空きスロットへの有効ドロップ判定: shop-relic / sold-item(relic)
   const isDraggingRelic = !!(dragData && (
