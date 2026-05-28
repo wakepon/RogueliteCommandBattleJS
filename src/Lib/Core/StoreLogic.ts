@@ -11,6 +11,7 @@ import RelicsData from '../Data/Relics.json'
 import PotionsData from '../Data/Potions.json'
 import { getTuningValue } from '../Tuning/TuningStore'
 import { getFloor } from './StageManager'
+import { getPotionSlotBonus } from './RelicProcessor'
 
 // マスターデータを型付け
 const weaponsData = WeaponsData as Record<string, WeaponData>
@@ -68,7 +69,9 @@ function pickWithRarity<T extends { rarity: string }>(
   const result: T[] = []
   for (let i = 0; i < count; i++) {
     const useRare = seededRandom(seed + i * 100) < rareRate && rarePool.length > 0
-    const pool = useRare ? rarePool : otherPool
+    // フォールバック: 選ばれたプールが空なら、もう一方のプールを使用
+    const primaryPool = useRare ? rarePool : otherPool
+    const pool = primaryPool.length > 0 ? primaryPool : (useRare ? otherPool : rarePool)
     if (pool.length === 0) continue
     const picked = pickRandom(pool, 1, seed + i * 200)
     if (picked.length > 0) result.push(picked[0])
@@ -76,22 +79,47 @@ function pickWithRarity<T extends { rarity: string }>(
   return result
 }
 
-/** カテゴリ別アイテム生成: 武器（耐久∞を除外） */
-function generateWeaponItems(seed: number, count: number, rareRate: number = 0): WeaponData[] {
-  const allWeapons = Object.values(weaponsData).filter(w => w.maxUses !== null)
-  return pickWithRarity(allWeapons, count, seed, rareRate)
+/** 階層に応じたレアリティフィルタ */
+function filterByFloorRarity<T extends { rarity: string }>(items: T[], floor: number): T[] {
+  if (floor <= 1) {
+    return items.filter(i => i.rarity === 'Common' || i.rarity === 'Uncommon')
+  } else if (floor === 2) {
+    return items.filter(i => i.rarity === 'Uncommon' || i.rarity === 'Rare')
+  }
+  // 第3階層以降: Rare（+将来のEpic）のみ
+  return items.filter(i => i.rarity === 'Rare')
 }
 
-/** カテゴリ別アイテム生成: 魔法（MP0を除外） */
-function generateSpellItems(seed: number, count: number, rareRate: number = 0): SpellData[] {
-  const allSpells = Object.values(spellsData).filter(s => s.mpCost > 0)
-  return pickWithRarity(allSpells, count, seed + 50, rareRate)
+/** フィルタ後の候補不足時にフォールバック */
+function applyFloorFilter<T extends { rarity: string }>(items: T[], floor: number, minCount: number): T[] {
+  const filtered = filterByFloorRarity(items, floor)
+  if (filtered.length < minCount) {
+    return items
+  }
+  return filtered
+}
+
+/** カテゴリ別アイテム生成: 武器（耐久∞を除外） */
+function generateWeaponItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): WeaponData[] {
+  const allWeapons = Object.values(weaponsData).filter(w => w.maxUses !== null)
+  const filtered = applyFloorFilter(allWeapons, floor, count)
+  return pickWithRarity(filtered, count, seed, rareRate)
+}
+
+/** カテゴリ別アイテム生成: 魔法（slotFree魔法・基本魔法=MP0かつ割合消費なしを除外） */
+function generateSpellItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): SpellData[] {
+  const allSpells = Object.values(spellsData).filter(s =>
+    !s.slotFree && (s.mpCost > 0 || (s.mpCostRate !== undefined && s.mpCostRate > 0))
+  )
+  const filtered = applyFloorFilter(allSpells, floor, count)
+  return pickWithRarity(filtered, count, seed + 50, rareRate)
 }
 
 /** カテゴリ別アイテム生成: レリック */
-function generateRelicItems(seed: number, count: number, rareRate: number = 0): RelicData[] {
+function generateRelicItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): RelicData[] {
   const allRelics = Object.values(relicsData)
-  return pickWithRarity(allRelics, count, seed + 100, rareRate)
+  const filtered = applyFloorFilter(allRelics, floor, count)
+  return pickWithRarity(filtered, count, seed + 100, rareRate)
 }
 
 /** カテゴリ別アイテム生成: ポーション（Rareなし） */
@@ -101,15 +129,16 @@ function generatePotionItems(seed: number, count: number, _rareRate: number = 0)
 }
 
 /** カテゴリに応じたShopSlot配列を生成 */
-function generateSlotsForCategory(category: StoreCategory, seed: number, count: number, rareRate: number = 0): ShopSlot[] {
+function generateSlotsForCategory(category: StoreCategory, seed: number, count: number, rareRate: number = 0, floor: number = 1): ShopSlot[] {
   switch (category) {
     case 'weapon':
-      return generateWeaponItems(seed, count, rareRate).map(item => ({ category: 'weapon' as const, item }))
+      return generateWeaponItems(seed, count, rareRate, floor).map(item => ({ category: 'weapon' as const, item }))
     case 'spell':
-      return generateSpellItems(seed, count, rareRate).map(item => ({ category: 'spell' as const, item }))
+      return generateSpellItems(seed, count, rareRate, floor).map(item => ({ category: 'spell' as const, item }))
     case 'relic':
-      return generateRelicItems(seed, count, rareRate).map(item => ({ category: 'relic' as const, item }))
+      return generateRelicItems(seed, count, rareRate, floor).map(item => ({ category: 'relic' as const, item }))
     case 'potion':
+      // ポーションは階層制限なし（全階層共通）
       return generatePotionItems(seed, count, rareRate).map(item => ({ category: 'potion' as const, item }))
   }
 }
@@ -119,9 +148,10 @@ function generateShopOption(
   categories: [StoreCategory, StoreCategory],
   seed: number,
   rareRate: number = 0,
+  floor: number = 1,
 ): ShopOption {
-  const slotsA = generateSlotsForCategory(categories[0], seed, SLOTS_PER_CATEGORY, rareRate)
-  const slotsB = generateSlotsForCategory(categories[1], seed + 300, SLOTS_PER_CATEGORY, rareRate)
+  const slotsA = generateSlotsForCategory(categories[0], seed, SLOTS_PER_CATEGORY, rareRate, floor)
+  const slotsB = generateSlotsForCategory(categories[1], seed + 300, SLOTS_PER_CATEGORY, rareRate, floor)
   return {
     categories,
     slots: [...slotsA, ...slotsB],
@@ -143,19 +173,21 @@ export function createStoreState(seed: number, stage: number = 1): StoreState {
     [shuffled[0], shuffled[1]],
     seed,
     rareRate,
+    floor,
   )
   const shopB = generateShopOption(
     [shuffled[2], shuffled[3]],
     seed + 500,
     rareRate,
+    floor,
   )
 
   return {
     shopOptions: [shopA, shopB],
     selectedShopIndex: null,
-    enhancementState: null,
     rerollCost: getTuningValue('base_reroll_cost', 3),
     rareRate,
+    floor,
   }
 }
 
@@ -165,7 +197,7 @@ export function rerollStore(storeState: StoreState, seed: number): StoreState {
 
   const idx = storeState.selectedShopIndex
   const shop = storeState.shopOptions[idx]
-  const newShop = generateShopOption(shop.categories, seed, storeState.rareRate)
+  const newShop = generateShopOption(shop.categories, seed, storeState.rareRate, storeState.floor)
 
   const newOptions: [ShopOption, ShopOption] = [...storeState.shopOptions]
   newOptions[idx] = { ...newShop }
@@ -206,9 +238,10 @@ export function canBuyWeapon(explorer: ExplorerState): boolean {
   return purchasedWeapons.length < explorer.weaponSlotCount
 }
 
-/** 魔法枠に空きがあるかチェック */
+/** 魔法枠に空きがあるかチェック（slotFree魔法は枠を消費しない） */
 export function canBuySpell(explorer: ExplorerState): boolean {
-  return explorer.spells.length < explorer.magicSlotCount
+  const purchasedSpells = explorer.spells.filter(s => !s.slotFree)
+  return purchasedSpells.length < explorer.magicSlotCount
 }
 
 /** レリック枠に空きがあるかチェック */
@@ -217,8 +250,9 @@ export function canBuyRelic(relics: RelicInstance[]): boolean {
 }
 
 /** ポーション枠に空きがあるかチェック */
-export function canBuyPotion(potions: PotionInstance[]): boolean {
-  return potions.length < getTuningValue('max_potion_count', 2)
+export function canBuyPotion(potions: PotionInstance[], relics: RelicInstance[] = []): boolean {
+  const slotBonus = getPotionSlotBonus(relics)
+  return potions.length < getTuningValue('max_potion_count', 2) + slotBonus
 }
 
 /** 武器かどうかを判定 */

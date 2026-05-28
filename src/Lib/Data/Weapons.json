@@ -10,160 +10,170 @@
     "variance": 5,
     "maxUses": 3
   },
-  "short_sword": {
-    "id": "short_sword",
-    "name": "ショートソード",
+  "knife": {
+    "id": "knife",
+    "name": "ナイフ",
     "rarity": "Common",
-    "price": 7,
+    "price": 6,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 4,
     "variance": 5,
     "maxUses": 5
   },
-  "iron_sword": {
-    "id": "iron_sword",
-    "name": "鉄の剣",
+  "straight_sword": {
+    "id": "straight_sword",
+    "name": "直剣",
     "rarity": "Uncommon",
     "price": 10,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
-    "power": 5,
-    "variance": 6,
-    "maxUses": 6
-  },
-  "great_axe": {
-    "id": "great_axe",
-    "name": "大斧",
-    "rarity": "Uncommon",
-    "price": 8,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 7,
-    "variance": 8,
-    "maxUses": 3
-  },
-  "greatsword": {
-    "id": "greatsword",
-    "name": "グレートソード",
-    "rarity": "Rare",
-    "price": 12,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 7,
+    "power": 6,
     "variance": 8,
     "maxUses": 5
   },
-  "throwing_knife": {
-    "id": "throwing_knife",
-    "name": "投げナイフ",
+  "greatsword": {
+    "id": "greatsword",
+    "name": "大剣",
+    "rarity": "Rare",
+    "price": 18,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 9,
+    "variance": 10,
+    "maxUses": 5
+  },
+  "goldHit_knife": {
+    "id": "goldHit_knife",
+    "name": "打ち出のナイフ",
+    "rarity": "Uncommon",
+    "price": 10,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 3,
+    "variance": 5,
+    "maxUses": 3,
+    "effect": { "type": "goldOnHit", "value": 1 }
+  },
+  "goldHit_straight_sword": {
+    "id": "goldHit_straight_sword",
+    "name": "打ち出の直剣",
+    "rarity": "Rare",
+    "price": 18,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 6,
+    "variance": 9,
+    "maxUses": 3,
+    "effect": { "type": "goldOnHit", "value": 1 }
+  },
+  "recoil_knife": {
+    "id": "recoil_knife",
+    "name": "反動のナイフ",
     "rarity": "Common",
     "price": 4,
     "commandCategory": "weapon",
-    "targetType": "enemyAll",
-    "power": 2,
-    "variance": 4,
-    "maxUses": 3
-  },
-  "vampiric_blade": {
-    "id": "vampiric_blade",
-    "name": "吸血の刃",
-    "rarity": "Rare",
-    "price": 9,
-    "commandCategory": "weapon",
     "targetType": "enemySingle",
     "power": 4,
     "variance": 5,
     "maxUses": 4,
-    "effect": {
-      "type": "lifesteal",
-      "value": 7
-    }
-  },
-  "cursed_spear": {
-    "id": "cursed_spear",
-    "name": "呪いの槍",
-    "rarity": "Rare",
-    "price": 7,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 6,
-    "variance": 6,
-    "maxUses": 5,
     "hpCost": 5
   },
-  "berserker_axe": {
-    "id": "berserker_axe",
-    "name": "猛撃の斧",
+  "recoil_straight_sword": {
+    "id": "recoil_straight_sword",
+    "name": "反動の直剣",
+    "rarity": "Uncommon",
+    "price": 6,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 6,
+    "variance": 8,
+    "maxUses": 4,
+    "hpCost": 10
+  },
+  "recoil_greatsword": {
+    "id": "recoil_greatsword",
+    "name": "反動の大剣",
+    "rarity": "Common",
+    "price": 10,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 9,
+    "variance": 10,
+    "maxUses": 4,
+    "hpCost": 20
+  },
+  "opening_knife": {
+    "id": "opening_knife",
+    "name": "後隙のナイフ",
+    "rarity": "Common",
+    "price": 4,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 4,
+    "variance": 10,
+    "maxUses": 4,
+    "effect": { "type": "selfVulnerability", "multiplier": 1.5, "duration": 1 }
+  },
+  "opening_straight_sword": {
+    "id": "opening_straight_sword",
+    "name": "後隙の直剣",
+    "rarity": "Uncommon",
+    "price": 6,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 6,
+    "variance": 13,
+    "maxUses": 4,
+    "effect": { "type": "selfVulnerability", "multiplier": 1.5, "duration": 1 }
+  },
+  "opening_greatsword": {
+    "id": "opening_greatsword",
+    "name": "後隙の大剣",
+    "rarity": "Rare",
+    "price": 10,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 9,
+    "variance": 16,
+    "maxUses": 4,
+    "effect": { "type": "selfVulnerability", "multiplier": 1.5, "duration": 1 }
+  },
+  "training_rusty_knife": {
+    "id": "training_rusty_knife",
+    "name": "稽古の錆びたナイフ",
+    "rarity": "Common",
+    "price": 7,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 3,
+    "variance": 6,
+    "maxUses": 4,
+    "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
+  },
+  "training_knife": {
+    "id": "training_knife",
+    "name": "稽古のナイフ",
     "rarity": "Uncommon",
     "price": 9,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
-    "power": 5,
+    "power": 4,
     "variance": 6,
     "maxUses": 4,
-    "effect": {
-      "type": "conditionalPower",
-      "hpThreshold": 0.5,
-      "bonusPower": 5
-    }
+    "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
   },
-  "golden_sword": {
-    "id": "golden_sword",
-    "name": "後払いの剣",
-    "rarity": "Uncommon",
-    "price": 3,
+  "training_straight_sword": {
+    "id": "training_straight_sword",
+    "name": "稽古の直剣",
+    "rarity": "Rare",
+    "price": 15,
     "commandCategory": "weapon",
     "targetType": "enemySingle",
-    "power": 4,
-    "variance": 5,
-    "maxUses": 5,
-    "goldCost": 1
-  },
-  "disposable_blade": {
-    "id": "disposable_blade",
-    "name": "使い捨ての剣",
-    "rarity": "Common",
-    "price": 3,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 4,
-    "variance": 4,
-    "maxUses": 2
-  },
-  "glass_sword": {
-    "id": "glass_sword",
-    "name": "ガラスの剣",
-    "rarity": "Uncommon",
-    "price": 5,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 8,
-    "variance": 8,
-    "maxUses": 1
-  },
-  "rusty_greatsword": {
-    "id": "rusty_greatsword",
-    "name": "錆びた大剣",
-    "rarity": "Common",
-    "price": 5,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 5,
-    "variance": 7,
-    "maxUses": 2
-  },
-  "soul_eater_sword": {
-    "id": "soul_eater_sword",
-    "name": "魂喰いの剣",
-    "rarity": "Uncommon",
-    "price": 7,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 6,
-    "variance": 5,
-    "maxUses": 1,
-    "effect": { "type": "killPreserveDurability" }
+    "power": 7,
+    "variance": 10,
+    "maxUses": 4,
+    "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
   },
   "guardian_shield": {
     "id": "guardian_shield",
@@ -177,40 +187,40 @@
     "maxUses": 5,
     "effect": { "type": "shield", "value": 20 }
   },
-  "three_section_staff": {
-    "id": "three_section_staff",
-    "name": "三節棍",
+  "life_fist": {
+    "id": "life_fist",
+    "name": "生命の拳",
     "rarity": "Uncommon",
+    "price": 7,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
+    "power": 0,
+    "variance": 0,
+    "maxUses": 3,
+    "effect": { "type": "hpPercentDamage", "rate": 0.3 }
+  },
+  "desperate_strike": {
+    "id": "desperate_strike",
+    "name": "捨て身の一撃",
+    "rarity": "Rare",
     "price": 8,
     "commandCategory": "weapon",
-    "targetType": "enemyRandom",
+    "targetType": "enemySingle",
+    "power": 0,
+    "variance": 0,
+    "maxUses": 2,
+    "effect": { "type": "currentHpDamage" }
+  },
+  "shield_bash": {
+    "id": "shield_bash",
+    "name": "シールドバッシュ",
+    "rarity": "Rare",
+    "price": 9,
+    "commandCategory": "weapon",
+    "targetType": "enemySingle",
     "power": 2,
-    "variance": 5,
-    "maxUses": 3,
-    "hits": 3
-  },
-  "cursed_greatsword": {
-    "id": "cursed_greatsword",
-    "name": "呪いの大剣",
-    "rarity": "Uncommon",
-    "price": 8,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 8,
-    "variance": 7,
-    "maxUses": 3,
-    "hpCost": 10
-  },
-  "deferred_axe": {
-    "id": "deferred_axe",
-    "name": "後払いの斧",
-    "rarity": "Uncommon",
-    "price": 5,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 7,
-    "variance": 8,
-    "maxUses": 5,
-    "goldCost": 2
+    "variance": 3,
+    "maxUses": 4,
+    "effect": { "type": "shieldBash" }
   }
 }

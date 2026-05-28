@@ -5,15 +5,15 @@ import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
 import { ResourceBar, Tooltip, TooltipCard } from '../Common'
 import { MapOverlay } from '../Store/MapOverlay'
-import { EnhancementShopPanel } from '../Store/EnhancementShopPanel'
 import { ExplorerState, CharacterClass } from '../../Lib/Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { getSellPrice, getSellPriceItem, isWeaponData, isSpellData, STORE_CATEGORY_LABELS } from '../../Lib/Core/StoreLogic'
+import { getPotionSlotBonus } from '../../Lib/Core/RelicProcessor'
+import { getTuningValue } from '../../Lib/Tuning/TuningStore'
 import { ShopSlot, ShopOption } from '../../Lib/Types/Game'
-import { ENHANCEMENT_COST } from '../../Lib/Types/Enhancement'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 import { calculateRelicAttackImpacts, MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
@@ -293,7 +293,9 @@ function StoreCharacterPanel({
   const purchasedWeapons = member.weapons.filter(w => w.maxUses !== null)
   const infiniteWeapons = member.weapons.filter(w => w.maxUses === null)
   const weaponEmptyCount = Math.max(0, member.weaponSlotCount - purchasedWeapons.length)
-  const spellEmptyCount = Math.max(0, member.magicSlotCount - member.spells.length)
+  const purchasedSpells = member.spells.filter(s => !s.slotFree)
+  const slotFreeSpells = member.spells.filter(s => s.slotFree)
+  const spellEmptyCount = Math.max(0, member.magicSlotCount - purchasedSpells.length)
 
   const requiredKills = getRequiredKillsForNextLevel(member.level)
   const expProgress = requiredKills > 0 ? member.exp : 0
@@ -385,7 +387,8 @@ function StoreCharacterPanel({
           )
         })}
 
-        {member.spells.map((s, i) => {
+        {purchasedSpells.map((s, i) => {
+          const realIndex = member.spells.indexOf(s)
           const sellPrice = getSellPriceItem(s)
           const isMoved = movedKeys.has(`spell-${memberIndex}-${s.id}`)
           const isNew = newPurchaseKeys.has(`spell-${memberIndex}-${s.id}`)
@@ -393,8 +396,8 @@ function StoreCharacterPanel({
           const dmg = s.power > 0 ? formatDamageRange(range) : null
           return (
             <Tooltip key={`s-${i}`} content={<TooltipCard item={s} damageText={dmg || undefined} />} position="bottom">
-              <DraggableShopItem id={`inv-spell-${memberIndex}-${i}`}
-                data={{ source: 'inv-spell', memberIndex, spellIndex: i, spell: s }}>
+              <DraggableShopItem id={`inv-spell-${memberIndex}-${realIndex}`}
+                data={{ source: 'inv-spell', memberIndex, spellIndex: realIndex, spell: s }}>
                 <div className={`relative border rounded p-1.5 text-base border-purple-500/50 bg-purple-900/10 hover:brightness-110 ${isMoved ? 'animate-slow-blink' : ''}`}>
                   {isNew && <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-bold px-1 rounded">NEW</span>}
                   <div className="flex items-center gap-1">
@@ -416,6 +419,21 @@ function StoreCharacterPanel({
             <EmptySlot label="魔法 空き" />
           </DroppableSlot>
         ))}
+        {slotFreeSpells.map((s, i) => {
+          const range = predictSpellDamage(member, s, opts)
+          const dmg = s.power > 0 ? formatDamageRange(range) : null
+          return (
+            <Tooltip key={`sf-${i}`} content={<TooltipCard item={s} damageText={dmg || undefined} />} position="bottom">
+              <div className="border rounded p-1.5 text-base border-gray-600/50 bg-gray-800/30 opacity-60">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 truncate flex-1">{s.name}</span>
+                  {s.targetType === 'enemyAll' && <span className="text-[10px] bg-red-700 text-white px-1 rounded flex-shrink-0">全体</span>}
+                </div>
+                {dmg && <div className="text-gray-500 text-sm">{dmg}</div>}
+              </div>
+            </Tooltip>
+          )
+        })}
       </div>
     </div>
   )
@@ -449,8 +467,10 @@ export function StoreLeftPanel({
   dragData: ShopDragData | null
 }) {
   const goldChanged = initialGold !== gold
-  const relicEmptyCount = Math.max(0, 5 - relics.length)
-  const potionEmptyCount = Math.max(0, 2 - potions.length)
+  const maxRelicCount = getTuningValue('max_relic_count', 5)
+  const relicEmptyCount = Math.max(0, maxRelicCount - relics.length)
+  const maxPotionCount = getTuningValue('max_potion_count', 2) + getPotionSlotBonus(relics)
+  const potionEmptyCount = Math.max(0, maxPotionCount - potions.length)
 
   // レリック空きスロットへの有効ドロップ判定: shop-relic / sold-item(relic)
   const isDraggingRelic = !!(dragData && (
@@ -561,7 +581,6 @@ export function StoreLeftPanel({
 export function StoreScreen() {
   const {
     state,
-    dispatch,
     buyWeapon, buySpell, buyRelic, buyPotion,
     sellWeapon, sellSpell, sellRelic, sellPotion,
     undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion,
@@ -694,7 +713,7 @@ export function StoreScreen() {
       }
       if (data.source === 'inv-spell') {
         const spell = run.party[data.memberIndex]?.spells[data.spellIndex]
-        if (spell && spell.price > 0) {
+        if (spell && spell.price > 0 && !spell.slotFree) {
           setSoldItems(prev => [...prev, { name: spell.name, type: 'spell', sellPrice: getSellPriceItem(spell), memberIndex: data.memberIndex, spell }])
           sellSpell(data.spellIndex, data.memberIndex)
         }
@@ -821,20 +840,8 @@ export function StoreScreen() {
     setDraggingLabel(null)
   }, [])
 
-  if (storeState.enhancementState) {
-    return (
-      <EnhancementShopPanel
-        run={run} storeState={storeState} dispatch={dispatch}
-        gold={gold} initialGold={initialGold}
-        movedKeys={movedKeys} newPurchaseKeys={newPurchaseKeys}
-        mapState={mapState} showMap={showMap} setShowMap={setShowMap}
-        closeStore={closeStore}
-      />
-    )
-  }
-
   // ショップ選択画面
-  if (storeState.selectedShopIndex === null && !storeState.enhancementState) {
+  if (storeState.selectedShopIndex === null) {
     return (
       <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
 
@@ -879,13 +886,6 @@ export function StoreScreen() {
                 </button>
               ))}
             </div>
-            <button
-              className="w-full bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 rounded-lg p-3 flex flex-col items-center gap-1 transition-colors cursor-pointer mt-2"
-              onClick={() => dispatch({ type: 'SELECT_ENHANCEMENT_SHOP' })}
-            >
-              <div className="text-yellow-300 font-bold text-sm">武器・魔法強化</div>
-              <div className="text-gray-500 text-[10px]">所持アイテムを強化（{ENHANCEMENT_COST}G/回）</div>
-            </button>
           </div>
 
           {/* ===== キャラ欄3等分（3キャラ。共有枠はサイドバーへ移動） ===== */}

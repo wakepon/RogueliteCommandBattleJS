@@ -1,7 +1,7 @@
 import { EnemyInstance } from '../Types/Enemy'
 import { ExplorerState } from '../Types/Explorer'
 import { BattleResult } from '../Types/Battle'
-import { processPoisonDamage, decrementBuffDurations, decrementWeaknessDuration } from './BuffProcessor'
+import { processPoisonDamage, decrementBuffDurations, decrementWeaknessDuration, decrementVulnerabilityDuration } from './BuffProcessor'
 
 /**
  * 勝敗を判定
@@ -45,7 +45,10 @@ function processTurnEnd(
   const { damage: poisonDamage, updatedDebuffs: debuffsAfterPoison } = processPoisonDamage(explorer.battleDebuffs)
 
   // weaknessデバフのターン減少処理
-  const updatedDebuffs = decrementWeaknessDuration(debuffsAfterPoison)
+  const debuffsAfterWeakness = decrementWeaknessDuration(debuffsAfterPoison)
+
+  // vulnerabilityデバフのターン減少処理
+  const updatedDebuffs = decrementVulnerabilityDuration(debuffsAfterWeakness)
 
   // バフのターン減少処理
   const updatedBuffs = decrementBuffDurations(explorer.battleBuffs)

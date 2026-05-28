@@ -216,3 +216,35 @@ export function getHighHpTargetRateBonus(relics: RelicInstance[]): number {
 export function hasDeathProtection(relics: RelicInstance[]): boolean {
   return relics.some(r => r.passiveEffect.type === 'deathProtection')
 }
+
+/** 棘の書: 棘バフの実効値倍率 */
+export function getThornsMultiplier(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'thornsMultiplier') return r.passiveEffect.multiplier
+  }
+  return 1.0
+}
+
+/** 連携の紋章: 同ターン2人以上武器攻撃時のダメージ倍率 */
+export function getComboBonus(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'comboBonus') return r.passiveEffect.multiplier
+  }
+  return 1.0
+}
+
+/** 薬師の鞄: ポーション所持上限ボーナス */
+export function getPotionSlotBonus(relics: RelicInstance[]): number {
+  return relics.reduce((sum, r) => {
+    if (r.passiveEffect.type === 'potionSlotBonus') return sum + r.passiveEffect.value
+    return sum
+  }, 0)
+}
+
+/** 持続の指輪: ポーションバフのduration倍率 */
+export function getPotionDurationMultiplier(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'potionDurationMultiplier') return r.passiveEffect.multiplier
+  }
+  return 1.0
+}

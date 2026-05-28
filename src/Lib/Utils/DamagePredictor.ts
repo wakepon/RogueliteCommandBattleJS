@@ -76,6 +76,16 @@ export function predictWeaponDamage(
   weapon: ExplorerWeapon | WeaponData,
   options: DamagePredictOptions = {}
 ): DamageRange {
+  // 変換武器: HP系ステータスから直接ダメージを算出（通常の計算をバイパス）
+  if ('effect' in weapon && weapon.effect?.type === 'hpPercentDamage') {
+    const dmg = Math.floor(explorer.maxHp * weapon.effect.rate)
+    return { min: dmg, max: dmg, isBoosted: false }
+  }
+  if ('effect' in weapon && weapon.effect?.type === 'currentHpDamage') {
+    const dmg = Math.max(0, explorer.hp - 1)
+    return { min: dmg, max: dmg, isBoosted: false }
+  }
+
   const { relics = [], killStreakActive = false, includeConditionalRelics = false, hasPrecision = false, weaponBreakMultiplier = 0, party } = options
 
   // scaleStat対応（魔力弾はINT依存）
@@ -137,12 +147,21 @@ export function predictWeaponDamage(
     baseDamage *= (1.0 - weaknessDebuff.value)
   }
 
+  // シールドバッシュ: シールド値をダメージに加算
+  let shieldBashBonus = 0
+  if ('effect' in weapon && weapon.effect?.type === 'shieldBash') {
+    const shieldBuff = explorer.battleBuffs.find(b => b.type === 'shield')
+    if (shieldBuff) {
+      shieldBashBonus = shieldBuff.value
+    }
+  }
+
   const base = Math.floor(baseDamage)
   // 精密バフ: ブレ幅→0、最大ブレ値で固定
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
   const isPrecise = hasPrecision || explorerHasPrecision
-  const min = isPrecise ? Math.max(0, base + weapon.variance) : Math.max(0, base - weapon.variance)
-  const max = Math.max(0, base + weapon.variance)
+  const min = isPrecise ? Math.max(0, base + weapon.variance + shieldBashBonus) : Math.max(0, base - weapon.variance + shieldBashBonus)
+  const max = Math.max(0, base + weapon.variance + shieldBashBonus)
 
   const isBoosted = statBonus > 0
     || weaponDmgBonus > 0
@@ -151,6 +170,7 @@ export function predictWeaponDamage(
     || conditionalPowerBonus > 0
     || weaponPowerBonusValue > 0
     || weaponBreakMultiplier > 0
+    || shieldBashBonus > 0
     || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
   const isWeakened = weaknessDebuff !== undefined
@@ -164,6 +184,11 @@ export function predictSpellDamage(
   spell: SpellInstance | SpellData,
   options: DamagePredictOptions = {}
 ): DamageRange {
+  // 魔力放出: 現在MP全量がダメージ（変動値）
+  if (spell.effect?.type === 'mpAllDamage') {
+    return { min: explorer.mp, max: explorer.mp, isBoosted: false }
+  }
+
   const { relics = [], includeConditionalRelics = false, hasPrecision = false, party } = options
 
   const intBonus = getStatBonus(relics, 'int')

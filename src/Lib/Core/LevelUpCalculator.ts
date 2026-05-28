@@ -9,6 +9,8 @@ export interface LevelUpInfo {
   hpRecovered: number
   mpRecovered: number
   characterName: string
+  characterClass: CharacterClass
+  needsGrowthChoice: boolean
   statsGained: {
     maxHp: number
     maxMp: number
@@ -43,36 +45,12 @@ function canLevelUp(explorer: ExplorerState): boolean {
   return explorer.exp >= required
 }
 
-// クラス別レベルアップ成長値（Tuning対応）
-function getClassGrowth(): Record<CharacterClass, { maxHp: number; maxMp: number; str: number; int: number }> {
-  return {
-    warrior: {
-      maxHp: getTuningValue('warrior_growth_maxHp', 7),
-      maxMp: getTuningValue('warrior_growth_maxMp', 1),
-      str: getTuningValue('warrior_growth_str', 2),
-      int: getTuningValue('warrior_growth_int', 0),
-    },
-    mage: {
-      maxHp: getTuningValue('mage_growth_maxHp', 3),
-      maxMp: getTuningValue('mage_growth_maxMp', 4),
-      str: getTuningValue('mage_growth_str', 0),
-      int: getTuningValue('mage_growth_int', 2),
-    },
-    cleric: {
-      maxHp: getTuningValue('cleric_growth_maxHp', 5),
-      maxMp: getTuningValue('cleric_growth_maxMp', 3),
-      str: getTuningValue('cleric_growth_str', 1),
-      int: getTuningValue('cleric_growth_int', 1),
-    },
-  }
-}
-
 /**
  * レベルアップを1回適用
  * - level +1
  * - exp から必要分を消費
- * - クラス別の成長値でステータス増加
- * - HP/MP: 旧最大値の一定割合回復（Tuning設定、上限は新最大値）
+ * - ステータス成長とHP/MP回復は行わない（GrowthTypeCalculatorで選択後に適用）
+ * - needsGrowthChoice: true を返す
  */
 function applyLevelUp(explorer: ExplorerState): {
   updatedExplorer: ExplorerState
@@ -82,23 +60,10 @@ function applyLevelUp(explorer: ExplorerState): {
   const previousLevel = explorer.level
   const newLevel = previousLevel + 1
 
-  // クラス別成長値を取得
-  const growth = getClassGrowth()[explorer.characterClass]
-
-  // 新しい最大値を計算
-  const newMaxHp = explorer.maxHp + growth.maxHp
-  const newMaxMp = explorer.maxMp + growth.maxMp
-
   const updatedExplorer: ExplorerState = {
     ...explorer,
     level: newLevel,
     exp: explorer.exp - requiredExp,
-    maxHp: newMaxHp,
-    maxMp: newMaxMp,
-    hp: Math.min(explorer.hp + Math.ceil(explorer.maxHp * getTuningValue('levelup_hp_recovery_rate', 0.5)), newMaxHp),
-    mp: Math.min(explorer.mp + Math.ceil(explorer.maxMp * getTuningValue('levelup_mp_recovery_rate', 0.5)), newMaxMp),
-    str: explorer.str + growth.str,
-    int: explorer.int + growth.int,
   }
 
   const levelUpInfo: LevelUpInfo = {
@@ -106,13 +71,15 @@ function applyLevelUp(explorer: ExplorerState): {
     previousLevel,
     newLevel,
     characterName: explorer.name,
-    hpRecovered: newMaxHp - explorer.hp,
-    mpRecovered: newMaxMp - explorer.mp,
+    characterClass: explorer.characterClass,
+    needsGrowthChoice: true,
+    hpRecovered: 0,
+    mpRecovered: 0,
     statsGained: {
-      maxHp: growth.maxHp,
-      maxMp: growth.maxMp,
-      str: growth.str,
-      int: growth.int,
+      maxHp: 0,
+      maxMp: 0,
+      str: 0,
+      int: 0,
     },
   }
 

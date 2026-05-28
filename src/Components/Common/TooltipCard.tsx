@@ -1,11 +1,10 @@
-import { ExplorerWeapon, WeaponData, WeaponInstance } from '../../Lib/Types/Weapon'
+import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { getPassiveEffectDescription } from '../../Lib/Utils/ItemDescription'
 import { MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
-import { getWeaponEnhancementSummary, getSpellEnhancementSummary } from '../../Lib/Core/EnhancementLogic'
 
 type AnyItem = WeaponData | ExplorerWeapon | SpellData | SpellInstance | RelicData | RelicInstance | PotionData | BattleCommand
 
@@ -114,6 +113,27 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (weapon.effect.type === 'killPreserveDurability') {
         lines.push({ label: '効果', value: 'トドメ時に耐久消費なし', color: 'text-yellow-300' })
       }
+      if (weapon.effect.type === 'hpPercentDamage') {
+        lines.push({ label: '効果', value: `最大HP${Math.floor(weapon.effect.rate * 100)}%ダメージ`, color: 'text-orange-300' })
+      }
+      if (weapon.effect.type === 'hpPercentShieldAll') {
+        lines.push({ label: '効果', value: `全員にHP${Math.floor(weapon.effect.rate * 100)}%シールド`, color: 'text-cyan-300' })
+      }
+      if (weapon.effect.type === 'currentHpDamage') {
+        lines.push({ label: '効果', value: '現在HP-1→ダメージ(HP1化)', color: 'text-red-300' })
+      }
+      if (weapon.effect.type === 'goldOnHit') {
+        lines.push({ label: '効果', value: `ヒット時+${weapon.effect.value}G`, color: 'text-yellow-300' })
+      }
+      if (weapon.effect.type === 'selfVulnerability') {
+        lines.push({ label: 'デメリット', value: `${weapon.effect.duration}T被ダメ×${weapon.effect.multiplier}`, color: 'text-red-400' })
+      }
+      if (weapon.effect.type === 'killBonusExpToAll') {
+        lines.push({ label: '効果', value: `トドメ時全員+${weapon.effect.expAmount}EXP`, color: 'text-green-300' })
+      }
+      if (weapon.effect.type === 'shieldBash') {
+        lines.push({ label: '効果', value: 'シールド加算→消費', color: 'text-cyan-300' })
+      }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       lines.push({ label: 'HP消費', value: `${weapon.hpCost}/回`, color: 'text-red-400' })
@@ -134,11 +154,8 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     if ('targetType' in weapon && weapon.targetType === 'allySingle') {
       lines.push({ label: '対象', value: '味方単体', color: 'text-green-300' })
     }
-    if ('enhancements' in weapon && (weapon as WeaponInstance).enhancements.length > 0) {
-      const summaries = getWeaponEnhancementSummary((weapon as WeaponInstance).enhancements)
-      for (const s of summaries) {
-        lines.push({ label: '強化', value: s.text, color: s.isMerit ? 'text-green-400' : 'text-red-400' })
-      }
+    if ('targetType' in weapon && weapon.targetType === 'allyAll') {
+      lines.push({ label: '対象', value: '味方全体', color: 'text-green-300' })
     }
     return lines
   }
@@ -149,7 +166,13 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     if (damageText) {
       lines.push({ label: 'ダメージ', value: damageText, color: 'text-purple-300' })
     }
-    lines.push({ label: 'MP消費', value: `${spell.mpCost}`, color: 'text-blue-300' })
+    // MP消費表示: 割合消費型と固定消費型を区別
+    if ('mpCostRate' in spell && (spell as SpellData).mpCostRate !== undefined && (spell as SpellData).mpCostRate! > 0) {
+      const rate = (spell as SpellData).mpCostRate!
+      lines.push({ label: 'MP消費', value: rate >= 1.0 ? '全消費' : `最大${Math.floor(rate * 100)}%`, color: 'text-blue-300' })
+    } else {
+      lines.push({ label: 'MP消費', value: `${spell.mpCost}`, color: 'text-blue-300' })
+    }
     if (spell.effect) {
       if (spell.effect.type === 'heal') {
         lines.push({ label: '回復', value: `HP +${spell.effect.value}`, color: 'text-green-300' })
@@ -191,6 +214,21 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'targetRateUp') {
         lines.push({ label: '効果', value: `被ターゲット率+${spell.effect.value}%`, color: 'text-red-300' })
       }
+      if (spell.effect.type === 'mpPercentShield') {
+        lines.push({ label: '効果', value: `最大MP${Math.floor(spell.effect.rate * 100)}%シールド`, color: 'text-cyan-300' })
+      }
+      if (spell.effect.type === 'mpAllDamage') {
+        lines.push({ label: '効果', value: '現在MP全量→ダメージ', color: 'text-purple-300' })
+      }
+      if (spell.effect.type === 'mpPercentHeal') {
+        lines.push({ label: '効果', value: `最大MP${Math.floor(spell.effect.rate * 100)}%回復`, color: 'text-green-300' })
+      }
+      if (spell.effect.type === 'thorns') {
+        lines.push({ label: '効果', value: `棘${spell.effect.value}付与`, color: 'text-green-300' })
+      }
+    }
+    if ('hpCost' in spell && (spell as SpellData).hpCost) {
+      lines.push({ label: 'HP消費', value: `${(spell as SpellData).hpCost}/回`, color: 'text-red-400' })
     }
     if (spell.targetType === 'enemyAll') {
       lines.push({ label: '対象', value: '全体攻撃', color: 'text-red-300' })
@@ -200,12 +238,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     }
     if (spell.targetType === 'allyAll') {
       lines.push({ label: '対象', value: '味方全体', color: 'text-green-300' })
-    }
-    if ('enhancements' in spell && (spell as SpellInstance).enhancements.length > 0) {
-      const summaries = getSpellEnhancementSummary((spell as SpellInstance).enhancements)
-      for (const s of summaries) {
-        lines.push({ label: '強化', value: s.text, color: s.isMerit ? 'text-green-400' : 'text-red-400' })
-      }
     }
     return lines
   }

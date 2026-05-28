@@ -29,8 +29,8 @@ export function TargetSelector({
   onConfirm,
   onCancel,
 }: TargetSelectorProps) {
-  // allySingle の場合は味方をターゲット候補にする
-  const isAllyTarget = targetType === 'allySingle'
+  // 味方対象（allySingle/allyAll）の場合は味方をターゲット候補にする
+  const isAllyTarget = targetType === 'allySingle' || targetType === 'allyAll'
 
   // 選択可能な敵のリスト（メモ化）
   const selectableEnemies = useMemo(
@@ -55,7 +55,7 @@ export function TargetSelector({
   // マウント時に最初のターゲットを選択
   useEffect(() => {
     if (!isInitialized.current && selectableTargets.length > 0) {
-      if (targetType !== 'enemyAll') {
+      if (targetType !== 'enemyAll' && targetType !== 'allyAll') {
         onSelectTarget(selectableTargets[0].id)
       }
       isInitialized.current = true
@@ -79,7 +79,7 @@ export function TargetSelector({
   // カーソル移動時にターゲットを選択
   useEffect(() => {
     if (isInitialized.current && prevCursorIndex.current !== cursorIndex) {
-      if (targetType !== 'enemyAll' && selectableTargets[cursorIndex]) {
+      if (targetType !== 'enemyAll' && targetType !== 'allyAll' && selectableTargets[cursorIndex]) {
         onSelectTarget(selectableTargets[cursorIndex].id)
       }
       prevCursorIndex.current = cursorIndex
@@ -94,8 +94,15 @@ export function TargetSelector({
         onSelectTarget(selectableEnemies[0].instanceId)
       }
     }
+    if (targetType === 'allyAll' && party) {
+      // 味方全体の場合、最初の生存味方のIDを渡す
+      const aliveAlly = party.find(m => m.hp > 0)
+      if (aliveAlly) {
+        onSelectTarget(aliveAlly.id)
+      }
+    }
     onConfirm()
-  }, [targetType, selectableEnemies, onSelectTarget, onConfirm])
+  }, [targetType, selectableEnemies, party, onSelectTarget, onConfirm])
 
   // キーボード操作
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -104,7 +111,7 @@ export function TargetSelector({
       case 'a':
       case 'A':
         e.preventDefault()
-        if (targetType !== 'enemyAll' && selectableTargets.length > 0) {
+        if (targetType !== 'enemyAll' && targetType !== 'allyAll' && selectableTargets.length > 0) {
           setCursorIndex(prev =>
             prev > 0 ? prev - 1 : selectableTargets.length - 1
           )
@@ -115,7 +122,7 @@ export function TargetSelector({
       case 'd':
       case 'D':
         e.preventDefault()
-        if (targetType !== 'enemyAll' && selectableTargets.length > 0) {
+        if (targetType !== 'enemyAll' && targetType !== 'allyAll' && selectableTargets.length > 0) {
           setCursorIndex(prev =>
             prev < selectableTargets.length - 1 ? prev + 1 : 0
           )
@@ -127,7 +134,7 @@ export function TargetSelector({
       case 'W':
         e.preventDefault()
         // グリッドを想定して上に移動
-        if (targetType !== 'enemyAll' && selectableTargets.length > columns) {
+        if (targetType !== 'enemyAll' && targetType !== 'allyAll' && selectableTargets.length > columns) {
           setCursorIndex(prev => {
             const newIdx = prev - columns
             return newIdx >= 0 ? newIdx : prev
@@ -140,7 +147,7 @@ export function TargetSelector({
       case 'S':
         e.preventDefault()
         // グリッドを想定して下に移動
-        if (targetType !== 'enemyAll' && selectableTargets.length > columns) {
+        if (targetType !== 'enemyAll' && targetType !== 'allyAll' && selectableTargets.length > columns) {
           setCursorIndex(prev => {
             const newIdx = prev + columns
             return newIdx < selectableTargets.length ? newIdx : prev
