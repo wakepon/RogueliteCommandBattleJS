@@ -2,7 +2,7 @@ import { GameState } from '../Types/Game'
 import { RunState } from '../Types/Run'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
-import { BattleCommand, BattleState, CommandSlot, ExpPopup, BonusGain, PlayerDamagePopup, DamagePopup } from '../Types/Battle'
+import { BattleCommand, BattleState, CommandSlot, ExpPopup, PlayerDamagePopup, DamagePopup } from '../Types/Battle'
 import type { DamageContributor } from '../Core/DamageCalculator'
 import { SpellInstance } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
@@ -260,10 +260,9 @@ function consumeWeaponUse(
 function consumeCommandCost(
   explorer: ExplorerState,
   command: BattleCommand,
-  gold: number,
   durabilitySaveChance: number,
   weaponIndex?: number
-): { updatedExplorer: ExplorerState; updatedGold: number } {
+): ExplorerState {
   if (isWeapon(command)) {
     // weaponIndexが指定されていればそのインデックスの武器を消費（同ID武器の区別）
     // 指定がなければidで最初にマッチしたものを消費（後方互換）
@@ -277,21 +276,13 @@ function consumeCommandCost(
       return w
     })
 
-    let newGold = gold
-    if (isWeaponInstance(command) && command.goldCost !== undefined) {
-      newGold = gold - command.goldCost
-    }
-
     // hpCost消費（呪いの槍など）- HP最低1を保証
     let updatedExplorer: ExplorerState = { ...explorer, weapons: updatedWeapons }
     if (isWeaponInstance(command) && command.hpCost !== undefined) {
       updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - command.hpCost) }
     }
 
-    return {
-      updatedExplorer,
-      updatedGold: newGold,
-    }
+    return updatedExplorer
   }
 
   if (isSpell(command)) {
@@ -310,10 +301,10 @@ function consumeCommandCost(
     if (command.hpCost !== undefined && command.hpCost > 0) {
       updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - command.hpCost) }
     }
-    return { updatedExplorer, updatedGold: gold }
+    return updatedExplorer
   }
 
-  return { updatedExplorer: explorer, updatedGold: gold }
+  return explorer
 }
 
 /** 撃破発生時のEXPポップアップをバトルステートに追加 */
@@ -457,14 +448,6 @@ function executeAttackCommand(
       contributors = result.contributors
     }
 
-    // ゴールドバースト: 所持金×倍率でダメージ追加
-    if (selectedCommand.effect?.type === 'goldDamage') {
-      const goldBonusDamage = state.run.gold * selectedCommand.effect.multiplier
-      calculatedDamage += Math.floor(goldBonusDamage)
-      if (state.run.gold > 0) {
-        contributors.push({ name: 'ゴールドバースト', label: `${state.run.gold}G×${selectedCommand.effect.multiplier}→+${Math.floor(goldBonusDamage)}` })
-      }
-    }
   } else {
     return state
   }
@@ -498,8 +481,8 @@ function executeAttackCommand(
   // コスト消費（同ID武器区別のためweaponIndexを渡す）
   const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
   const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
-  let { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
-    battleAction.explorer, selectedCommand, state.run.gold, durabilitySaveChance, currentSlot?.weaponIndex
+  const explorerAfterCost = consumeCommandCost(
+    battleAction.explorer, selectedCommand, durabilitySaveChance, currentSlot?.weaponIndex
   )
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
@@ -585,23 +568,6 @@ function executeAttackCommand(
     }
   }
 
-  // goldOnHit 効果: ゴールド獲得（魔法/武器共通）
-  // ボーナスゴールド獲得記録（リザルト画面の内訳表示用）
-  const localBonusGains: BonusGain[] = []
-  let extraGold = 0
-  if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'goldOnHit') {
-    extraGold += selectedCommand.effect.value
-    if (extraGold > 0) {
-      localBonusGains.push({ source: selectedCommand.name, value: extraGold })
-    }
-  }
-  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'goldOnHit') {
-    extraGold += selectedCommand.effect.value
-    if (selectedCommand.effect.value > 0) {
-      localBonusGains.push({ source: selectedCommand.name, value: selectedCommand.effect.value })
-    }
-  }
-
   // 後隙の武器: 使用後に自身にvulnerabilityデバフ付与
   if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'selfVulnerability') {
     const vulnDebuff = {
@@ -630,22 +596,10 @@ function executeAttackCommand(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold + extraGold,
     weaponBreakMultiplier: updatedWeaponBreakMultiplier,
   }
 
   if (defeatedCount > 0) {
-    // 商人の護符など: 敵撃破時ゴールド追加（レリックごとに source 名を保持）
-    const goldPerKillRelics = relics.filter(r => r.passiveEffect?.type === 'goldPerKill')
-    for (const relic of goldPerKillRelics) {
-      const perKill = (relic.passiveEffect as { value: number }).value
-      const total = perKill * defeatedCount
-      if (total > 0) {
-        updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
-        localBonusGains.push({ source: relic.name, value: total })
-      }
-    }
-
     // 教育の魔弾/稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'killBonusExpToAll') {
@@ -681,14 +635,6 @@ function executeAttackCommand(
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
       updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
-    }
-  }
-
-  // ボーナスゴールド獲得を battleState.bonusGains に反映
-  if (localBonusGains.length > 0) {
-    newBattleState = {
-      ...newBattleState,
-      bonusGains: [...newBattleState.bonusGains, ...localBonusGains],
     }
   }
 
@@ -737,8 +683,8 @@ function executeSpellAllAttack(
   })
 
   // MP消費
-  const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
-    battleAction.explorer, spell, state.run.gold, 0
+  const explorerAfterCost = consumeCommandCost(
+    battleAction.explorer, spell, 0
   )
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
@@ -761,16 +707,6 @@ function executeSpellAllAttack(
     }
   }
 
-  // goldOnHit 効果: ゴールド獲得（全体魔法でも適用）
-  const localBonusGainsSpellAoe: BonusGain[] = []
-  let extraGoldSpellAoe = 0
-  if (spell.effect?.type === 'goldOnHit') {
-    extraGoldSpellAoe += spell.effect.value
-    if (spell.effect.value > 0) {
-      localBonusGainsSpellAoe.push({ source: spell.name, value: spell.effect.value })
-    }
-  }
-
   // 攻撃後にnextActionバフ（精密など）を消費
   finalExplorer = {
     ...finalExplorer,
@@ -780,23 +716,9 @@ function executeSpellAllAttack(
   let newLevelUps: LevelUpInfo[] = []
 
   // まず攻撃者の結果をrunに反映
-  let updatedRun = {
-    ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold + extraGoldSpellAoe,
-  }
+  let updatedRun = updatePartyMember(state.run, finalExplorer)
 
   if (defeatedCount > 0) {
-    // 商人の護符など: 敵撃破時ゴールド追加（レリックごとに source 名を保持）
-    const goldPerKillRelics = relics.filter(r => r.passiveEffect?.type === 'goldPerKill')
-    for (const relic of goldPerKillRelics) {
-      const perKill = (relic.passiveEffect as { value: number }).value
-      const total = perKill * defeatedCount
-      if (total > 0) {
-        updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
-        localBonusGainsSpellAoe.push({ source: relic.name, value: total })
-      }
-    }
-
     // 教育の魔弾: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (spell.effect?.type === 'killBonusExpToAll') {
@@ -829,14 +751,6 @@ function executeSpellAllAttack(
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
       updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
-    }
-  }
-
-  // ボーナスゴールド獲得を battleState.bonusGains に反映
-  if (localBonusGainsSpellAoe.length > 0) {
-    newBattleState = {
-      ...newBattleState,
-      bonusGains: [...newBattleState.bonusGains, ...localBonusGainsSpellAoe],
     }
   }
 
@@ -901,8 +815,8 @@ function executeEnemyAllAttack(
   // コスト消費（同ID武器区別のためweaponIndexを渡す）
   const currentSlotAoe = state.battleState.commandSlots[state.battleState.currentCommandIndex]
   const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
-  const { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
-    battleAction.explorer, weapon, state.run.gold, durabilitySaveChance, currentSlotAoe?.weaponIndex
+  const explorerAfterCost = consumeCommandCost(
+    battleAction.explorer, weapon, durabilitySaveChance, currentSlotAoe?.weaponIndex
   )
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
@@ -923,16 +837,6 @@ function executeEnemyAllAttack(
     finalExplorer = {
       ...finalExplorer,
       battleBuffs: finalExplorer.battleBuffs.filter(b => b.type !== 'shield'),
-    }
-  }
-
-  // 打ち出の武器: ゴールド獲得
-  const localBonusGainsAoe: BonusGain[] = []
-  let extraGoldAoe = 0
-  if (weapon.effect?.type === 'goldOnHit') {
-    extraGoldAoe += weapon.effect.value
-    if (weapon.effect.value > 0) {
-      localBonusGainsAoe.push({ source: weapon.name, value: weapon.effect.value })
     }
   }
 
@@ -994,22 +898,10 @@ function executeEnemyAllAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold + extraGoldAoe,
     weaponBreakMultiplier: updatedWeaponBreakMultiplier,
   }
 
   if (defeatedCount > 0) {
-    // 商人の護符など: 敵撃破時ゴールド追加（レリックごとに source 名を保持）
-    const goldPerKillRelics = relics.filter(r => r.passiveEffect?.type === 'goldPerKill')
-    for (const relic of goldPerKillRelics) {
-      const perKill = (relic.passiveEffect as { value: number }).value
-      const total = perKill * defeatedCount
-      if (total > 0) {
-        updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
-        localBonusGainsAoe.push({ source: relic.name, value: total })
-      }
-    }
-
     // 稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (weapon.effect?.type === 'killBonusExpToAll') {
@@ -1042,14 +934,6 @@ function executeEnemyAllAttack(
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
       updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
-    }
-  }
-
-  // ボーナスゴールド獲得を battleState.bonusGains に反映
-  if (localBonusGainsAoe.length > 0) {
-    newBattleState = {
-      ...newBattleState,
-      bonusGains: [...newBattleState.bonusGains, ...localBonusGainsAoe],
     }
   }
 
@@ -1141,8 +1025,8 @@ function executeEnemyRandomAttack(
   // コスト消費（耐久は1回だけ消費）
   const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
   const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
-  let { updatedExplorer: explorerAfterCost, updatedGold } = consumeCommandCost(
-    battleAction.explorer, weapon, state.run.gold, durabilitySaveChance, currentSlot?.weaponIndex
+  const explorerAfterCost = consumeCommandCost(
+    battleAction.explorer, weapon, durabilitySaveChance, currentSlot?.weaponIndex
   )
 
   const defeatedCount = countDefeatedEnemies(snapshotEnemies, newBattleState.enemies)
@@ -1163,16 +1047,6 @@ function executeEnemyRandomAttack(
     finalExplorer = {
       ...finalExplorer,
       battleBuffs: finalExplorer.battleBuffs.filter(b => b.type !== 'shield'),
-    }
-  }
-
-  // 打ち出の武器: ゴールド獲得
-  const localBonusGainsRandom: BonusGain[] = []
-  let extraGoldRandom = 0
-  if (weapon.effect?.type === 'goldOnHit') {
-    extraGoldRandom += weapon.effect.value
-    if (weapon.effect.value > 0) {
-      localBonusGainsRandom.push({ source: weapon.name, value: weapon.effect.value })
     }
   }
 
@@ -1234,22 +1108,10 @@ function executeEnemyRandomAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    gold: updatedGold + extraGoldRandom,
     weaponBreakMultiplier: updatedWeaponBreakMultiplier,
   }
 
   if (defeatedCount > 0) {
-    // 商人の護符など: 敵撃破時ゴールド追加
-    const goldPerKillRelics = relics.filter(r => r.passiveEffect?.type === 'goldPerKill')
-    for (const relic of goldPerKillRelics) {
-      const perKill = (relic.passiveEffect as { value: number }).value
-      const total = perKill * defeatedCount
-      if (total > 0) {
-        updatedRun = { ...updatedRun, gold: updatedRun.gold + total }
-        localBonusGainsRandom.push({ source: relic.name, value: total })
-      }
-    }
-
     // 稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (weapon.effect?.type === 'killBonusExpToAll') {
@@ -1284,14 +1146,6 @@ function executeEnemyRandomAttack(
     }
   }
 
-  // ボーナスゴールド獲得を battleState.bonusGains に反映
-  if (localBonusGainsRandom.length > 0) {
-    newBattleState = {
-      ...newBattleState,
-      bonusGains: [...newBattleState.bonusGains, ...localBonusGainsRandom],
-    }
-  }
-
   return {
     ...state,
     battleState: newBattleState,
@@ -1316,8 +1170,8 @@ function executeAllySpellCommand(
   let newBattleState = battleReducer(state.battleState, battleAction)
 
   // MP消費は術者に適用
-  const { updatedExplorer: explorerAfterCost } = consumeCommandCost(
-    battleAction.explorer, selectedCommand, state.run.gold, 0
+  const explorerAfterCost = consumeCommandCost(
+    battleAction.explorer, selectedCommand, 0
   )
 
   // ターゲットに効果を適用（術者と異なる場合がある）
@@ -1498,8 +1352,6 @@ function executeAllySpellCommand(
     updatedRun = updatePartyMember(updatedRun, explorerAfterCost)
   }
 
-  // ゴールドバースト（所持金消費→ダメージ）は敵単体対象なのでここでは処理しない
-
   return {
     ...state,
     battleState: newBattleState,
@@ -1520,8 +1372,8 @@ function executeAllyAllSpellCommand(
   let newBattleState = battleReducer(state.battleState, battleAction)
 
   // MP消費は術者に適用
-  const { updatedExplorer: explorerAfterCost } = consumeCommandCost(
-    battleAction.explorer, selectedCommand, state.run.gold, 0
+  const explorerAfterCost = consumeCommandCost(
+    battleAction.explorer, selectedCommand, 0
   )
 
   let updatedRun = updatePartyMember(state.run, explorerAfterCost)
@@ -1582,11 +1434,11 @@ function executeAllyWeaponCommand(
         battleBuffs: [...targetMember.battleBuffs, shieldBuff],
       }
 
-      // 攻撃者（武器の使用者）のコスト消費（耐久+hpCost+goldCost）
+      // 攻撃者（武器の使用者）のコスト消費（耐久+hpCost）
       const durabilitySaveChance = getWeaponDurabilitySaveChance(state.run.relics)
       const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
-      const { updatedExplorer: updatedAttacker } = consumeCommandCost(
-        battleAction.explorer, selectedCommand, state.run.gold, durabilitySaveChance, currentSlot?.weaponIndex
+      const updatedAttacker = consumeCommandCost(
+        battleAction.explorer, selectedCommand, durabilitySaveChance, currentSlot?.weaponIndex
       )
 
       // 術者とターゲットが同じ場合は1回、異なる場合は2回updatePartyMember（祈りパターンと統一）
@@ -1630,8 +1482,8 @@ function executeAllyAllWeaponCommand(
   // 武器耐久消費
   const durabilitySaveChance = getWeaponDurabilitySaveChance(state.run.relics)
   const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
-  const { updatedExplorer: explorerAfterCost } = consumeCommandCost(
-    battleAction.explorer, selectedCommand, state.run.gold, durabilitySaveChance, currentSlot?.weaponIndex
+  const explorerAfterCost = consumeCommandCost(
+    battleAction.explorer, selectedCommand, durabilitySaveChance, currentSlot?.weaponIndex
   )
 
   let updatedRun = updatePartyMember(state.run, explorerAfterCost)

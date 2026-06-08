@@ -90,12 +90,6 @@ export interface MemberBattleDiff {
   expRequiredBefore: number
 }
 
-/** リザルト画面の追加報酬エントリ（魔法/レリック効果による加減算、将来拡張用） */
-export interface ResultBonusEntry {
-  source: string   // 例: '金のまじない', '修羅の証'
-  value: number    // 正=加算、負=減算
-}
-
 /** リザルト画面のメンバーアニメーションフェーズ */
 export type MemberAnimationPhase =
   | 'pending'           // まだ表示されていない
@@ -109,14 +103,8 @@ export type MemberAnimationPhase =
 /** 戦闘結果の状態 */
 export interface ResultState {
   result: 'victory' | 'defeat'
-  goldEarned: number      // total
-  baseGold: number        // 敵種別報酬
-  interestGold: number    // 利子
-  stolenGold: number      // 盗んだゴールド
-  bonusEntries: ResultBonusEntry[]  // 魔法/レリック効果による追加報酬（将来拡張、現状は空配列）
   killCount: number       // 討伐数
   memberDiffs: MemberBattleDiff[]  // メンバー別変化量（勝利時のみ有効、敗北時は空配列）
-  goldDiff: number                 // gold総差分（勝利時のみ意味を持つ）
 }
 
 /** ショップカテゴリ */
@@ -129,17 +117,17 @@ export type ShopSlot =
   | { category: 'relic'; item: RelicData | null }
   | { category: 'potion'; item: PotionData | null }
 
-/** ショップ候補（2カテゴリ×3枠 = 6枠） */
+/** 報酬候補（2カテゴリ×2枠 = 4枠） */
 export interface ShopOption {
   categories: [StoreCategory, StoreCategory]
-  slots: ShopSlot[]  // 6枠（上段3 + 下段3）
+  slots: ShopSlot[]  // 4枠（上段2 + 下段2）
 }
 
 /** ストア状態 */
 export interface StoreState {
   shopOptions: [ShopOption, ShopOption]  // 2択
   selectedShopIndex: number | null       // 未選択=null, 選択後=0or1
-  rerollCost: number
+  rerollCount: number                     // リロール回数（将来の回数制限用）
   rareRate: number                       // 第二階層以降のRare出現率
   floor: number                          // 階層（レアリティフィルタに使用）
 }

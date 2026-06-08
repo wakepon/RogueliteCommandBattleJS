@@ -38,15 +38,13 @@ export function isPotion(command: BattleCommand): command is PotionInstance {
  * 判定条件:
  * - currentUses が null の場合は無制限（常に使用可能）
  * - currentUses > 0 の場合は使用可能
- * - goldCost がある場合は gold >= goldCost をチェック
  * - currentHpDamage の場合は HP > 1 をチェック（HP1だとダメージ0のため）
  *
  * @param weapon - 判定対象の武器
- * @param gold - 所持ゴールド
  * @param explorer - 探索者の状態（HP依存武器の判定に必要）
  * @returns 使用可能な場合 true
  */
-function isWeaponAvailable(weapon: ExplorerWeapon, gold: number, explorer?: ExplorerState): boolean {
+function isWeaponAvailable(weapon: ExplorerWeapon, explorer?: ExplorerState): boolean {
   // currentUses が null の場合は無制限（パンチなど）
   if (weapon.currentUses === null) {
     return true
@@ -57,11 +55,8 @@ function isWeaponAvailable(weapon: ExplorerWeapon, gold: number, explorer?: Expl
     return false
   }
 
-  // WeaponInstance の場合、goldCost をチェック
+  // WeaponInstance の場合の追加チェック
   if (isWeaponInstance(weapon)) {
-    if (weapon.goldCost !== undefined && gold < weapon.goldCost) {
-      return false
-    }
     // 捨て身の一撃: HP1だとダメージ0なので使用不可
     if (weapon.effect?.type === 'currentHpDamage' && explorer && explorer.hp <= 1) {
       return false
@@ -98,16 +93,14 @@ function isSpellAvailable(spell: SpellInstance, explorer: ExplorerState): boolea
  * 使用可能なコマンド一覧を取得する
  *
  * @param explorer - 探索者の状態
- * @param gold - 所持ゴールド（RunState から渡す）
  * @returns 使用可能なコマンドの配列
  */
 export function getAvailableCommands(
   explorer: ExplorerState,
-  gold: number,
   potions: PotionInstance[] = []
 ): BattleCommand[] {
   const availableWeapons = explorer.weapons.filter(weapon =>
-    isWeaponAvailable(weapon, gold, explorer)
+    isWeaponAvailable(weapon, explorer)
   )
 
   const availableSpells = explorer.spells.filter(spell =>

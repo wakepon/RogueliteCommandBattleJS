@@ -237,12 +237,11 @@ function CharacterPanel({
   )
 }
 
-/** 左サイドパネル: ステージ番号 / 次の敵 / 次の次の敵 / 所持金 / レリック / ポーション */
+/** 左サイドパネル: ステージ番号 / 次の敵 / 次の次の敵 / レリック / ポーション */
 function LeftPanel({
   potions,
   relics,
   isCommandPhase,
-  gold,
   party,
   currentStage,
   seed,
@@ -250,7 +249,6 @@ function LeftPanel({
   potions: { id: string; name: string; commandCategory: 'potion' }[]
   relics: RelicInstance[]
   isCommandPhase: boolean
-  gold: number
   party: ExplorerState[]
   currentStage: number
   seed: number
@@ -267,12 +265,6 @@ function LeftPanel({
 
       {/* 次の次の敵 */}
       <NextStagePreview seed={seed} currentStage={currentStage} offset={2} label="次の次の敵" />
-
-      {/* 所持金（4倍）*/}
-      <div className="bg-gray-900 border border-gray-600 rounded-lg p-2 text-center">
-        <div className="text-xs text-gray-400 mb-0.5">所持金</div>
-        <div className="text-4xl font-bold text-yellow-400 leading-none">{gold}G</div>
-      </div>
 
       {/* レリック（3倍、サイドバー残り高さの約半分）*/}
       <div className="bg-gray-800/70 border border-gray-600 rounded-lg p-2 flex-[1] min-h-0 overflow-y-auto">
@@ -366,7 +358,7 @@ export function BattleScreen() {
     )
   }
 
-  const { party, gold } = run
+  const { party } = run
   const { turn, turnLimit, enemies, phase, commandSlots } = battleState
 
   const {
@@ -746,7 +738,6 @@ export function BattleScreen() {
             potions={potions}
             relics={run.relics}
             isCommandPhase={isCommandPhase}
-            gold={gold}
             party={party}
             currentStage={run.currentStage}
             seed={run.seed}
@@ -852,7 +843,7 @@ export function BattleScreen() {
         <div className="grid grid-cols-3 gap-1.5 flex-1 min-h-0">
           <SortableContext items={panelIds} strategy={horizontalListSortingStrategy}>
             {party.map((member, index) => {
-              const memberAvailCmds = getAvailableCommands(member, gold, potions)
+              const memberAvailCmds = getAvailableCommands(member, potions)
               const rate = targetRates.find(r => r.explorerId === member.id)?.rate
               const prevRate = previewTargetRates.find(r => r.explorerId === member.id)?.rate
               const slot = commandSlots.find(s => s.explorerId === member.id) ?? null

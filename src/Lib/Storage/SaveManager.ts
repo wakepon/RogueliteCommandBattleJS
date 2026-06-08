@@ -28,7 +28,6 @@ function isValidRunState(run: unknown): run is RunState {
   return (
     typeof obj.seed === 'number' &&
     typeof obj.currentStage === 'number' &&
-    typeof obj.gold === 'number' &&
     Array.isArray(obj.party) &&
     Array.isArray(obj.relics)
   )

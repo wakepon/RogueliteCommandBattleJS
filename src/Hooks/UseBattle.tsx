@@ -16,7 +16,6 @@ export interface UseBattleResult {
   battleState: BattleState
   phase: BattlePhase
   party: ExplorerState[]
-  gold: number
   enemies: EnemyInstance[]
   turn: number
   turnLimit: number
@@ -262,7 +261,6 @@ export function useBattle(): UseBattleResult | null {
   if (!battleState || !run) return null
 
   const party = run.party
-  const gold = run.gold
   const potions = run.potions
 
   // 現在コマンド選択中のキャラ
@@ -272,7 +270,7 @@ export function useBattle(): UseBattleResult | null {
     : party[0]
 
   // 使用可能なコマンド一覧（アクティブキャラ基準）
-  const availableCommands = getAvailableCommands(activeExplorer, gold, potions)
+  const availableCommands = getAvailableCommands(activeExplorer, potions)
 
   // 全スロットにコマンドがセットされたか
   const allSlotsSet = battleState.commandSlots.every(slot => slot.command !== null)
@@ -289,7 +287,6 @@ export function useBattle(): UseBattleResult | null {
     battleState,
     phase: battleState.phase,
     party,
-    gold,
     enemies: battleState.enemies,
     turn: battleState.turn,
     turnLimit: battleState.turnLimit,

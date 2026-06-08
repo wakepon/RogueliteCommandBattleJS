@@ -177,11 +177,11 @@ export function getLevelUpDamageBoost(relics: RelicInstance[]): number {
   return 1.0
 }
 
-/** 修羅の証: バトル終了後の全員ボーナスEXPとゴールドペナルティ */
-export function getBattleEndBonusExp(relics: RelicInstance[]): { expValue: number; goldPenalty: number } | null {
+/** 修羅の証: バトル終了後の全員ボーナスEXP */
+export function getBattleEndBonusExp(relics: RelicInstance[]): { expValue: number } | null {
   for (const r of relics) {
     if (r.passiveEffect.type === 'battleEndBonusExp') {
-      return { expValue: r.passiveEffect.expValue, goldPenalty: r.passiveEffect.goldPenalty }
+      return { expValue: r.passiveEffect.expValue }
     }
   }
   return null

@@ -1,10 +1,9 @@
 import { StoreState, StoreCategory, ShopOption, ShopSlot } from '../Types/Game'
-import { WeaponData, ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
+import { WeaponData } from '../Types/Weapon'
 import { SpellData } from '../Types/Spell'
 import { RelicData, RelicInstance } from '../Types/Relic'
 import { PotionData, PotionInstance } from '../Types/Potion'
 import { ExplorerState } from '../Types/Explorer'
-import { IPurchasable } from '../Types/Purchasable'
 import WeaponsData from '../Data/Weapons.json'
 import SpellsData from '../Data/Spells.json'
 import RelicsData from '../Data/Relics.json'
@@ -19,7 +18,7 @@ const spellsData = SpellsData as Record<string, SpellData>
 const relicsData = RelicsData as Record<string, RelicData>
 const potionsData = PotionsData as Record<string, PotionData>
 
-const SLOTS_PER_CATEGORY = 3
+const SLOTS_PER_CATEGORY = 2
 
 /** 簡易的な疑似乱数生成器（シード付き） */
 function seededRandom(seed: number): number {
@@ -185,7 +184,7 @@ export function createStoreState(seed: number, stage: number = 1): StoreState {
   return {
     shopOptions: [shopA, shopB],
     selectedShopIndex: null,
-    rerollCost: getTuningValue('base_reroll_cost', 3),
+    rerollCount: 0,
     rareRate,
     floor,
   }
@@ -205,32 +204,10 @@ export function rerollStore(storeState: StoreState, seed: number): StoreState {
   return {
     ...storeState,
     shopOptions: newOptions,
-    rerollCost: storeState.rerollCost + 1,
+    rerollCount: storeState.rerollCount + 1,
   }
 }
 
-/** 武器の売却価格を計算（使用回数を考慮） */
-export function getSellPrice(weapon: ExplorerWeapon): number {
-  if (weapon.id === 'punch') {
-    return 0
-  }
-
-  const weaponInstance = weapon as WeaponInstance
-  const basePrice = weaponInstance.price
-
-  if (weaponInstance.maxUses === null || weaponInstance.currentUses === null) {
-    return Math.floor(basePrice / 2)
-  }
-
-  const usageRatio = weaponInstance.currentUses / weaponInstance.maxUses
-  const minSellPrice = basePrice >= 10 ? 2 : 1
-  return Math.floor((basePrice - minSellPrice) * usageRatio * 0.5 + minSellPrice)
-}
-
-/** 通常アイテムの売却価格（半額） */
-export function getSellPriceItem(item: IPurchasable): number {
-  return Math.floor(item.price / 2)
-}
 
 /** 武器枠に空きがあるかチェック */
 export function canBuyWeapon(explorer: ExplorerState): boolean {

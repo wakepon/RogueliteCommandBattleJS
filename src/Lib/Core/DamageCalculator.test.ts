@@ -40,7 +40,6 @@ function createMockEnemy(overrides: Partial<EnemyInstance> = {}): EnemyInstance 
     currentHp: 20,
     attack: 3,
     agi: 2,
-    gold: 1,
     behavior: 'basic_attack',
     battleBuffs: [],
     battleDebuffs: [],

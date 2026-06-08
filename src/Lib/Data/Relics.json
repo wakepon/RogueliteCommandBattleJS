@@ -83,13 +83,6 @@
     "price": 5,
     "passiveEffect": { "type": "damageTakenToMp", "value": 5 }
   },
-  "merchants_talisman": {
-    "id": "merchants_talisman",
-    "name": "商人の護符",
-    "rarity": "Rare",
-    "price": 8,
-    "passiveEffect": { "type": "goldPerKill", "value": 2 }
-  },
   "phoenix_ember": {
     "id": "phoenix_ember",
     "name": "努力の証",
@@ -116,7 +109,7 @@
     "name": "修羅の証",
     "rarity": "Rare",
     "price": 10,
-    "passiveEffect": { "type": "battleEndBonusExp", "expValue": 3, "goldPenalty": 3 }
+    "passiveEffect": { "type": "battleEndBonusExp", "expValue": 3 }
   },
   "upset_strike": {
     "id": "upset_strike",

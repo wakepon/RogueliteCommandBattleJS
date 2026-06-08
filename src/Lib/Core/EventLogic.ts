@@ -168,9 +168,9 @@ export function addRelic(run: RunState, relic: RelicInstance): RunState {
 }
 
 /**
- * レリックを入れ替え（売却して新しいものを追加）
+ * レリックを入れ替え（破棄して新しいものを追加）
  * @param run - 現在のRun状態
- * @param sellRelicId - 売却するレリックのID
+ * @param sellRelicId - 破棄するレリックのID
  * @param newRelic - 新しいレリック
  * @returns 更新されたRun状態
  */
@@ -184,9 +184,6 @@ export function replaceRelic(
     return run
   }
 
-  // 売却価格は購入価格の半額
-  const sellPrice = Math.floor(sellRelic.price / 2)
-
   const updatedRelics = [
     ...run.relics.filter((r) => r.id !== sellRelicId),
     newRelic,
@@ -194,7 +191,6 @@ export function replaceRelic(
 
   return {
     ...run,
-    gold: run.gold + sellPrice,
     relics: updatedRelics,
   }
 }
