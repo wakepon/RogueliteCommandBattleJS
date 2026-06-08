@@ -88,12 +88,6 @@ export interface RelicBattleState {
   killStreakActive: boolean   // 血染めの手袋
 }
 
-/** 戦闘中のボーナスゴールド獲得記録（リザルト画面での内訳表示用） */
-export interface BonusGain {
-  source: string  // 表示名（魔法名/レリック名）
-  value: number   // 加算量（負も可：将来の支払い系を想定）
-}
-
 /** 戦闘状態 */
 export interface BattleState {
   turn: number
@@ -115,11 +109,7 @@ export interface BattleState {
   enemyIntents: EnemyIntent[]
 
   // 共有状態
-  stolenGold: number
   relicState: RelicBattleState
-
-  // 戦闘中の魔法/レリック効果によるゴールド獲得記録（END_BATTLE で集計し ResultState.bonusEntries に変換）
-  bonusGains: BonusGain[]
 
   // UI状態（コマンド選択中の一時状態）
   selectedCommand: BattleCommand | null

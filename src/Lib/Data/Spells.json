@@ -76,30 +76,6 @@
     "variance": 10,
     "effect": null
   },
-  "goldHit_flame": {
-    "id": "goldHit_flame",
-    "name": "黄金フレイム",
-    "rarity": "Uncommon",
-    "price": 10,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 4,
-    "power": 3,
-    "variance": 5,
-    "effect": { "type": "goldOnHit", "value": 1 }
-  },
-  "goldHit_blaze": {
-    "id": "goldHit_blaze",
-    "name": "黄金ブレイズ",
-    "rarity": "Rare",
-    "price": 18,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 10,
-    "power": 6,
-    "variance": 8,
-    "effect": { "type": "goldOnHit", "value": 1 }
-  },
   "training_fire": {
     "id": "training_fire",
     "name": "お手本ファイア",

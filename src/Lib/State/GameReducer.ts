@@ -9,12 +9,9 @@ import { GrowthTypeName } from '../Types/GrowthType'
 import { createBattleState, applyBloodPact, createActionQueue } from './BattleStateFactory'
 import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
 import { applyGrowthType, applyLevelUpRecovery } from '../Core/GrowthTypeCalculator'
-import { calculateReward } from '../Core/RewardCalculator'
 import {
   createStoreState,
   rerollStore,
-  getSellPrice,
-  getSellPriceItem,
 } from '../Core/StoreLogic'
 import { isEventStage } from '../Core/StageManager'
 import {
@@ -62,18 +59,18 @@ export type GameAction =
   | { type: 'BUY_SPELL'; slotIndex: number; item: SpellData; memberIndex: number }
   | { type: 'BUY_RELIC'; slotIndex: number; item: RelicData }
   | { type: 'BUY_POTION'; slotIndex: number; item: PotionData }
-  | { type: 'SELL_WEAPON'; weaponIndex: number; memberIndex: number }
-  | { type: 'SELL_SPELL'; spellIndex: number; memberIndex: number }
-  | { type: 'SELL_RELIC'; relicIndex: number }
-  | { type: 'SELL_POTION'; potionIndex: number }
+  | { type: 'DISCARD_WEAPON'; weaponIndex: number; memberIndex: number }
+  | { type: 'DISCARD_SPELL'; spellIndex: number; memberIndex: number }
+  | { type: 'DISCARD_RELIC'; relicIndex: number }
+  | { type: 'DISCARD_POTION'; potionIndex: number }
   | { type: 'UNDO_BUY_WEAPON'; shopSlotIndex: number; item: WeaponData; memberIndex: number; weaponIndex: number }
   | { type: 'UNDO_BUY_SPELL'; shopSlotIndex: number; item: SpellData; memberIndex: number; spellIndex: number }
   | { type: 'UNDO_BUY_RELIC'; shopSlotIndex: number; item: RelicData; relicIndex: number }
   | { type: 'UNDO_BUY_POTION'; shopSlotIndex: number; item: PotionData; potionIndex: number }
-  | { type: 'UNDO_SELL_WEAPON'; weapon: ExplorerWeapon; memberIndex: number; sellPrice: number }
-  | { type: 'UNDO_SELL_SPELL'; spell: SpellInstance; memberIndex: number; sellPrice: number }
-  | { type: 'UNDO_SELL_RELIC'; relic: RelicData; sellPrice: number }
-  | { type: 'UNDO_SELL_POTION'; potion: PotionData; sellPrice: number }
+  | { type: 'UNDO_DISCARD_WEAPON'; weapon: ExplorerWeapon; memberIndex: number }
+  | { type: 'UNDO_DISCARD_SPELL'; spell: SpellInstance; memberIndex: number }
+  | { type: 'UNDO_DISCARD_RELIC'; relic: RelicData }
+  | { type: 'UNDO_DISCARD_POTION'; potion: PotionData }
   | { type: 'TRANSFER_WEAPON'; fromMemberIndex: number; weaponIndex: number; toMemberIndex: number }
   | { type: 'TRANSFER_SPELL'; fromMemberIndex: number; spellIndex: number; toMemberIndex: number }
   | { type: 'SELECT_SHOP'; shopIndex: number }
@@ -126,7 +123,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const battleState = createBattleState(initialRun.currentStage, initialRun.party, initialRun.seed, initialRun.relics)
       const run: RunState = {
         ...initialRun,
-        battleStartSnapshot: { party: initialRun.party, gold: initialRun.gold },
+        battleStartSnapshot: { party: initialRun.party },
       }
       return { ...state, phase: 'battle', run, battleState }
     }
@@ -150,13 +147,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.battleState.isGameOver) return state
 
       if (action.result === 'victory') {
-        const reward = calculateReward(
-          state.battleState.enemies,
-          state.run.gold,
-          state.battleState.stolenGold,
-          state.run.currentStage,
-        )
-
         const killCount = state.battleState.enemies.length
 
         // 戦闘不能キャラをHP1で復活 + バフ/デバフをクリア
@@ -167,12 +157,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           battleDebuffs: [],
         }))
 
-        // 修羅の証: 戦闘後に全員にボーナスEXP、ゴールドペナルティ
-        // レベルアップはrevivedPartyに反映され、memberDiffs経由でリザルト画面に表示される
+        // 修羅の証: 戦闘後に全員にボーナスEXP
         const shuraBonus = getBattleEndBonusExp(state.run.relics)
-        let rewardTotal = reward.total
         if (shuraBonus) {
-          rewardTotal = Math.max(0, rewardTotal - shuraBonus.goldPenalty)
           revivedParty = revivedParty.map(member => {
             const { updatedExplorer } = addExpAndProcessLevelUp(member, shuraBonus.expValue)
             return {
@@ -183,41 +170,22 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
 
         const snapshot = state.run.battleStartSnapshot
-        const endGold = state.run.gold + rewardTotal
         const memberDiffs = snapshot
           ? calculateMemberDiffs(snapshot.party, revivedParty)
           : []
-        const goldDiff = snapshot ? endGold - snapshot.gold : 0
-
-        // 戦闘中の魔法/レリック効果によるゴールド獲得を集計（同名は合算）
-        const bonusGainMap = new Map<string, number>()
-        for (const g of state.battleState.bonusGains) {
-          bonusGainMap.set(g.source, (bonusGainMap.get(g.source) ?? 0) + g.value)
-        }
-        const bonusEntries = Array.from(bonusGainMap, ([source, value]) => ({ source, value }))
-        // bonusEntries 分は goldEarned にも含めて表示する（goldDiff との不整合を防ぐ）
-        const bonusTotal = bonusEntries.reduce((s, e) => s + e.value, 0)
 
         const resultState: ResultState = {
           result: 'victory',
-          goldEarned: rewardTotal + bonusTotal,
-          baseGold: reward.baseGold,
-          interestGold: reward.interestGold,
-          stolenGold: reward.stolenGold,
-          bonusEntries,
           killCount,
           memberDiffs,
-          goldDiff,
         }
 
         const newRun: RunState = {
           ...state.run,
-          gold: endGold,
           party: revivedParty,
           stats: {
             ...state.run.stats,
             totalKillCount: state.run.stats.totalKillCount + killCount,
-            totalGoldEarned: state.run.stats.totalGoldEarned + rewardTotal,
           },
           battleLevelUps: [],
           battleStartSnapshot: null,
@@ -317,7 +285,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold - item.price, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
         storeState: updateShopSlotItem(state.storeState, slotIndex, null),
       }
     }
@@ -338,7 +306,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold - item.price, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
         storeState: updateShopSlotItem(state.storeState, slotIndex, null),
       }
     }
@@ -352,7 +320,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold - item.price,
           relics: [...state.run.relics, item],
         },
         storeState: updateShopSlotItem(state.storeState, slotIndex, null),
@@ -368,14 +335,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold - item.price,
           potions: [...state.run.potions, item],
         },
         storeState: updateShopSlotItem(state.storeState, slotIndex, null),
       }
     }
 
-    case 'SELL_WEAPON': {
+    case 'DISCARD_WEAPON': {
       if (!state.run) return state
 
       const explorer = state.run.party[action.memberIndex]
@@ -383,10 +349,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const weapon = explorer.weapons[action.weaponIndex]
 
       if (!weapon || weapon.id === 'punch') return state
-      // 無限使用の無料武器（魔力弾、祈り）は売却不可
+      // 無限使用の無料武器（魔力弾、祈り等）は削除不可
       if (weapon.maxUses === null && !('price' in weapon && weapon.price > 0)) return state
 
-      const sellPrice = getSellPrice(weapon)
       const updatedExplorer: ExplorerState = {
         ...explorer,
         weapons: explorer.weapons.filter((_, i) => i !== action.weaponIndex),
@@ -396,11 +361,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold + sellPrice, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
       }
     }
 
-    case 'SELL_SPELL': {
+    case 'DISCARD_SPELL': {
       if (!state.run) return state
 
       const explorer = state.run.party[action.memberIndex]
@@ -409,7 +374,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!spell) return state
       if (spell.price === 0 || spell.slotFree) return state
 
-      const sellPrice = getSellPriceItem(spell)
       const updatedExplorer: ExplorerState = {
         ...explorer,
         spells: explorer.spells.filter((_, i) => i !== action.spellIndex),
@@ -419,41 +383,35 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold + sellPrice, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
       }
     }
 
-    case 'SELL_RELIC': {
+    case 'DISCARD_RELIC': {
       if (!state.run) return state
 
       const relic = state.run.relics[action.relicIndex]
       if (!relic) return state
 
-      const sellPrice = getSellPriceItem(relic)
-
       return {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold + sellPrice,
           relics: state.run.relics.filter((_, i) => i !== action.relicIndex),
         },
       }
     }
 
-    case 'SELL_POTION': {
+    case 'DISCARD_POTION': {
       if (!state.run) return state
 
       const potion = state.run.potions[action.potionIndex]
       if (!potion) return state
 
-      const sellPrice = getSellPriceItem(potion)
-
       return {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold + sellPrice,
           potions: state.run.potions.filter((_, i) => i !== action.potionIndex),
         },
       }
@@ -475,7 +433,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold + item.price, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
         storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
       }
     }
@@ -494,7 +452,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold + item.price, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
         storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
       }
     }
@@ -508,7 +466,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold + item.price,
           relics: state.run.relics.filter((_, i) => i !== relicIndex),
         },
         storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
@@ -524,18 +481,17 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold + item.price,
           potions: state.run.potions.filter((_, i) => i !== potionIndex),
         },
         storeState: updateShopSlotItem(state.storeState, shopSlotIndex, item),
       }
     }
 
-    // === 売却取り消し ===
+    // === 削除取り消し ===
 
-    case 'UNDO_SELL_WEAPON': {
+    case 'UNDO_DISCARD_WEAPON': {
       if (!state.run) return state
-      const { weapon, memberIndex, sellPrice } = action
+      const { weapon, memberIndex } = action
       const explorer = state.run.party[memberIndex]
       if (!explorer) return state
 
@@ -547,13 +503,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold - sellPrice, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
       }
     }
 
-    case 'UNDO_SELL_SPELL': {
+    case 'UNDO_DISCARD_SPELL': {
       if (!state.run) return state
-      const { spell, memberIndex, sellPrice } = action
+      const { spell, memberIndex } = action
       const explorer = state.run.party[memberIndex]
       if (!explorer) return state
 
@@ -565,33 +521,31 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold - sellPrice, party: updatedParty },
+        run: { ...state.run, party: updatedParty },
       }
     }
 
-    case 'UNDO_SELL_RELIC': {
+    case 'UNDO_DISCARD_RELIC': {
       if (!state.run) return state
-      const { relic, sellPrice } = action
+      const { relic } = action
 
       return {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold - sellPrice,
           relics: [...state.run.relics, relic],
         },
       }
     }
 
-    case 'UNDO_SELL_POTION': {
+    case 'UNDO_DISCARD_POTION': {
       if (!state.run) return state
-      const { potion, sellPrice } = action
+      const { potion } = action
 
       return {
         ...state,
         run: {
           ...state.run,
-          gold: state.run.gold - sellPrice,
           potions: [...state.run.potions, potion],
         },
       }
@@ -641,14 +595,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'REROLL_STORE': {
       if (!state.run || !state.storeState) return state
-      if (state.run.gold < state.storeState.rerollCost) return state
 
       const newSeed = state.run.seed + state.run.currentStage + Date.now()
       const newStoreState = rerollStore(state.storeState, newSeed)
 
       return {
         ...state,
-        run: { ...state.run, gold: state.run.gold - state.storeState.rerollCost },
         storeState: newStoreState,
       }
     }
@@ -941,7 +893,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         run: {
           ...state.run,
           party: adjustedParty,
-          battleStartSnapshot: { party: adjustedParty, gold: state.run.gold },
+          battleStartSnapshot: { party: adjustedParty },
         },
       }
     }

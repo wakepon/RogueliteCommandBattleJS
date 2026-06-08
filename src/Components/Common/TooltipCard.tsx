@@ -122,9 +122,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (weapon.effect.type === 'currentHpDamage') {
         lines.push({ label: '効果', value: '現在HP-1→ダメージ(HP1化)', color: 'text-red-300' })
       }
-      if (weapon.effect.type === 'goldOnHit') {
-        lines.push({ label: '効果', value: `ヒット時+${weapon.effect.value}G`, color: 'text-yellow-300' })
-      }
       if (weapon.effect.type === 'selfVulnerability') {
         lines.push({ label: 'デメリット', value: `${weapon.effect.duration}T被ダメ×${weapon.effect.multiplier}`, color: 'text-red-400' })
       }
@@ -137,9 +134,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       lines.push({ label: 'HP消費', value: `${weapon.hpCost}/回`, color: 'text-red-400' })
-    }
-    if ('goldCost' in weapon && weapon.goldCost) {
-      lines.push({ label: 'G消費', value: `${weapon.goldCost}G/回`, color: 'text-yellow-400' })
     }
     if (!isSpellLike && 'scaleStat' in weapon && weapon.scaleStat === 'int') {
       lines.push({ label: '依存ステ', value: 'INT', color: 'text-blue-300' })
@@ -177,9 +171,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'heal') {
         lines.push({ label: '回復', value: `HP +${spell.effect.value}`, color: 'text-green-300' })
       }
-      if (spell.effect.type === 'steal') {
-        lines.push({ label: '効果', value: 'ゴールドを盗む', color: 'text-yellow-300' })
-      }
       if (spell.effect.type === 'buff') {
         if (spell.effect.stat === 'precision') {
           lines.push({ label: '効果', value: 'ダメージブレを0にする', color: 'text-green-300' })
@@ -192,12 +183,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       }
       if (spell.effect.type === 'hpToMp') {
         lines.push({ label: '効果', value: `最大HP${Math.floor(spell.effect.hpCostRate * 100)}%→MP全回復`, color: 'text-purple-300' })
-      }
-      if (spell.effect.type === 'goldOnHit') {
-        lines.push({ label: '効果', value: `ヒット時+${spell.effect.value}G`, color: 'text-yellow-300' })
-      }
-      if (spell.effect.type === 'goldDamage') {
-        lines.push({ label: '効果', value: `所持金×${spell.effect.multiplier}ダメージ（消費なし）`, color: 'text-yellow-300' })
       }
       if (spell.effect.type === 'repairWeapons') {
         lines.push({ label: '効果', value: `武器耐久+${spell.effect.value}回復`, color: 'text-green-300' })

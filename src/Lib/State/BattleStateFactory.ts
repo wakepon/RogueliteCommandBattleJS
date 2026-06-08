@@ -213,9 +213,7 @@ export function createBattleState(
     enemyIntents,
 
     // 共有
-    stolenGold: 0,
     relicState: createRelicBattleState(),
-    bonusGains: [],
 
     // UI
     selectedCommand: null,

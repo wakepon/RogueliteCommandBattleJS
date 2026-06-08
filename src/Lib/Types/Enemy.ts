@@ -11,7 +11,6 @@ export interface EnemyData {
   hp: number
   attack: number
   agi: number
-  gold: number
   behavior: string
 }
 

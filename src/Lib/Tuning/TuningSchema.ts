@@ -86,13 +86,7 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   { key: 'buff_multiplier_per_point', label: 'バフ倍率/pt', category: 'battle', defaultValue: 0.1, control: { type: 'number', min: 0.01, max: 1.0, step: 0.01 } },
 
   // === 報酬・経済 ===
-  { key: 'gold_reward_normal', label: '通常敵 報酬G', category: 'economy', defaultValue: 3, control: { type: 'number', min: 0, max: 50, step: 1 } },
-  { key: 'gold_reward_elite', label: 'エリート敵 報酬G', category: 'economy', defaultValue: 5, control: { type: 'number', min: 0, max: 50, step: 1 } },
-  { key: 'gold_reward_boss', label: 'ボス 報酬G(主要)', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 100, step: 1 } },
-  { key: 'gold_reward_boss_minor', label: 'ボス 報酬G(その他)', category: 'economy', defaultValue: 10, control: { type: 'number', min: 0, max: 100, step: 1 } },
-  { key: 'interest_cap_default', label: '利子上限(通常)', category: 'economy', defaultValue: 5, control: { type: 'number', min: 0, max: 30, step: 1 } },
   { key: 'store_category_slots', label: 'ショップ各カテゴリ枠数', category: 'economy', defaultValue: 3, control: { type: 'number', min: 1, max: 6, step: 1 } },
-  { key: 'base_reroll_cost', label: 'リロール基本コスト', category: 'economy', defaultValue: 3, control: { type: 'number', min: 0, max: 20, step: 1 } },
   { key: 'max_relic_count', label: 'レリック所持上限', category: 'economy', defaultValue: 5, control: { type: 'number', min: 1, max: 20, step: 1 } },
   { key: 'max_potion_count', label: 'ポーション所持上限', category: 'economy', defaultValue: 2, control: { type: 'number', min: 1, max: 10, step: 1 } },
 

@@ -21,18 +21,18 @@ interface GameContextType {
   buySpell: (slotIndex: number, item: SpellData, memberIndex: number) => void
   buyRelic: (slotIndex: number, item: RelicData) => void
   buyPotion: (slotIndex: number, item: PotionData) => void
-  sellWeapon: (weaponIndex: number, memberIndex: number) => void
-  sellSpell: (spellIndex: number, memberIndex: number) => void
-  sellRelic: (relicIndex: number) => void
-  sellPotion: (potionIndex: number) => void
+  discardWeapon: (weaponIndex: number, memberIndex: number) => void
+  discardSpell: (spellIndex: number, memberIndex: number) => void
+  discardRelic: (relicIndex: number) => void
+  discardPotion: (potionIndex: number) => void
   undoBuyWeapon: (shopSlotIndex: number, item: WeaponData, memberIndex: number, weaponIndex: number) => void
   undoBuySpell: (shopSlotIndex: number, item: SpellData, memberIndex: number, spellIndex: number) => void
   undoBuyRelic: (shopSlotIndex: number, item: RelicData, relicIndex: number) => void
   undoBuyPotion: (shopSlotIndex: number, item: PotionData, potionIndex: number) => void
-  undoSellWeapon: (weapon: ExplorerWeapon, memberIndex: number, sellPrice: number) => void
-  undoSellSpell: (spell: SpellInstance, memberIndex: number, sellPrice: number) => void
-  undoSellRelic: (relic: RelicData, sellPrice: number) => void
-  undoSellPotion: (potion: PotionData, sellPrice: number) => void
+  undoDiscardWeapon: (weapon: ExplorerWeapon, memberIndex: number) => void
+  undoDiscardSpell: (spell: SpellInstance, memberIndex: number) => void
+  undoDiscardRelic: (relic: RelicData) => void
+  undoDiscardPotion: (potion: PotionData) => void
   transferWeapon: (fromMemberIndex: number, weaponIndex: number, toMemberIndex: number) => void
   transferSpell: (fromMemberIndex: number, spellIndex: number, toMemberIndex: number) => void
   selectShop: (shopIndex: number) => void
@@ -93,14 +93,14 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'BUY_RELIC', slotIndex, item }), [])
   const buyPotion = useCallback((slotIndex: number, item: PotionData) =>
     dispatch({ type: 'BUY_POTION', slotIndex, item }), [])
-  const sellWeapon = useCallback((weaponIndex: number, memberIndex: number) =>
-    dispatch({ type: 'SELL_WEAPON', weaponIndex, memberIndex }), [])
-  const sellSpell = useCallback((spellIndex: number, memberIndex: number) =>
-    dispatch({ type: 'SELL_SPELL', spellIndex, memberIndex }), [])
-  const sellRelic = useCallback((relicIndex: number) =>
-    dispatch({ type: 'SELL_RELIC', relicIndex }), [])
-  const sellPotion = useCallback((potionIndex: number) =>
-    dispatch({ type: 'SELL_POTION', potionIndex }), [])
+  const discardWeapon = useCallback((weaponIndex: number, memberIndex: number) =>
+    dispatch({ type: 'DISCARD_WEAPON', weaponIndex, memberIndex }), [])
+  const discardSpell = useCallback((spellIndex: number, memberIndex: number) =>
+    dispatch({ type: 'DISCARD_SPELL', spellIndex, memberIndex }), [])
+  const discardRelic = useCallback((relicIndex: number) =>
+    dispatch({ type: 'DISCARD_RELIC', relicIndex }), [])
+  const discardPotion = useCallback((potionIndex: number) =>
+    dispatch({ type: 'DISCARD_POTION', potionIndex }), [])
   const undoBuyWeapon = useCallback((shopSlotIndex: number, item: WeaponData, memberIndex: number, weaponIndex: number) =>
     dispatch({ type: 'UNDO_BUY_WEAPON', shopSlotIndex, item, memberIndex, weaponIndex }), [])
   const undoBuySpell = useCallback((shopSlotIndex: number, item: SpellData, memberIndex: number, spellIndex: number) =>
@@ -109,14 +109,14 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'UNDO_BUY_RELIC', shopSlotIndex, item, relicIndex }), [])
   const undoBuyPotion = useCallback((shopSlotIndex: number, item: PotionData, potionIndex: number) =>
     dispatch({ type: 'UNDO_BUY_POTION', shopSlotIndex, item, potionIndex }), [])
-  const undoSellWeapon = useCallback((weapon: ExplorerWeapon, memberIndex: number, sellPrice: number) =>
-    dispatch({ type: 'UNDO_SELL_WEAPON', weapon, memberIndex, sellPrice }), [])
-  const undoSellSpell = useCallback((spell: SpellInstance, memberIndex: number, sellPrice: number) =>
-    dispatch({ type: 'UNDO_SELL_SPELL', spell, memberIndex, sellPrice }), [])
-  const undoSellRelic = useCallback((relic: RelicData, sellPrice: number) =>
-    dispatch({ type: 'UNDO_SELL_RELIC', relic, sellPrice }), [])
-  const undoSellPotion = useCallback((potion: PotionData, sellPrice: number) =>
-    dispatch({ type: 'UNDO_SELL_POTION', potion, sellPrice }), [])
+  const undoDiscardWeapon = useCallback((weapon: ExplorerWeapon, memberIndex: number) =>
+    dispatch({ type: 'UNDO_DISCARD_WEAPON', weapon, memberIndex }), [])
+  const undoDiscardSpell = useCallback((spell: SpellInstance, memberIndex: number) =>
+    dispatch({ type: 'UNDO_DISCARD_SPELL', spell, memberIndex }), [])
+  const undoDiscardRelic = useCallback((relic: RelicData) =>
+    dispatch({ type: 'UNDO_DISCARD_RELIC', relic }), [])
+  const undoDiscardPotion = useCallback((potion: PotionData) =>
+    dispatch({ type: 'UNDO_DISCARD_POTION', potion }), [])
   const transferWeapon = useCallback((fromMemberIndex: number, weaponIndex: number, toMemberIndex: number) =>
     dispatch({ type: 'TRANSFER_WEAPON', fromMemberIndex, weaponIndex, toMemberIndex }), [])
   const transferSpell = useCallback((fromMemberIndex: number, spellIndex: number, toMemberIndex: number) =>
@@ -176,18 +176,18 @@ export function GameProvider({ children }: GameProviderProps) {
       buySpell,
       buyRelic,
       buyPotion,
-      sellWeapon,
-      sellSpell,
-      sellRelic,
-      sellPotion,
+      discardWeapon,
+      discardSpell,
+      discardRelic,
+      discardPotion,
       undoBuyWeapon,
       undoBuySpell,
       undoBuyRelic,
       undoBuyPotion,
-      undoSellWeapon,
-      undoSellSpell,
-      undoSellRelic,
-      undoSellPotion,
+      undoDiscardWeapon,
+      undoDiscardSpell,
+      undoDiscardRelic,
+      undoDiscardPotion,
       transferWeapon,
       transferSpell,
       selectShop,

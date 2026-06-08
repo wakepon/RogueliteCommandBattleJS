@@ -4,19 +4,17 @@ import { RelicInstance } from './Relic'
 import { PotionInstance } from './Potion'
 
 // セーブデータバージョン（パーティー制導入で互換性破壊）
-export const SAVE_VERSION = 4
+export const SAVE_VERSION = 5
 
 // 統計情報
 export interface RunStats {
   totalKillCount: number
-  totalGoldEarned: number
   maxStageReached: number
 }
 
 // 戦闘開始時スナップショット（バトル中のみ有効、END_BATTLEでnullに戻す）
 export interface BattleStartSnapshot {
   party: ExplorerState[]
-  gold: number
 }
 
 // ランの状態
@@ -25,7 +23,6 @@ export interface RunState {
   seed: number
   startedAt: number
   currentStage: number
-  gold: number
   relics: RelicInstance[]
   potions: PotionInstance[]
   party: ExplorerState[]
@@ -42,13 +39,11 @@ export function createInitialRun(): RunState {
     seed: Date.now(),
     startedAt: Date.now(),
     currentStage: 1,
-    gold: 5,
     relics: [],
     potions: [],
     party: createInitialParty(),
     stats: {
       totalKillCount: 0,
-      totalGoldEarned: 0,
       maxStageReached: 1,
     },
     battleLevelUps: [],

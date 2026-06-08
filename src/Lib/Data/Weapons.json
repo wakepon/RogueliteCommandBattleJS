@@ -43,30 +43,6 @@
     "variance": 10,
     "maxUses": 5
   },
-  "goldHit_knife": {
-    "id": "goldHit_knife",
-    "name": "打ち出のナイフ",
-    "rarity": "Uncommon",
-    "price": 10,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 3,
-    "variance": 5,
-    "maxUses": 3,
-    "effect": { "type": "goldOnHit", "value": 1 }
-  },
-  "goldHit_straight_sword": {
-    "id": "goldHit_straight_sword",
-    "name": "打ち出の直剣",
-    "rarity": "Rare",
-    "price": 18,
-    "commandCategory": "weapon",
-    "targetType": "enemySingle",
-    "power": 6,
-    "variance": 9,
-    "maxUses": 3,
-    "effect": { "type": "goldOnHit", "value": 1 }
-  },
   "recoil_knife": {
     "id": "recoil_knife",
     "name": "反動のナイフ",

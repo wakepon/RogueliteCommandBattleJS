@@ -15,12 +15,11 @@ export type PassiveEffectType =
   // 3アーキタイプ用
   | { type: 'battleStartHpReduction'; rate: number; strBonus: number }  // 血の契約: 戦闘開始時HP削減+STR
   | { type: 'damageTakenToMp'; value: number }  // 苦痛のリング: 被弾時固定MP回復
-  | { type: 'goldPerKill'; value: number }  // 商人の護符: キル時ゴールド
   | { type: 'weaponBreakDamageMultiplier'; increment: number }  // 努力の証: 武器破壊時倍率蓄積
   | { type: 'weaponBreakNextAttackBonus'; value: number }  // 鍛冶師の金槌: 武器破壊後Power加算
   // EXP・防御系
   | { type: 'levelUpDamageBoost'; multiplier: number }  // 闘気の腕輪: 戦闘中レベルアップ時、次攻撃ダメージ倍率
-  | { type: 'battleEndBonusExp'; expValue: number; goldPenalty: number }  // 修羅の証: 戦闘後全員+EXP、ゴールド-N
+  | { type: 'battleEndBonusExp'; expValue: number }  // 修羅の証: 戦闘後全員+EXP
   | { type: 'lowestLevelDamageMultiplier'; multiplier: number }  // 番狂わせの一撃: パーティ最低レベル者のダメージ倍率
   | { type: 'highHpTargetRateBonus'; value: number }  // 強い者いじめ: HP最大者の被弾率+N%
   | { type: 'deathProtection' }  // 身代わりの人形: 致死ダメージでHP1耐え、1ラン1回消滅
