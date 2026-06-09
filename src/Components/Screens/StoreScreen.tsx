@@ -895,8 +895,9 @@ export function StoreScreen() {
 
   const shopTitle = `${STORE_CATEGORY_LABELS[shop.categories[0]]}・${STORE_CATEGORY_LABELS[shop.categories[1]]}報酬`
 
-  // 報酬1択制: アイテムを1つ選んだら他はグレーアウト
-  const hasPickedItem = purchaseRecords.length > 0
+  // 報酬2択制: アイテムを2つ選んだら残りはグレーアウト
+  const maxPicks = 2
+  const hasPickedItem = purchaseRecords.length >= maxPicks
   // 選択済みアイテムのスロットインデックス（購入取り消し時の判定用）
   const pickedSlotIndices = new Set(purchaseRecords.map(r => r.shopSlotIndex))
 
@@ -933,12 +934,12 @@ export function StoreScreen() {
           {/* 商品エリア全体をドロップ可能に（購入取り消し用） */}
           <DroppableSlot id="shop-return-zone" className="flex-1" isValidTarget={isDraggingInv}>
             <div>
-              {/* ヘッダー: リロールボタン + 一つ選べ表示 */}
+              {/* ヘッダー: リロールボタン + 二つ選べ表示 */}
               <div className="flex items-center gap-2 mb-2">
                 <Button variant="secondary" onClick={rerollStore} disabled={hasPickedItem} className="text-[10px] px-2 py-0.5">
                   リロール
                 </Button>
-                <span className="text-yellow-300 font-bold text-sm">一つ選べ</span>
+                <span className="text-yellow-300 font-bold text-sm">二つ選べ</span>
               </div>
 
               {/* 上段: 最初のカテゴリ2枠 */}
