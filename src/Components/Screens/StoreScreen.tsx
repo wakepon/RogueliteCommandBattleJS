@@ -10,10 +10,10 @@ import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
-import { isWeaponData, isSpellData, STORE_CATEGORY_LABELS } from '../../Lib/Core/StoreLogic'
+import { isWeaponData, isSpellData } from '../../Lib/Core/StoreLogic'
 import { getPotionSlotBonus } from '../../Lib/Core/RelicProcessor'
 import { getTuningValue } from '../../Lib/Tuning/TuningStore'
-import { ShopSlot, ShopOption } from '../../Lib/Types/Game'
+import { ShopSlot } from '../../Lib/Types/Game'
 import { getRequiredKillsForNextLevel } from '../../Lib/Core/LevelUpCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 import { calculateRelicAttackImpacts, MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
@@ -560,7 +560,7 @@ export function StoreScreen() {
     undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion,
     undoDiscardWeapon, undoDiscardSpell, undoDiscardRelic, undoDiscardPotion,
     transferWeapon, transferSpell,
-    rerollStore, closeStore, selectShop,
+    rerollStore, closeStore,
   } = useGame()
 
   const [showMap, setShowMap] = useState(false)
@@ -576,16 +576,10 @@ export function StoreScreen() {
   const { run, storeState, mapState } = state
   if (!run || !storeState) return null
 
-  // 選択中の報酬
-  const selectedShop: ShopOption | null = storeState.selectedShopIndex !== null
-    ? storeState.shopOptions[storeState.selectedShopIndex]
-    : null
-
   // 商品カード用のダメージ予測（武器=戦士+僧侶、魔法=魔法使い+僧侶 のデュアル予測）
   const shopDamagePreviews = useMemo(() => {
     const previews: Map<number, DualDamagePreview | null> = new Map()
-    if (!selectedShop) return previews
-    selectedShop.slots.forEach((slot, index) => {
+    storeState.slots.forEach((slot, index) => {
       if (!slot.item) { previews.set(index, null); return }
       if (slot.category !== 'weapon' && slot.category !== 'spell') {
         previews.set(index, null)
@@ -595,18 +589,17 @@ export function StoreScreen() {
       previews.set(index, getDualDamagePreview(item, run.party, run.relics as RelicData[]))
     })
     return previews
-  }, [selectedShop, run.party, run.relics])
+  }, [storeState.slots, run.party, run.relics])
 
   // 商品カード用のレリック攻撃力影響をメモ化（レリックスロット専用）
   const shopAttackImpacts = useMemo(() => {
     const impacts: Map<number, MemberAttackImpact[] | undefined> = new Map()
-    if (!selectedShop) return impacts
-    selectedShop.slots.forEach((slot, index) => {
+    storeState.slots.forEach((slot, index) => {
       if (slot.category !== 'relic' || !slot.item) return
       impacts.set(index, calculateRelicAttackImpacts(slot.item as RelicData, run.party, run.relics))
     })
     return impacts
-  }, [selectedShop, run.party, run.relics])
+  }, [storeState.slots, run.party, run.relics])
 
   const addMovedKey = useCallback((key: string) => {
     setMovedKeys(prev => new Set(prev).add(key))
@@ -806,97 +799,8 @@ export function StoreScreen() {
     setDraggingLabel(null)
   }, [])
 
-  // 報酬選択画面
-  if (storeState.selectedShopIndex === null) {
-    return (
-      <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
-
-        {/* ===== 左サイドパネル ===== */}
-        <div className="w-1/4 flex-shrink-0 flex flex-col">
-          <StoreLeftPanel
-            shopTitle="報酬"
-            currentStage={run.currentStage}
-            seed={run.seed}
-            potions={run.potions}
-            relics={run.relics}
-            movedKeys={movedKeys}
-            newPurchaseKeys={newPurchaseKeys}
-            party={run.party}
-            dragData={null}
-          />
-        </div>
-
-        {/* ===== 右側メイン領域 ===== */}
-        <div className="flex-1 flex flex-col gap-2 min-w-0">
-
-          {/* ===== 報酬選択エリア（商品エリアの位置） ===== */}
-          <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
-            <div className="mb-2">
-              <span className="text-white font-bold text-xs">報酬を選択</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {storeState.shopOptions.map((option, optIdx) => (
-                <button
-                  key={optIdx}
-                  className="bg-gray-800 border-2 border-gray-600 hover:border-yellow-400 rounded-lg p-3 flex flex-col items-center gap-1 transition-colors cursor-pointer min-h-[80px]"
-                  onClick={() => selectShop(optIdx)}
-                >
-                  <div className="text-white font-bold text-sm">
-                    {STORE_CATEGORY_LABELS[option.categories[0]]}
-                    <span className="text-gray-500 mx-1">・</span>
-                    {STORE_CATEGORY_LABELS[option.categories[1]]}
-                  </div>
-                  <div className="text-gray-500 text-[10px]">各{option.slots.length / 2}枠</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ===== キャラ欄3等分（3キャラ。共有枠はサイドバーへ移動） ===== */}
-          <div className="grid grid-cols-3 gap-1.5 flex-1 min-h-0">
-            {run.party.map((member, index) => (
-              <StoreCharacterPanel
-                key={member.id}
-                member={member}
-                memberIndex={index}
-                dragData={null}
-                movedKeys={movedKeys}
-                newPurchaseKeys={newPurchaseKeys}
-                relics={run.relics as RelicData[]}
-              />
-            ))}
-          </div>
-
-          {/* ===== スキップボタン ===== */}
-          <div className="bg-gray-900 border border-gray-600 p-2 rounded-lg">
-            <div className="flex gap-2 justify-center">
-              {mapState && (
-                <Button variant="secondary" onClick={() => setShowMap(true)}>マップ</Button>
-              )}
-              <Button variant="primary" onClick={closeStore} className="flex-1 max-w-md">
-                報酬をスキップ
-              </Button>
-            </div>
-          </div>
-
-        </div>{/* 右側メイン領域 終わり */}
-
-        {showMap && mapState && (
-          <MapOverlay nodes={mapState.nodes} currentStage={mapState.currentStage} onClose={() => setShowMap(false)} />
-        )}
-      </div>
-    )
-  }
-
-  // 報酬選択済み: 通常の報酬画面
-  const shop = selectedShop!
-  const topSlots = shop.slots.slice(0, 2)
-  const bottomSlots = shop.slots.slice(2, 4)
-
-  const shopTitle = `${STORE_CATEGORY_LABELS[shop.categories[0]]}・${STORE_CATEGORY_LABELS[shop.categories[1]]}報酬`
-
-  // 報酬1択制: アイテムを1つ選んだら他はグレーアウト
-  const hasPickedItem = purchaseRecords.length > 0
+  // 報酬2択制: アイテムを2つ選んだら他はグレーアウト
+  const hasReachedMax = purchaseRecords.length >= storeState.maxSelections
   // 選択済みアイテムのスロットインデックス（購入取り消し時の判定用）
   const pickedSlotIndices = new Set(purchaseRecords.map(r => r.shopSlotIndex))
 
@@ -913,7 +817,7 @@ export function StoreScreen() {
         {/* ===== 左サイドパネル ===== */}
         <div className="w-1/4 flex-shrink-0 flex flex-col">
           <StoreLeftPanel
-            shopTitle={shopTitle}
+            shopTitle="報酬"
             currentStage={run.currentStage}
             seed={run.seed}
             potions={run.potions}
@@ -933,54 +837,29 @@ export function StoreScreen() {
           {/* 商品エリア全体をドロップ可能に（購入取り消し用） */}
           <DroppableSlot id="shop-return-zone" className="flex-1" isValidTarget={isDraggingInv}>
             <div>
-              {/* ヘッダー: リロールボタン + 一つ選べ表示 */}
+              {/* ヘッダー: リロールボタン + 二つ選べ表示 */}
               <div className="flex items-center gap-2 mb-2">
-                <Button variant="secondary" onClick={rerollStore} disabled={hasPickedItem} className="text-[10px] px-2 py-0.5">
+                <Button variant="secondary" onClick={rerollStore} disabled={purchaseRecords.length > 0} className="text-[10px] px-2 py-0.5">
                   リロール
                 </Button>
-                <span className="text-yellow-300 font-bold text-sm">一つ選べ</span>
+                <span className="text-yellow-300 font-bold text-sm">二つ選べ</span>
               </div>
 
-              {/* 上段: 最初のカテゴリ2枠 */}
-              <div className="mb-2">
-                <div className="text-[9px] text-gray-500 mb-1">{STORE_CATEGORY_LABELS[shop.categories[0]]}</div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {topSlots.map((slot, localIdx) => {
-                    const slotIndex = localIdx
-                    const isDisabled = hasPickedItem && !pickedSlotIndices.has(slotIndex)
-                    return (
-                      <ShopSlotRenderer
-                        key={`top-${localIdx}`}
-                        slot={slot}
-                        slotIndex={slotIndex}
-                        dmgPreview={shopDamagePreviews.get(slotIndex) ?? null}
-                        attackImpacts={shopAttackImpacts.get(slotIndex)}
-                        disabled={isDisabled}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* 下段: 2番目のカテゴリ2枠 */}
-              <div>
-                <div className="text-[9px] text-gray-500 mb-1">{STORE_CATEGORY_LABELS[shop.categories[1]]}</div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {bottomSlots.map((slot, localIdx) => {
-                    const slotIndex = localIdx + 2
-                    const isDisabled = hasPickedItem && !pickedSlotIndices.has(slotIndex)
-                    return (
-                      <ShopSlotRenderer
-                        key={`bottom-${localIdx}`}
-                        slot={slot}
-                        slotIndex={slotIndex}
-                        dmgPreview={shopDamagePreviews.get(slotIndex) ?? null}
-                        attackImpacts={shopAttackImpacts.get(slotIndex)}
-                        disabled={isDisabled}
-                      />
-                    )
-                  })}
-                </div>
+              {/* 5枠グリッド */}
+              <div className="grid grid-cols-5 gap-1.5">
+                {storeState.slots.map((slot, slotIndex) => {
+                  const isDisabled = hasReachedMax && !pickedSlotIndices.has(slotIndex)
+                  return (
+                    <ShopSlotRenderer
+                      key={`slot-${slotIndex}`}
+                      slot={slot}
+                      slotIndex={slotIndex}
+                      dmgPreview={shopDamagePreviews.get(slotIndex) ?? null}
+                      attackImpacts={shopAttackImpacts.get(slotIndex)}
+                      disabled={isDisabled}
+                    />
+                  )
+                })}
               </div>
             </div>
           </DroppableSlot>

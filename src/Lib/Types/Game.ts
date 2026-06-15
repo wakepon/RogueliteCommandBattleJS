@@ -117,19 +117,13 @@ export type ShopSlot =
   | { category: 'relic'; item: RelicData | null }
   | { category: 'potion'; item: PotionData | null }
 
-/** 報酬候補（2カテゴリ×2枠 = 4枠） */
-export interface ShopOption {
-  categories: [StoreCategory, StoreCategory]
-  slots: ShopSlot[]  // 4枠（上段2 + 下段2）
-}
-
 /** ストア状態 */
 export interface StoreState {
-  shopOptions: [ShopOption, ShopOption]  // 2択
-  selectedShopIndex: number | null       // 未選択=null, 選択後=0or1
-  rerollCount: number                     // リロール回数（将来の回数制限用）
-  rareRate: number                       // 第二階層以降のRare出現率
-  floor: number                          // 階層（レアリティフィルタに使用）
+  slots: ShopSlot[]        // 5枠（武器1/魔法1/ランダム1/レリック1/ポーション1）
+  maxSelections: number    // 選択可能数（2）
+  rerollCount: number      // リロール回数（将来の回数制限用）
+  rareRate: number         // 第二階層以降のRare出現率
+  floor: number            // 階層（レアリティフィルタに使用）
 }
 
 // ゲーム全体の状態

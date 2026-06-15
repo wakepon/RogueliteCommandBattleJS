@@ -1,4 +1,4 @@
-import { GameState, ResultState, EventState, MapState, StoreState, ShopOption, createInitialGameState } from '../Types/Game'
+import { GameState, ResultState, EventState, MapState, StoreState, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
@@ -33,19 +33,13 @@ import {
 } from './BattleActionProcessor'
 import { calculateMemberDiffs } from '../Core/BattleResultDiff'
 
-/** 選択済みショップのスロットを更新するヘルパー */
+/** ショップスロットのアイテムを更新するヘルパー */
 function updateShopSlotItem(storeState: StoreState, slotIndex: number, newItem: unknown): StoreState {
-  if (storeState.selectedShopIndex === null) return storeState
-  const idx = storeState.selectedShopIndex
-  const shop = storeState.shopOptions[idx]
-  const newSlots = shop.slots.map((slot, i) => {
+  const newSlots = storeState.slots.map((slot, i) => {
     if (i !== slotIndex) return slot
     return { ...slot, item: newItem } as typeof slot
   })
-  const newShop: ShopOption = { ...shop, slots: newSlots }
-  const newOptions: [ShopOption, ShopOption] = [...storeState.shopOptions]
-  newOptions[idx] = newShop
-  return { ...storeState, shopOptions: newOptions }
+  return { ...storeState, slots: newSlots }
 }
 
 export type GameAction =
@@ -73,7 +67,6 @@ export type GameAction =
   | { type: 'UNDO_DISCARD_POTION'; potion: PotionData }
   | { type: 'TRANSFER_WEAPON'; fromMemberIndex: number; weaponIndex: number; toMemberIndex: number }
   | { type: 'TRANSFER_SPELL'; fromMemberIndex: number; spellIndex: number; toMemberIndex: number }
-  | { type: 'SELECT_SHOP'; shopIndex: number }
   | { type: 'REROLL_STORE' }
   | { type: 'CLOSE_STORE' }
   | { type: 'OPEN_EVENT' }
@@ -253,14 +246,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         currentStage: state.run.currentStage,
       }
       return { ...state, phase: 'store', storeState, resultState: null, mapState }
-    }
-
-    case 'SELECT_SHOP': {
-      if (!state.storeState) return state
-      return {
-        ...state,
-        storeState: { ...state.storeState, selectedShopIndex: action.shopIndex },
-      }
     }
 
     case 'BUY_WEAPON': {

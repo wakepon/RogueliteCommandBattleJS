@@ -1,4 +1,4 @@
-import { StoreState, StoreCategory, ShopOption, ShopSlot } from '../Types/Game'
+import { StoreState, StoreCategory, ShopSlot } from '../Types/Game'
 import { WeaponData } from '../Types/Weapon'
 import { SpellData } from '../Types/Spell'
 import { RelicData, RelicInstance } from '../Types/Relic'
@@ -18,7 +18,7 @@ const spellsData = SpellsData as Record<string, SpellData>
 const relicsData = RelicsData as Record<string, RelicData>
 const potionsData = PotionsData as Record<string, PotionData>
 
-const SLOTS_PER_CATEGORY = 2
+const MAX_SELECTIONS = 2
 
 /** 簡易的な疑似乱数生成器（シード付き） */
 function seededRandom(seed: number): number {
@@ -39,18 +39,6 @@ function pickRandom<T>(array: T[], count: number, seed: number): T[] {
   }
 
   return shuffled.slice(0, Math.min(count, shuffled.length))
-}
-
-/** 配列をシード付きでシャッフル */
-function shuffleArray<T>(array: T[], seed: number): T[] {
-  const result = [...array]
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(seededRandom(seed + i * 7) * (i + 1))
-    const temp = result[i]
-    result[i] = result[j]
-    result[j] = temp
-  }
-  return result
 }
 
 /** レアリティ加重ピック: rareRate > 0 なら各スロットでRareを優先的に選出 */
@@ -142,68 +130,42 @@ function generateSlotsForCategory(category: StoreCategory, seed: number, count: 
   }
 }
 
-/** ショップ候補を1つ生成 */
-function generateShopOption(
-  categories: [StoreCategory, StoreCategory],
-  seed: number,
-  rareRate: number = 0,
-  floor: number = 1,
-): ShopOption {
-  const slotsA = generateSlotsForCategory(categories[0], seed, SLOTS_PER_CATEGORY, rareRate, floor)
-  const slotsB = generateSlotsForCategory(categories[1], seed + 300, SLOTS_PER_CATEGORY, rareRate, floor)
-  return {
-    categories,
-    slots: [...slotsA, ...slotsB],
-  }
+/** 5枠の報酬スロットを生成 */
+function generateRewardSlots(seed: number, rareRate: number, floor: number): ShopSlot[] {
+  const weaponSlot = generateSlotsForCategory('weapon', seed, 1, rareRate, floor)
+  const spellSlot = generateSlotsForCategory('spell', seed + 10, 1, rareRate, floor)
+
+  // 3枠目: 武器か魔法をランダムで決定
+  const randomCategory: StoreCategory = seededRandom(seed + 20) < 0.5 ? 'weapon' : 'spell'
+  const randomSlot = generateSlotsForCategory(randomCategory, seed + 30, 1, rareRate, floor)
+
+  const relicSlot = generateSlotsForCategory('relic', seed + 40, 1, rareRate, floor)
+  const potionSlot = generateSlotsForCategory('potion', seed + 50, 1, rareRate, floor)
+
+  return [...weaponSlot, ...spellSlot, ...randomSlot, ...relicSlot, ...potionSlot]
 }
 
-/** ストア状態を生成（2択ショップ） */
+/** ストア状態を生成（5枠から2つ選択） */
 export function createStoreState(seed: number, stage: number = 1): StoreState {
   const floor = getFloor(stage)
   const rareRate = floor === 3 ? getTuningValue('floor_3_rare_rate', 0.7)
                  : floor === 2 ? getTuningValue('floor_2_rare_rate', 0.5)
                  : 0
 
-  // 4カテゴリをシャッフルして2+2に分割
-  const allCategories: StoreCategory[] = ['weapon', 'spell', 'relic', 'potion']
-  const shuffled = shuffleArray(allCategories, seed)
-
-  const shopA = generateShopOption(
-    [shuffled[0], shuffled[1]],
-    seed,
-    rareRate,
-    floor,
-  )
-  const shopB = generateShopOption(
-    [shuffled[2], shuffled[3]],
-    seed + 500,
-    rareRate,
-    floor,
-  )
-
   return {
-    shopOptions: [shopA, shopB],
-    selectedShopIndex: null,
+    slots: generateRewardSlots(seed, rareRate, floor),
+    maxSelections: MAX_SELECTIONS,
     rerollCount: 0,
     rareRate,
     floor,
   }
 }
 
-/** 選択済みショップのリロール */
+/** 報酬スロットのリロール */
 export function rerollStore(storeState: StoreState, seed: number): StoreState {
-  if (storeState.selectedShopIndex === null) return storeState
-
-  const idx = storeState.selectedShopIndex
-  const shop = storeState.shopOptions[idx]
-  const newShop = generateShopOption(shop.categories, seed, storeState.rareRate, storeState.floor)
-
-  const newOptions: [ShopOption, ShopOption] = [...storeState.shopOptions]
-  newOptions[idx] = { ...newShop }
-
   return {
     ...storeState,
-    shopOptions: newOptions,
+    slots: generateRewardSlots(seed, storeState.rareRate, storeState.floor),
     rerollCount: storeState.rerollCount + 1,
   }
 }
