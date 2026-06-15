@@ -12,6 +12,7 @@ export interface EnemyData {
   attack: number
   agi: number
   behavior: string
+  goldReward: number
 }
 
 /** 敵インスタンス */

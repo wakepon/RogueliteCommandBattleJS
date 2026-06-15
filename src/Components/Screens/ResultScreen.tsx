@@ -13,7 +13,7 @@ const MEMBER_LEVEL_UPDATE_TO_MAX_MS = 1000
 const MEMBER_MAX_TO_DONE_MS = 500
 
 export function ResultScreen() {
-  const { state, openStore } = useGame()
+  const { state, openRecovery } = useGame()
   const { resultState } = state
 
   // 敗北時は BattleScreen のオーバーレイで処理するため、ここには勝利時のみ到達する
@@ -91,6 +91,12 @@ export function ResultScreen() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-green-900">
       <h1 className="text-5xl font-bold text-white mb-6">VICTORY</h1>
 
+      {resultState.goldEarned > 0 && (
+        <p className="text-2xl font-bold text-yellow-300 mb-4">
+          +{resultState.goldEarned} G
+        </p>
+      )}
+
       {/* メンバー別変化量 */}
       {memberDiffs.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 w-full max-w-4xl">
@@ -111,8 +117,8 @@ export function ResultScreen() {
       )}
 
       <div className="flex flex-col gap-4">
-        <Button variant="primary" size="lg" onClick={openStore}>
-          報酬を選ぶ
+        <Button variant="primary" size="lg" onClick={openRecovery}>
+          回復メニューへ
         </Button>
       </div>
     </div>

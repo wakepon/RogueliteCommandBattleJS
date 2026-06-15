@@ -14,7 +14,7 @@ export type BattleAction =
   | { type: 'CHANGE_ACTIVE_EXPLORER'; index: number }  // コマンド入力キャラ切替
   | { type: 'START_EXECUTION' }  // 実行開始 → partyAction phase
   // パーティー行動フェーズ
-  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}>; contributors?: DamageContributor[]; randomEnemyTargets?: string[] }
+  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}>; contributors?: DamageContributor[]; randomEnemyTargets?: string[]; overrideTargetId?: string }
   | { type: 'ADVANCE_PARTY_ACTION' }  // 次のパーティーメンバーの行動へ
   // 敵行動フェーズ
   | { type: 'ENEMY_ACTION'; enemyId: string; targetExplorerId: string; damage: number; explorer: ExplorerState;
@@ -26,7 +26,12 @@ export type BattleAction =
       applySelfDefense?: { value: number; duration: number };
       transformName?: string;
       isRandomTarget?: boolean;
-      randomTargetHits?: Array<{ targetExplorerId: string }> }
+      randomTargetHits?: Array<{ targetExplorerId: string }>;
+      weaponSeal?: boolean; weaponSealAll?: boolean;
+      applyShieldToSelf?: number; applyShieldToAlly?: number;
+      applyGuard?: boolean; mpDrainAll?: number;
+      applyVulnerability?: { multiplier: number; duration: number };
+      unlimitedSummon?: boolean }
   | { type: 'ADVANCE_ENEMY_ACTION' }  // 次の敵の行動へ
   // ターン終了
   | { type: 'PROCESS_TURN_END'; totalPoisonDamage: number; updatedParty: ExplorerState[] }
@@ -217,7 +222,9 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       const currentSlot = state.commandSlots[state.currentCommandIndex]
       if (!currentSlot?.command || !currentSlot.targetId) return state
 
-      const { command, targetId } = currentSlot
+      const { command } = currentSlot
+      // 庇うリダイレクト: overrideTargetIdがあればそちらを使用
+      const targetId = action.overrideTargetId ?? currentSlot.targetId
 
       // 味方対象（ヒール/精密/祈り/護りの壁など）: 効果適用はGameReducer側
       if ((isSpell(command) && (command.targetType === 'allySingle' || command.targetType === 'allyAll')) ||
@@ -288,7 +295,10 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       const enemyName = actingEnemy?.name ?? '敵'
       const hasEffect = action.damage > 0 || action.applyCharge || action.poisonStacks > 0 ||
         action.mpDrain > 0 || action.chargeAllAllies || action.applySelfDefense ||
-        action.applyWeakness || action.summonEnemyId || action.healSelf || action.healAlly
+        action.applyWeakness || action.summonEnemyId || action.healSelf || action.healAlly ||
+        action.weaponSeal || action.weaponSealAll || action.applyShieldToSelf ||
+        action.applyShieldToAlly || action.applyGuard || action.mpDrainAll ||
+        action.applyVulnerability
       const battleMessage = hasEffect
         ? `${enemyName}の${action.actionName}`
         : `${enemyName}は${action.actionName}`

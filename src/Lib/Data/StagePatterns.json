@@ -34,16 +34,16 @@
       { "enemies": ["orc", "shaman"] },
       { "enemies": ["assassin", "goblin"] },
       { "enemies": ["sleep_tiger"] },
-      { "enemies": ["goblin", "fairy", "goblin"] }
+      { "enemies": ["goblin", "fairy", "shield_goblin"] }
     ]
   },
   "stage_6": {
     "turnLimit": 9,
     "patterns": [
-      { "enemies": ["orc_lord", "goblin", "shaman"] },
+      { "enemies": ["guardian", "goblin", "shaman"] },
       { "enemies": ["dark_mage", "hedro_slime"] },
       { "enemies": ["sleep_tiger", "fairy"] },
-      { "enemies": ["orc", "orc"] }
+      { "enemies": ["orc", "shield_goblin"] }
     ]
   },
   "stage_7": {
@@ -57,13 +57,13 @@
     "patterns": [
       { "enemies": ["orc", "assassin"] },
       { "enemies": ["sleep_tiger", "dark_mage"] },
-      { "enemies": ["orc_lord", "orc"] }
+      { "enemies": ["guardian", "orc"] }
     ]
   },
   "stage_9": {
     "turnLimit": 10,
     "patterns": [
-      { "enemies": ["assassin", "orc_lord"] },
+      { "enemies": ["assassin", "guardian"] },
       { "enemies": ["dark_mage", "sleep_tiger"] },
       { "enemies": ["orc", "sleep_tiger"] }
     ]
@@ -71,9 +71,9 @@
   "stage_10": {
     "turnLimit": 11,
     "patterns": [
-      { "enemies": ["orc", "assassin", "goblin"] },
+      { "enemies": ["orc", "assassin", "shield_goblin"] },
       { "enemies": ["sleep_tiger", "dark_mage", "shaman"] },
-      { "enemies": ["orc_lord", "orc", "hedro_slime"] }
+      { "enemies": ["guardian", "orc", "hedro_slime"] }
     ]
   },
   "stage_11": {
@@ -89,15 +89,15 @@
   "stage_13": {
     "turnLimit": 12,
     "patterns": [
-      { "enemies": ["orc_lord", "assassin", "fairy"] },
+      { "enemies": ["guardian", "assassin", "fairy"] },
       { "enemies": ["dark_mage", "orc", "shaman"] },
-      { "enemies": ["sleep_tiger", "orc_lord", "goblin"] }
+      { "enemies": ["sleep_tiger", "guardian", "goblin"] }
     ]
   },
   "stage_14": {
     "turnLimit": 14,
     "patterns": [
-      { "enemies": ["dragon", "goblin"] },
+      { "enemies": ["lich"] },
       { "enemies": ["dragon", "shaman"] },
       { "enemies": ["dragon", "fairy"] }
     ]
@@ -105,23 +105,23 @@
   "stage_15": {
     "turnLimit": 12,
     "patterns": [
-      { "enemies": ["orc_lord", "assassin", "shaman"] },
-      { "enemies": ["dark_mage", "sleep_tiger", "goblin"] },
-      { "enemies": ["orc", "orc_lord", "fairy"] }
+      { "enemies": ["guardian", "assassin", "shaman"] },
+      { "enemies": ["dark_mage", "sleep_tiger", "shield_goblin"] },
+      { "enemies": ["orc", "guardian", "fairy"] }
     ]
   },
   "stage_16": {
     "turnLimit": 12,
     "patterns": [
       { "enemies": ["assassin", "dark_mage", "hedro_slime"] },
-      { "enemies": ["orc_lord", "sleep_tiger", "shaman"] },
-      { "enemies": ["orc", "assassin", "goblin"] }
+      { "enemies": ["guardian", "sleep_tiger", "shaman"] },
+      { "enemies": ["orc", "assassin", "shield_goblin"] }
     ]
   },
   "stage_17": {
     "turnLimit": 13,
     "patterns": [
-      { "enemies": ["orc_lord", "dragon"] },
+      { "enemies": ["guardian", "dragon"] },
       { "enemies": ["assassin", "dragon"] },
       { "enemies": ["dark_mage", "dragon"] }
     ]
@@ -134,24 +134,24 @@
     "turnLimit": 14,
     "patterns": [
       { "enemies": ["orc", "assassin", "dark_mage"] },
-      { "enemies": ["orc_lord", "sleep_tiger", "orc"] },
-      { "enemies": ["assassin", "dark_mage", "orc_lord"] }
+      { "enemies": ["guardian", "sleep_tiger", "orc"] },
+      { "enemies": ["assassin", "dark_mage", "guardian"] }
     ]
   },
   "stage_20": {
     "turnLimit": 14,
     "patterns": [
-      { "enemies": ["sleep_tiger", "orc_lord", "dark_mage"] },
+      { "enemies": ["sleep_tiger", "guardian", "dark_mage"] },
       { "enemies": ["orc", "assassin", "sleep_tiger"] },
-      { "enemies": ["dark_mage", "orc", "orc_lord"] }
+      { "enemies": ["dark_mage", "orc", "guardian"] }
     ]
   },
   "stage_21": {
     "turnLimit": 16,
     "patterns": [
-      { "enemies": ["dragon", "orc_lord", "goblin"] },
-      { "enemies": ["dragon", "assassin", "shaman"] },
-      { "enemies": ["dragon", "dark_mage", "fairy"] }
+      { "enemies": ["lich", "guardian", "shaman"] },
+      { "enemies": ["dragon", "assassin", "dark_mage"] },
+      { "enemies": ["lich", "dark_mage", "fairy"] }
     ]
   }
 }

@@ -21,6 +21,15 @@ export interface EnemyActionResult {
   applySelfDefense?: { value: number; duration: number } // 自己防御バフ
   transformName?: string       // 条件トリガーで敵表示名を変更
   isRandomTarget?: boolean     // 各hitでランダムにターゲットを選択
+  // 新メカニクス
+  weaponSeal?: boolean         // 対象の武器耐久-1（単体）
+  weaponSealAll?: boolean      // 全員の武器耐久-1
+  applyShieldToSelf?: number   // 自身にシールド付与
+  applyShieldToAlly?: number   // 味方1体にシールド付与
+  applyGuard?: boolean         // 庇う（プレイヤーの単体攻撃を自分にリダイレクト）
+  mpDrainAll?: number          // 全員のMP吸収
+  applyVulnerability?: { multiplier: number; duration: number } // 被ダメ増加デバフ付与
+  unlimitedSummon?: boolean    // 召喚回数制限なし
 }
 
 /** 確率テーブルからランダムに行動を選択 */
@@ -33,7 +42,6 @@ function selectByWeight<T>(table: { weight: number; value: T }[]): T {
       return entry.value
     }
   }
-  // 浮動小数点の丸め誤差対策: 最後のエントリを返す
   return table[table.length - 1].value
 }
 
@@ -55,27 +63,39 @@ function selectSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
   return defaultResult('体当たり', 11)
 }
 
-/** ゴブリンの行動決定 */
-function selectGoblinAction(_enemy: EnemyInstance): EnemyActionResult {
+/** ゴブリンの行動決定 — 溜め持ち */
+function selectGoblinAction(enemy: EnemyInstance): EnemyActionResult {
+  const hasCharge = getChargeMultiplier(enemy.battleBuffs) > 1.0
+
+  if (hasCharge) {
+    return {
+      ...defaultResult('渾身の一撃', 20),
+      consumeCharge: true,
+    }
+  }
+
+  const chargeAction: EnemyActionResult = {
+    ...defaultResult('力溜め', 0),
+    applyCharge: true,
+  }
+
   const table = [
     { weight: 0.60, value: defaultResult('斬りつける', 9) },
-    { weight: 0.40, value: defaultResult('振りまわす', 19) },
+    { weight: 0.40, value: chargeAction },
   ]
   return selectByWeight(table)
 }
 
-/** どぶネズミの行動決定 */
+/** どぶネズミの行動決定 — 召喚（1回限り） */
 function selectSewerRatAction(enemy: EnemyInstance): EnemyActionResult {
-  // 仲間を呼んだことがない場合、40%の確率で仲間を呼ぶ
   if (!enemy.hasSummoned) {
     const table = [
-      { weight: 0.60, value: defaultResult('かみつく', 9) },
+      { weight: 0.60, value: defaultResult('かみつく', 8) },
       { weight: 0.40, value: { ...defaultResult('仲間を呼ぶ', 0), summonEnemyId: 'sewer_rat' } },
     ]
     return selectByWeight(table)
   }
-  // 仲間を呼んだ後はかみつくのみ
-  return defaultResult('かみつく', 9)
+  return defaultResult('かみつく', 8)
 }
 
 /** オークの行動決定 */
@@ -84,7 +104,7 @@ function selectOrcAction(enemy: EnemyInstance): EnemyActionResult {
 
   if (hasCharge) {
     return {
-      ...defaultResult('渾身の一撃', 30),
+      ...defaultResult('渾身の一撃', 28),
       consumeCharge: true,
     }
   }
@@ -115,7 +135,6 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
   const hpRatio = enemy.currentHp / enemy.hp
   const hasCharge = getChargeMultiplier(enemy.battleBuffs) > 1.0
 
-  // 力溜め中: フェーズに関係なく大暴れ（力溜め消費）
   if (hasCharge) {
     return {
       ...defaultResult('大暴れ', 20),
@@ -126,11 +145,9 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
   }
 
   if (hpRatio > 0.8) {
-    // Phase 1: HP > 80% — 寝ている
     return defaultResult('寝返り', 8)
   }
 
-  // Phase 2: HP ≤ 80% — 覚醒（マッドタイガー）
   const chargeAction: EnemyActionResult = {
     ...defaultResult('力溜め', 0),
     applyCharge: true,
@@ -146,11 +163,12 @@ function selectSleepTigerAction(enemy: EnemyInstance): EnemyActionResult {
   return selectByWeight(table)
 }
 
-/** シャーマンの行動決定 */
+/** シャーマンの行動決定 — 弱体の呪い追加 */
 function selectShamanAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.45, value: { ...defaultResult('仲間を鼓舞する', 0), chargeAllAllies: true } },
-    { weight: 0.55, value: defaultResult('杖で殴る', 8) },
+    { weight: 0.50, value: { ...defaultResult('仲間を鼓舞する', 0), chargeAllAllies: true } },
+    { weight: 0.30, value: { ...defaultResult('弱体の呪い', 0), applyVulnerability: { multiplier: 1.5, duration: 1 } } },
+    { weight: 0.20, value: defaultResult('杖で殴る', 8) },
   ]
   return selectByWeight(table)
 }
@@ -159,26 +177,17 @@ function selectShamanAction(_enemy: EnemyInstance): EnemyActionResult {
 function selectHedroSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
     { weight: 0.50, value: { ...defaultResult('泥かけ', 6), applyWeakness: { value: 0.5, duration: 1 } } },
-    { weight: 0.50, value: defaultResult('体当たり', 11) },
+    { weight: 0.50, value: defaultResult('体当たり', 10) },
   ]
   return selectByWeight(table)
 }
 
-/** ダークメイジの行動決定 */
+/** ダークメイジの行動決定 — 武器封印追加 */
 function selectDarkMageAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.40, value: { ...defaultResult('MPドレイン', 0), mpDrain: 10 } },
-    { weight: 0.60, value: defaultResult('ダークショット', 9) },
-  ]
-  return selectByWeight(table)
-}
-
-/** オークロードの行動決定 */
-function selectOrcLordAction(_enemy: EnemyInstance): EnemyActionResult {
-  const table = [
-    { weight: 0.35, value: { ...defaultResult('鼓舞', 0), chargeAllAllies: true } },
-    { weight: 0.45, value: defaultResult('小突く', 6) },
-    { weight: 0.20, value: { ...defaultResult('ガード', 0), applySelfDefense: { value: 50, duration: 1 } } },
+    { weight: 0.35, value: { ...defaultResult('MPドレイン', 0), mpDrain: 10 } },
+    { weight: 0.35, value: { ...defaultResult('武器封印', 0), weaponSeal: true } },
+    { weight: 0.30, value: defaultResult('ダークショット', 9) },
   ]
   return selectByWeight(table)
 }
@@ -192,12 +201,29 @@ function selectFairyAction(_enemy: EnemyInstance): EnemyActionResult {
   return selectByWeight(table)
 }
 
-/** ドラゴンの行動決定 */
+/** 盾持ちゴブリンの行動決定 — 毎回シールド付与+攻撃 */
+function selectShieldGoblinAction(_enemy: EnemyInstance): EnemyActionResult {
+  return {
+    ...defaultResult('小突く', 6),
+    applyShieldToSelf: 10,
+  }
+}
+
+/** ガーディアンの行動決定 */
+function selectGuardianAction(_enemy: EnemyInstance): EnemyActionResult {
+  const table = [
+    { weight: 0.40, value: { ...defaultResult('守護の盾', 0), applyShieldToAlly: 15 } },
+    { weight: 0.30, value: { ...defaultResult('庇う', 0), applyGuard: true } },
+    { weight: 0.30, value: defaultResult('体当たり', 12) },
+  ]
+  return selectByWeight(table)
+}
+
+/** ドラゴンの行動決定 — 自己再生を30%に下方 */
 function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
   const hpRatio = enemy.currentHp / enemy.hp
   const hasCharge = getChargeMultiplier(enemy.battleBuffs) > 1.0
 
-  // 力溜め中: フェーズに関係なく渾身の一撃（力溜め消費）
   if (hasCharge) {
     return {
       ...defaultResult('渾身の一撃', 41),
@@ -206,16 +232,14 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
   }
 
   if (hpRatio > 0.5) {
-    // Phase 1: HP > 50%
     const table = [
       { weight: 0.50, value: defaultResult('切り裂く爪', 21) },
-      { weight: 0.30, value: { ...defaultResult('自己再生', 0), healSelf: Math.floor(enemy.hp * 0.8) } },
+      { weight: 0.30, value: { ...defaultResult('自己再生', 0), healSelf: Math.floor(enemy.hp * 0.3) } },
       { weight: 0.20, value: { ...defaultResult('火炎ブレス', 14), isAoe: true } },
     ]
     return selectByWeight(table)
   }
 
-  // Phase 2: HP ≤ 50%
   const chargeAction: EnemyActionResult = {
     ...defaultResult('力溜め', 0),
     applyCharge: true,
@@ -225,6 +249,29 @@ function selectDragonAction(enemy: EnemyInstance): EnemyActionResult {
     { weight: 0.30, value: defaultResult('怒りの爪', 26) },
     { weight: 0.30, value: { ...defaultResult('猛火のブレス', 19), isAoe: true } },
     { weight: 0.40, value: chargeAction },
+  ]
+  return selectByWeight(table)
+}
+
+/** リッチの行動決定 — 妨害特化ボス */
+function selectLichAction(enemy: EnemyInstance): EnemyActionResult {
+  const hpRatio = enemy.currentHp / enemy.hp
+
+  if (hpRatio > 0.5) {
+    // Phase1: MPドレイン全体 / 呪い / ダークショット
+    const table = [
+      { weight: 0.35, value: { ...defaultResult('MPドレイン', 0), mpDrainAll: 5, isAoe: true } },
+      { weight: 0.35, value: { ...defaultResult('呪い', 0), applyWeakness: { value: 0.5, duration: 1 } } },
+      { weight: 0.30, value: defaultResult('ダークショット', 16) },
+    ]
+    return selectByWeight(table)
+  }
+
+  // Phase2: 武器封印全体 / 暗黒ブレス / 召喚
+  const table: { weight: number; value: EnemyActionResult }[] = [
+    { weight: 0.35, value: { ...defaultResult('武器封印', 0), weaponSealAll: true } },
+    { weight: 0.35, value: { ...defaultResult('暗黒ブレス', 12), isAoe: true } },
+    { weight: 0.30, value: { ...defaultResult('召喚', 0), summonEnemyId: 'hedro_slime', unlimitedSummon: true } },
   ]
   return selectByWeight(table)
 }
@@ -255,14 +302,17 @@ export function selectEnemyAction(enemy: EnemyInstance, _explorer: ExplorerState
       return selectHedroSlimeAction(enemy)
     case 'dark_mage':
       return selectDarkMageAction(enemy)
-    case 'orc_lord':
-      return selectOrcLordAction(enemy)
     case 'fairy':
       return selectFairyAction(enemy)
+    case 'shield_goblin':
+      return selectShieldGoblinAction(enemy)
+    case 'guardian':
+      return selectGuardianAction(enemy)
     case 'dragon':
       return selectDragonAction(enemy)
+    case 'lich':
+      return selectLichAction(enemy)
     default:
-      // 未知の敵: ATK分の通常攻撃
       return defaultResult('攻撃', enemy.attack)
   }
 }

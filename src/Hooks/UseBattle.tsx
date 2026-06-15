@@ -207,6 +207,14 @@ export function useBattle(): UseBattleResult | null {
       transformName: actionResult.transformName,
       isRandomTarget: actionResult.isRandomTarget,
       randomTargetHits,
+      weaponSeal: actionResult.weaponSeal,
+      weaponSealAll: actionResult.weaponSealAll,
+      applyShieldToSelf: actionResult.applyShieldToSelf,
+      applyShieldToAlly: actionResult.applyShieldToAlly,
+      applyGuard: actionResult.applyGuard,
+      mpDrainAll: actionResult.mpDrainAll,
+      applyVulnerability: actionResult.applyVulnerability,
+      unlimitedSummon: actionResult.unlimitedSummon,
     })
   }, [battleState, run, dispatchBattle])
 

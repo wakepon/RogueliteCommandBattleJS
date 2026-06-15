@@ -6,43 +6,48 @@
     "hp": 54,
     "attack": 4,
     "agi": 2,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 4
   },
   "goblin": {
     "id": "goblin",
     "name": "ゴブリン",
     "type": "normal",
-    "hp": 105,
+    "hp": 90,
     "attack": 5,
     "agi": 4,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 4
   },
   "sewer_rat": {
     "id": "sewer_rat",
     "name": "どぶネズミ",
     "type": "normal",
-    "hp": 45,
+    "hp": 40,
     "attack": 3,
     "agi": 5,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 4
   },
   "hedro_slime": {
     "id": "hedro_slime",
     "name": "ヘドロスライム",
     "type": "normal",
-    "hp": 45,
+    "hp": 50,
     "attack": 3,
     "agi": 2,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 4
   },
   "shaman": {
     "id": "shaman",
     "name": "シャーマン",
     "type": "normal",
-    "hp": 75,
+    "hp": 80,
     "attack": 3,
     "agi": 3,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 4
   },
   "fairy": {
     "id": "fairy",
@@ -51,16 +56,28 @@
     "hp": 45,
     "attack": 2,
     "agi": 6,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 4
+  },
+  "shield_goblin": {
+    "id": "shield_goblin",
+    "name": "盾持ちゴブリン",
+    "type": "normal",
+    "hp": 70,
+    "attack": 3,
+    "agi": 3,
+    "behavior": "attack",
+    "goldReward": 4
   },
   "orc": {
     "id": "orc",
     "name": "オーク",
     "type": "elite",
-    "hp": 195,
+    "hp": 180,
     "attack": 7,
     "agi": 3,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 7
   },
   "assassin": {
     "id": "assassin",
@@ -69,7 +86,8 @@
     "hp": 135,
     "attack": 10,
     "agi": 8,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 7
   },
   "sleep_tiger": {
     "id": "sleep_tiger",
@@ -78,25 +96,28 @@
     "hp": 135,
     "attack": 8,
     "agi": 4,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 7
   },
   "dark_mage": {
     "id": "dark_mage",
     "name": "ダークメイジ",
     "type": "elite",
-    "hp": 120,
+    "hp": 100,
     "attack": 6,
     "agi": 5,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 7
   },
-  "orc_lord": {
-    "id": "orc_lord",
-    "name": "オークロード",
+  "guardian": {
+    "id": "guardian",
+    "name": "ガーディアン",
     "type": "elite",
-    "hp": 150,
-    "attack": 7,
+    "hp": 160,
+    "attack": 5,
     "agi": 3,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 7
   },
   "dragon": {
     "id": "dragon",
@@ -105,6 +126,17 @@
     "hp": 270,
     "attack": 12,
     "agi": 5,
-    "behavior": "attack"
+    "behavior": "attack",
+    "goldReward": 12
+  },
+  "lich": {
+    "id": "lich",
+    "name": "リッチ",
+    "type": "boss",
+    "hp": 220,
+    "attack": 8,
+    "agi": 4,
+    "behavior": "attack",
+    "goldReward": 12
   }
 }

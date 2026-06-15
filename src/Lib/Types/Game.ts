@@ -8,7 +8,7 @@ import { EnemyType } from './Enemy'
 import { CharacterClass } from './Explorer'
 
 // ゲームフェーズ
-export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result' | 'map'
+export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result' | 'recovery' | 'map'
 
 /** マップノードのタイプ */
 export type MapNodeType = 'battle' | 'event' | 'boss'
@@ -104,7 +104,16 @@ export type MemberAnimationPhase =
 export interface ResultState {
   result: 'victory' | 'defeat'
   killCount: number       // 討伐数
+  goldEarned: number      // 獲得G
   memberDiffs: MemberBattleDiff[]  // メンバー別変化量（勝利時のみ有効、敗北時は空配列）
+}
+
+/** 回復メニューのID */
+export type RecoveryMenuId = 'healHp' | 'healMp' | 'repairWeapons' | 'convertHpToMp' | 'convertMpToHp'
+
+/** 回復メニュー状態 */
+export interface RecoveryState {
+  useCounts: Record<RecoveryMenuId, number>
 }
 
 /** ショップカテゴリ */
@@ -133,6 +142,7 @@ export interface GameState {
   battleState: BattleState | null
   storeState: StoreState | null
   resultState: ResultState | null
+  recoveryState: RecoveryState | null
   eventState: EventState | null
   mapState: MapState | null
 }
@@ -145,6 +155,7 @@ export function createInitialGameState(): GameState {
     battleState: null,
     storeState: null,
     resultState: null,
+    recoveryState: null,
     eventState: null,
     mapState: null,
   }

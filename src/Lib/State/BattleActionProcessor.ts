@@ -18,6 +18,10 @@ import {
   applyHealSelf,
   applyHealAlly,
   applySummonEnemy,
+  applyShieldToEnemySelf,
+  applyShieldToEnemyAlly,
+  applyGuardToEnemy,
+  processEnemyShieldDamageReduction,
 } from './EnemyEffectProcessor'
 import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
 import { getTuningValue } from '../Tuning/TuningStore'
@@ -393,7 +397,16 @@ function executeAttackCommand(
 
   const isWeaponAttack = isWeapon(selectedCommand)
 
-  const targetEnemy = state.battleState.enemies.find(e => e.instanceId === selectedTargetId)
+  // 庇うリダイレクト: guardバフを持つ生存敵がいれば、単体攻撃のターゲットをそちらに変更
+  let finalTargetId = selectedTargetId
+  const guardEnemy = state.battleState.enemies.find(
+    e => e.currentHp > 0 && e.battleBuffs.some(b => b.type === 'guard')
+  )
+  if (guardEnemy && guardEnemy.instanceId !== selectedTargetId) {
+    finalTargetId = guardEnemy.instanceId
+  }
+
+  const targetEnemy = state.battleState.enemies.find(e => e.instanceId === finalTargetId)
   if (!targetEnemy) return state
 
   // 空振り: ターゲットが既に倒されている場合、リソース消費なしでスキップ
@@ -471,12 +484,29 @@ function executeAttackCommand(
     calculatedDamage = reducedDamage
   }
 
-  // BattleReducerに事前計算済みダメージを渡す
+  // 敵のシールドバフによるダメージ吸収
+  const { reducedDamage: shieldReducedDamage, updatedBuffs: enemyUpdatedBuffs } =
+    processEnemyShieldDamageReduction(targetEnemy.battleBuffs, calculatedDamage)
+  if (shieldReducedDamage !== calculatedDamage) {
+    contributors.push({ name: 'シールド', label: `吸収${calculatedDamage - shieldReducedDamage}` })
+    calculatedDamage = shieldReducedDamage
+  }
+
+  // BattleReducerに事前計算済みダメージを渡す（庇うリダイレクト時はoverrideTargetIdを渡す）
   let newBattleState = battleReducer(state.battleState, {
     ...battleAction,
     calculatedDamage,
     contributors,
+    overrideTargetId: finalTargetId !== selectedTargetId ? finalTargetId : undefined,
   })
+
+  // 敵のシールドバフが変化した場合、敵の状態を更新
+  if (enemyUpdatedBuffs !== targetEnemy.battleBuffs) {
+    const shieldUpdatedEnemies = newBattleState.enemies.map(e =>
+      e.instanceId === targetEnemy.instanceId ? { ...e, battleBuffs: enemyUpdatedBuffs } : e
+    )
+    newBattleState = battleReducer(newBattleState, { type: 'UPDATE_ENEMIES', enemies: shieldUpdatedEnemies })
+  }
 
   // コスト消費（同ID武器区別のためweaponIndexを渡す）
   const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
@@ -664,6 +694,7 @@ function executeSpellAllAttack(
     return state
   }
   let allContributors: DamageContributor[] = []
+  const shieldUpdates = new Map<string, import('../Types/Explorer').Buff[]>()
   const calculatedDamages = aliveEnemies.map((enemy, i) => {
     const result = calculateSpellDamage(battleAction.explorer, spell, enemy, {
       relics,
@@ -671,8 +702,11 @@ function executeSpellAllAttack(
     })
     if (i === 0) allContributors = result.contributors
     // defenseバフによる軽減
-    const finalDamage = applyDefenseReduction(result.damage, enemy.battleBuffs)
-    return { targetId: enemy.instanceId, damage: finalDamage }
+    const defReduced = applyDefenseReduction(result.damage, enemy.battleBuffs)
+    // シールドバフによる吸収
+    const { reducedDamage: finalDmg, updatedBuffs } = processEnemyShieldDamageReduction(enemy.battleBuffs, defReduced)
+    if (updatedBuffs !== enemy.battleBuffs) shieldUpdates.set(enemy.instanceId, updatedBuffs)
+    return { targetId: enemy.instanceId, damage: finalDmg }
   })
 
   // BattleReducerに全体ダメージを渡す
@@ -681,6 +715,16 @@ function executeSpellAllAttack(
     calculatedDamages,
     contributors: allContributors,
   })
+
+  // 敵シールドバフの消費を反映
+  if (shieldUpdates.size > 0) {
+    const shieldConsumedEnemies = newBattleState.enemies.map(enemy => {
+      const updated = shieldUpdates.get(enemy.instanceId)
+      if (updated) return { ...enemy, battleBuffs: updated }
+      return enemy
+    })
+    newBattleState = battleReducer(newBattleState, { type: 'UPDATE_ENEMIES', enemies: shieldConsumedEnemies })
+  }
 
   // MP消費
   const explorerAfterCost = consumeCommandCost(
@@ -782,6 +826,7 @@ function executeEnemyAllAttack(
   let allContributors: DamageContributor[] = []
   // 連携の紋章: 全体武器攻撃にも適用
   const comboMultAoe = getComboMultiplier(state.battleState.commandSlots, relics)
+  const weaponShieldUpdates = new Map<string, Buff[]>()
 
   const calculatedDamages = aliveEnemies.map((enemy, i) => {
     const result = calculateWeaponDamage(battleAction.explorer, weapon, enemy, {
@@ -801,7 +846,10 @@ function executeEnemyAllAttack(
       }
     }
     // defenseバフによる軽減
-    const finalDamage = applyDefenseReduction(dmg, enemy.battleBuffs)
+    dmg = applyDefenseReduction(dmg, enemy.battleBuffs)
+    // シールドバフによる吸収
+    const { reducedDamage: finalDamage, updatedBuffs } = processEnemyShieldDamageReduction(enemy.battleBuffs, dmg)
+    if (updatedBuffs !== enemy.battleBuffs) weaponShieldUpdates.set(enemy.instanceId, updatedBuffs)
     return { targetId: enemy.instanceId, damage: finalDamage }
   })
 
@@ -811,6 +859,16 @@ function executeEnemyAllAttack(
     calculatedDamages,
     contributors: allContributors,
   })
+
+  // 敵シールドバフの消費を反映
+  if (weaponShieldUpdates.size > 0) {
+    const updatedEnemiesForShield = newBattleState.enemies.map(enemy => {
+      const updated = weaponShieldUpdates.get(enemy.instanceId)
+      if (updated) return { ...enemy, battleBuffs: updated }
+      return enemy
+    })
+    newBattleState = battleReducer(newBattleState, { type: 'UPDATE_ENEMIES', enemies: updatedEnemiesForShield })
+  }
 
   // コスト消費（同ID武器区別のためweaponIndexを渡す）
   const currentSlotAoe = state.battleState.commandSlots[state.battleState.currentCommandIndex]
@@ -1000,7 +1058,14 @@ function executeEnemyRandomAttack(
     if (comboMultRandom > 1.0) {
       dmg = Math.floor(dmg * comboMultRandom)
     }
-    const finalDamage = applyDefenseReduction(dmg, targetEnemy.battleBuffs)
+    dmg = applyDefenseReduction(dmg, targetEnemy.battleBuffs)
+    // シールドバフによる吸収（ランダムhit中もシールド状態を追跡）
+    const { reducedDamage: finalDamage, updatedBuffs: randomShieldBuffs } = processEnemyShieldDamageReduction(targetEnemy.battleBuffs, dmg)
+    if (randomShieldBuffs !== targetEnemy.battleBuffs) {
+      updatedEnemies = updatedEnemies.map(e =>
+        e.instanceId === targetId ? { ...e, battleBuffs: randomShieldBuffs } : e
+      )
+    }
 
     if (aliveEnemy) {
       updatedEnemies = updatedEnemies.map(e =>
@@ -1637,7 +1702,22 @@ export function processEnemyAction(
 
   // summonEnemyId: 戦闘中に敵を追加
   if (battleAction.summonEnemyId) {
-    effectState = applySummonEnemy(effectState, battleAction.enemyId, battleAction.summonEnemyId)
+    effectState = applySummonEnemy(effectState, battleAction.enemyId, battleAction.summonEnemyId, battleAction.unlimitedSummon)
+  }
+
+  // applyShieldToSelf: 行動敵にシールドバフ付与
+  if (battleAction.applyShieldToSelf && battleAction.applyShieldToSelf > 0) {
+    effectState = applyShieldToEnemySelf(effectState, battleAction.enemyId, battleAction.applyShieldToSelf)
+  }
+
+  // applyShieldToAlly: 最もHP割合が低い味方にシールドバフ付与
+  if (battleAction.applyShieldToAlly && battleAction.applyShieldToAlly > 0) {
+    effectState = applyShieldToEnemyAlly(effectState, battleAction.applyShieldToAlly)
+  }
+
+  // applyGuard: 庇うバフ付与（プレイヤーの単体攻撃をリダイレクト）
+  if (battleAction.applyGuard) {
+    effectState = applyGuardToEnemy(effectState, battleAction.enemyId)
   }
 
   // transformName: 敵の表示名を変更
@@ -1797,6 +1877,49 @@ export function processEnemyAction(
       }
     }
 
+    // applyVulnerability: プレイヤーに被ダメ増加デバフ付与（弱体の呪い）
+    if (battleAction.applyVulnerability) {
+      const { multiplier, duration } = battleAction.applyVulnerability
+      const existingVuln = updatedExplorer.battleDebuffs.find(d => d.type === 'vulnerability')
+      if (existingVuln) {
+        updatedExplorer = {
+          ...updatedExplorer,
+          battleDebuffs: updatedExplorer.battleDebuffs.map(d =>
+            d.type === 'vulnerability'
+              ? { ...d, multiplier, duration, justApplied: true }
+              : d
+          ),
+        }
+      } else {
+        updatedExplorer = {
+          ...updatedExplorer,
+          battleDebuffs: [
+            ...updatedExplorer.battleDebuffs,
+            { type: 'vulnerability' as const, multiplier, duration, justApplied: true },
+          ],
+        }
+      }
+    }
+
+    // weaponSeal: 対象の武器耐久-1（ランダムな武器1本）
+    if (battleAction.weaponSeal) {
+      const usableWeapons = updatedExplorer.weapons
+        .map((w, i) => ({ weapon: w, index: i }))
+        .filter(({ weapon }) => weapon.currentUses !== null && weapon.currentUses > 0)
+      if (usableWeapons.length > 0) {
+        const targetWeapon = usableWeapons[Math.floor(Math.random() * usableWeapons.length)]
+        updatedExplorer = {
+          ...updatedExplorer,
+          weapons: updatedExplorer.weapons.map((w, i) => {
+            if (i === targetWeapon.index && w.currentUses !== null) {
+              return { ...w, currentUses: Math.max(0, w.currentUses - 1) } as typeof w
+            }
+            return w
+          }),
+        }
+      }
+    }
+
     // applyWeakness: プレイヤーに弱体デバフ付与
     if (battleAction.applyWeakness) {
       const { value, duration } = battleAction.applyWeakness
@@ -1822,6 +1945,41 @@ export function processEnemyAction(
     }
 
     newRun = updatePartyMember(newRun, updatedExplorer)
+  }
+
+  // weaponSealAll: 全パーティーメンバーの武器耐久-1（リッチPhase2）
+  if (battleAction.weaponSealAll) {
+    for (const member of newRun.party) {
+      if (member.hp <= 0) continue
+      const usableWeapons = member.weapons
+        .map((w, i) => ({ weapon: w, index: i }))
+        .filter(({ weapon }) => weapon.currentUses !== null && weapon.currentUses > 0)
+      if (usableWeapons.length > 0) {
+        const targetWeapon = usableWeapons[Math.floor(Math.random() * usableWeapons.length)]
+        const updatedMember = {
+          ...member,
+          weapons: member.weapons.map((w, i) => {
+            if (i === targetWeapon.index && w.currentUses !== null) {
+              return { ...w, currentUses: Math.max(0, w.currentUses - 1) } as typeof w
+            }
+            return w
+          }),
+        }
+        newRun = updatePartyMember(newRun, updatedMember)
+      }
+    }
+  }
+
+  // mpDrainAll: 全パーティーメンバーのMP吸収（リッチPhase1）
+  if (battleAction.mpDrainAll && battleAction.mpDrainAll > 0) {
+    for (const member of newRun.party) {
+      if (member.hp <= 0) continue
+      const updatedMember = {
+        ...member,
+        mp: Math.max(0, member.mp - battleAction.mpDrainAll),
+      }
+      newRun = updatePartyMember(newRun, updatedMember)
+    }
   }
 
   // 反撃の棘: 被攻撃時に敵にダメージ（ダメージが発生した場合のみ）

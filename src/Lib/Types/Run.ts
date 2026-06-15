@@ -4,7 +4,7 @@ import { RelicInstance } from './Relic'
 import { PotionInstance } from './Potion'
 
 // セーブデータバージョン（パーティー制導入で互換性破壊）
-export const SAVE_VERSION = 5
+export const SAVE_VERSION = 6
 
 // 統計情報
 export interface RunStats {
@@ -23,6 +23,7 @@ export interface RunState {
   seed: number
   startedAt: number
   currentStage: number
+  gold: number
   relics: RelicInstance[]
   potions: PotionInstance[]
   party: ExplorerState[]
@@ -39,6 +40,7 @@ export function createInitialRun(): RunState {
     seed: Date.now(),
     startedAt: Date.now(),
     currentStage: 1,
+    gold: 0,
     relics: [],
     potions: [],
     party: createInitialParty(),

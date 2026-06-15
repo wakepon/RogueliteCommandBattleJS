@@ -106,7 +106,8 @@ export function applyHealAlly(
 export function applySummonEnemy(
   battleState: BattleState,
   actingEnemyId: string,
-  summonEnemyId: string
+  summonEnemyId: string,
+  unlimited?: boolean
 ): BattleState {
   const baseEnemy = createEnemyInstance(summonEnemyId)
   const mult = battleState.enemyHpMultiplier
@@ -116,11 +117,80 @@ export function applySummonEnemy(
     currentHp: mult !== 1.0 ? Math.floor(baseEnemy.currentHp * mult) : baseEnemy.currentHp,
     justSummoned: true,
   }
+  const updatedEnemies = unlimited
+    ? battleState.enemies
+    : battleState.enemies.map(enemy => {
+        if (enemy.instanceId === actingEnemyId) {
+          return { ...enemy, hasSummoned: true }
+        }
+        return enemy
+      })
+  return { ...battleState, enemies: [...updatedEnemies, newEnemy] }
+}
+
+/** 敵自身にシールドバフを付与（既存シールドは上書き） */
+export function applyShieldToEnemySelf(battleState: BattleState, enemyId: string, value: number): BattleState {
   const updatedEnemies = battleState.enemies.map(enemy => {
-    if (enemy.instanceId === actingEnemyId) {
-      return { ...enemy, hasSummoned: true }
+    if (enemy.instanceId === enemyId) {
+      const filteredBuffs = enemy.battleBuffs.filter(b => b.type !== 'shield')
+      const shieldBuff: Buff = { type: 'shield', value, duration: 2 }
+      return { ...enemy, battleBuffs: [...filteredBuffs, shieldBuff] }
     }
     return enemy
   })
-  return { ...battleState, enemies: [...updatedEnemies, newEnemy] }
+  return { ...battleState, enemies: updatedEnemies }
+}
+
+/** 最もHP割合が低い生存敵にシールドバフを付与 */
+export function applyShieldToEnemyAlly(battleState: BattleState, value: number): BattleState {
+  const aliveEnemies = battleState.enemies.filter(e => e.currentHp > 0)
+  if (aliveEnemies.length === 0) return battleState
+
+  const mostInjured = aliveEnemies.reduce((a, b) =>
+    (a.currentHp / a.hp) < (b.currentHp / b.hp) ? a : b
+  )
+  const updatedEnemies = battleState.enemies.map(enemy => {
+    if (enemy.instanceId === mostInjured.instanceId) {
+      const filteredBuffs = enemy.battleBuffs.filter(b => b.type !== 'shield')
+      const shieldBuff: Buff = { type: 'shield', value, duration: 2 }
+      return { ...enemy, battleBuffs: [...filteredBuffs, shieldBuff] }
+    }
+    return enemy
+  })
+  return { ...battleState, enemies: updatedEnemies }
+}
+
+/** ガーディアンの庇うバフを付与（プレイヤー単体攻撃をリダイレクト） */
+export function applyGuardToEnemy(battleState: BattleState, enemyId: string): BattleState {
+  const updatedEnemies = battleState.enemies.map(enemy => {
+    if (enemy.instanceId === enemyId) {
+      const filteredBuffs = enemy.battleBuffs.filter(b => b.type !== 'guard')
+      const guardBuff: Buff = { type: 'guard', value: 1, duration: 2 }
+      return { ...enemy, battleBuffs: [...filteredBuffs, guardBuff] }
+    }
+    return enemy
+  })
+  return { ...battleState, enemies: updatedEnemies }
+}
+
+/** 敵のシールドバフでダメージを吸収（プレイヤー側と同じロジック） */
+export function processEnemyShieldDamageReduction(
+  buffs: Buff[],
+  damage: number
+): { reducedDamage: number; updatedBuffs: Buff[] } {
+  const shieldBuff = buffs.find(b => b.type === 'shield')
+  if (!shieldBuff || shieldBuff.value <= 0) {
+    return { reducedDamage: damage, updatedBuffs: buffs }
+  }
+
+  if (damage <= shieldBuff.value) {
+    const updatedBuffs = buffs.map(b =>
+      b.type === 'shield' ? { ...b, value: b.value - damage } : b
+    )
+    return { reducedDamage: 0, updatedBuffs }
+  }
+
+  const remainingDamage = damage - shieldBuff.value
+  const updatedBuffs = buffs.filter(b => b.type !== 'shield')
+  return { reducedDamage: remainingDamage, updatedBuffs }
 }
