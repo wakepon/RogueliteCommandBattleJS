@@ -14,7 +14,7 @@ export type BattleAction =
   | { type: 'CHANGE_ACTIVE_EXPLORER'; index: number }  // コマンド入力キャラ切替
   | { type: 'START_EXECUTION' }  // 実行開始 → partyAction phase
   // パーティー行動フェーズ
-  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number}>; contributors?: DamageContributor[]; randomEnemyTargets?: string[]; overrideTargetId?: string }
+  | { type: 'EXECUTE_COMMAND'; explorer: ExplorerState; calculatedDamage?: number; calculatedDamages?: Array<{targetId: string; damage: number; shielded?: boolean}>; contributors?: DamageContributor[]; randomEnemyTargets?: string[]; overrideTargetId?: string; shielded?: boolean }
   | { type: 'ADVANCE_PARTY_ACTION' }  // 次のパーティーメンバーの行動へ
   // 敵行動フェーズ
   | { type: 'ENEMY_ACTION'; enemyId: string; targetExplorerId: string; damage: number; explorer: ExplorerState;
@@ -58,13 +58,14 @@ function generatePopupId(): string {
 }
 
 /** ダメージポップアップを作成（敵へのダメージ用） */
-export function createDamagePopup(targetId: string, damage: number, contributors?: DamageContributor[]): DamagePopup {
+export function createDamagePopup(targetId: string, damage: number, contributors?: DamageContributor[], shielded?: boolean): DamagePopup {
   return {
     id: generatePopupId(),
     targetId,
     damage,
     timestamp: Date.now(),
     contributors,
+    shielded,
   }
 }
 
@@ -241,7 +242,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
           }
           return enemy
         })
-        const newPopups = action.calculatedDamages.map(d => createDamagePopup(d.targetId, d.damage, action.contributors))
+        const newPopups = action.calculatedDamages.map(d => createDamagePopup(d.targetId, d.damage, action.contributors, d.shielded))
         return {
           ...state,
           enemies: updatedEnemies,
@@ -262,7 +263,7 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         }
         return enemy
       })
-      const newPopup = createDamagePopup(targetId, damage, action.contributors)
+      const newPopup = createDamagePopup(targetId, damage, action.contributors, action.shielded)
 
       return {
         ...state,

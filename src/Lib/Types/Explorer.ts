@@ -118,7 +118,7 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
       weaponSlotCount: getTuningValue('mage_weaponSlotCount', 0),
       magicSlotCount: getTuningValue('mage_magicSlotCount', 4),
       weapons: () => [],
-      spells: () => [createSpellInstance('magic_bullet'), createSpellInstance('fire')],
+      spells: () => [createSpellInstance('magic_bullet'), createSpellInstance('ice')],
     },
     cleric: {
       name: '僧侶',

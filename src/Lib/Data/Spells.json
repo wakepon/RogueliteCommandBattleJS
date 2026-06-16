@@ -23,8 +23,8 @@
   "heal": {
     "id": "heal", "name": "ヒール", "rarity": "Common", "price": 4,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 3, "power": 0, "variance": 0,
-    "effect": { "type": "heal", "value": 15 }
+    "mpCost": 5, "power": 0, "variance": 0,
+    "effect": { "type": "heal", "value": 20 }
   },
   "barrier": {
     "id": "barrier", "name": "バリア", "rarity": "Common", "price": 5,

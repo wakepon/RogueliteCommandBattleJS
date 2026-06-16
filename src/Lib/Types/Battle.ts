@@ -41,6 +41,7 @@ export interface DamagePopup {
   damage: number
   timestamp: number
   contributors?: DamageContributor[]
+  shielded?: boolean      // シールドバフによるダメージ軽減が発生した場合 true
   delayMs?: number        // 表示開始までの遅延（マルチヒット順次表示用）
   fadeAfterMs?: number    // 作成時刻からフェード開始までのms
   fadeDurationMs?: number // フェードアウトの長さ（ms）

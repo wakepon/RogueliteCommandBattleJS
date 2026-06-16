@@ -118,6 +118,7 @@ export function EnemyDisplay({
           currentHp={enemy.currentHp}
           maxHp={enemy.hp}
           damagePreview={damagePreview ?? null}
+          shieldValue={enemy.battleBuffs.find(b => b.type === 'shield')?.value ?? 0}
         />
       </div>
 

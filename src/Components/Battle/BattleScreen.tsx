@@ -835,7 +835,7 @@ export function BattleScreen() {
           {damagePopups.map((popup) => {
             const targetIndex = enemies.findIndex(e => e.instanceId === popup.targetId)
             if (targetIndex === -1) return null
-            return <DamagePopup key={popup.id} damage={popup.damage} targetIndex={targetIndex} totalTargets={enemies.length} onComplete={() => removePopup(popup.id)} contributors={popup.contributors} delayMs={popup.delayMs} fadeAfterMs={popup.fadeAfterMs} fadeDurationMs={popup.fadeDurationMs} hitIndex={popup.hitIndex} />
+            return <DamagePopup key={popup.id} damage={popup.damage} targetIndex={targetIndex} totalTargets={enemies.length} onComplete={() => removePopup(popup.id)} contributors={popup.contributors} shielded={popup.shielded} delayMs={popup.delayMs} fadeAfterMs={popup.fadeAfterMs} fadeDurationMs={popup.fadeDurationMs} hitIndex={popup.hitIndex} />
           })}
         </div>
 

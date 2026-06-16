@@ -201,12 +201,13 @@ function selectFairyAction(_enemy: EnemyInstance): EnemyActionResult {
   return selectByWeight(table)
 }
 
-/** 盾持ちゴブリンの行動決定 — 毎回シールド付与+攻撃 */
+/** 盾持ちゴブリンの行動決定 */
 function selectShieldGoblinAction(_enemy: EnemyInstance): EnemyActionResult {
-  return {
-    ...defaultResult('小突く', 6),
-    applyShieldToSelf: 10,
-  }
+  const table = [
+    { weight: 0.80, value: { ...defaultResult('シールドバッシュ', 9), applyShieldToSelf: 10 } },
+    { weight: 0.20, value: { ...defaultResult('ガード', 0), applyShieldToSelf: 20 } },
+  ]
+  return selectByWeight(table)
 }
 
 /** ガーディアンの行動決定 */

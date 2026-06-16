@@ -496,7 +496,8 @@ function executeAttackCommand(
   // 敵のシールドバフによるダメージ吸収
   const { reducedDamage: shieldReducedDamage, updatedBuffs: enemyUpdatedBuffs } =
     processEnemyShieldDamageReduction(targetEnemy.battleBuffs, calculatedDamage)
-  if (shieldReducedDamage !== calculatedDamage) {
+  const wasShielded = shieldReducedDamage !== calculatedDamage
+  if (wasShielded) {
     contributors.push({ name: 'シールド', label: `吸収${calculatedDamage - shieldReducedDamage}` })
     calculatedDamage = shieldReducedDamage
   }
@@ -507,6 +508,7 @@ function executeAttackCommand(
     calculatedDamage,
     contributors,
     overrideTargetId: finalTargetId !== selectedTargetId ? finalTargetId : undefined,
+    shielded: wasShielded,
   })
 
   // 敵のシールドバフが変化した場合、敵の状態を更新
@@ -752,7 +754,7 @@ function executeSpellAllAttack(
     // シールドバフによる吸収
     const { reducedDamage: finalDmg, updatedBuffs } = processEnemyShieldDamageReduction(enemy.battleBuffs, defReduced)
     if (updatedBuffs !== enemy.battleBuffs) shieldUpdates.set(enemy.instanceId, updatedBuffs)
-    return { targetId: enemy.instanceId, damage: finalDmg }
+    return { targetId: enemy.instanceId, damage: finalDmg, shielded: finalDmg !== defReduced }
   })
 
   // BattleReducerに全体ダメージを渡す
@@ -896,7 +898,7 @@ function executeEnemyAllAttack(
     // シールドバフによる吸収
     const { reducedDamage: finalDamage, updatedBuffs } = processEnemyShieldDamageReduction(enemy.battleBuffs, dmg)
     if (updatedBuffs !== enemy.battleBuffs) weaponShieldUpdates.set(enemy.instanceId, updatedBuffs)
-    return { targetId: enemy.instanceId, damage: finalDamage }
+    return { targetId: enemy.instanceId, damage: finalDamage, shielded: finalDamage !== dmg }
   })
 
   // BattleReducerに全体ダメージを渡す
@@ -1108,7 +1110,7 @@ function executeEnemyRandomAttack(
       )
     }
     newPopups.push({
-      ...createDamagePopup(targetId, finalDamage, result.contributors),
+      ...createDamagePopup(targetId, finalDamage, result.contributors, finalDamage !== dmg),
       delayMs: i * HIT_INTERVAL_MS,
       fadeAfterMs,
       fadeDurationMs,

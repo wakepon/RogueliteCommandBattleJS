@@ -10,6 +10,7 @@ interface DamagePopupProps {
   totalTargets: number
   onComplete: () => void
   contributors?: DamageContributor[]
+  shielded?: boolean
   delayMs?: number
   fadeAfterMs?: number
   fadeDurationMs?: number
@@ -26,7 +27,7 @@ function calculatePosition(targetIndex: number, totalTargets: number): { x: numb
   return { x, y }
 }
 
-export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, contributors, delayMs, fadeAfterMs, fadeDurationMs, hitIndex }: DamagePopupProps) {
+export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, contributors, shielded, delayMs, fadeAfterMs, fadeDurationMs, hitIndex }: DamagePopupProps) {
   const { x, y } = calculatePosition(targetIndex, totalTargets)
   const onCompleteRef = useRef(onComplete)
   onCompleteRef.current = onComplete
@@ -72,9 +73,16 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, con
         }}
       >
         <div className="flex flex-col items-center">
-          <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
-            {displayText}
-          </span>
+          {shielded ? (
+            <span className="text-2xl font-bold drop-shadow-lg whitespace-nowrap">
+              <span className="text-cyan-400">Shielded</span>
+              <span className="text-red-500"> {displayText}</span>
+            </span>
+          ) : (
+            <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
+              {displayText}
+            </span>
+          )}
           {hasContributors && (
             <div className="flex flex-col items-center mt-0.5">
               {contributors.map((c, i) => (
@@ -99,9 +107,16 @@ export function DamagePopup({ damage, targetIndex, totalTargets, onComplete, con
       }}
     >
       <div className="flex flex-col items-center">
-        <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
-          {displayText}
-        </span>
+        {shielded ? (
+          <span className="text-2xl font-bold drop-shadow-lg whitespace-nowrap">
+            <span className="text-cyan-400">Shielded</span>
+            <span className="text-red-500"> {displayText}</span>
+          </span>
+        ) : (
+          <span className={`text-2xl font-bold drop-shadow-lg ${textColorClass}`}>
+            {displayText}
+          </span>
+        )}
         {hasContributors && (
           <div className="flex flex-col items-center mt-0.5">
             {contributors.map((c, i) => (
