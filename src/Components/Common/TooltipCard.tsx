@@ -104,20 +104,38 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (weapon.effect.type === 'lifesteal') {
         lines.push({ label: '吸血', value: `${weapon.effect.value}HP`, color: 'text-green-300' })
       }
-      if (weapon.effect.type === 'conditionalPower') {
-        lines.push({ label: '条件', value: `HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
+      if (weapon.effect.type === 'selfHpConditional') {
+        lines.push({ label: '条件', value: `自HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
+      }
+      if (weapon.effect.type === 'targetHpConditional') {
+        lines.push({ label: '条件', value: `敵HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
       }
       if (weapon.effect.type === 'shield') {
         lines.push({ label: '効果', value: `シールド${weapon.effect.value}付与`, color: 'text-cyan-300' })
       }
-      if (weapon.effect.type === 'killPreserveDurability') {
-        lines.push({ label: '効果', value: 'トドメ時に耐久消費なし', color: 'text-yellow-300' })
-      }
       if (weapon.effect.type === 'hpPercentDamage') {
         lines.push({ label: '効果', value: `最大HP${Math.floor(weapon.effect.rate * 100)}%ダメージ`, color: 'text-orange-300' })
       }
-      if (weapon.effect.type === 'hpPercentShieldAll') {
-        lines.push({ label: '効果', value: `全員にHP${Math.floor(weapon.effect.rate * 100)}%シールド`, color: 'text-cyan-300' })
+      if (weapon.effect.type === 'followUp') {
+        lines.push({ label: '効果', value: `味方攻撃済みでP+${weapon.effect.bonusPower}`, color: 'text-yellow-300' })
+      }
+      if (weapon.effect.type === 'levelScale') {
+        lines.push({ label: '効果', value: 'Lv分Power加算', color: 'text-green-300' })
+      }
+      if (weapon.effect.type === 'combatStrGain') {
+        lines.push({ label: '効果', value: `使用後STR+${weapon.effect.value}(戦闘中)`, color: 'text-green-300' })
+      }
+      if (weapon.effect.type === 'lifestealPercent') {
+        lines.push({ label: '効果', value: `ダメージの${Math.floor(weapon.effect.rate * 100)}%HP回復`, color: 'text-green-300' })
+      }
+      if (weapon.effect.type === 'manaSteal') {
+        lines.push({ label: '効果', value: `ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`, color: 'text-blue-300' })
+      }
+      if (weapon.effect.type === 'thornsShield') {
+        lines.push({ label: '効果', value: `シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornsDuration}T`, color: 'text-cyan-300' })
+      }
+      if (weapon.effect.type === 'aoe') {
+        lines.push({ label: '効果', value: '全体攻撃', color: 'text-red-300' })
       }
       if (weapon.effect.type === 'currentHpDamage') {
         lines.push({ label: '効果', value: '現在HP-1→ダメージ(HP1化)', color: 'text-red-300' })
@@ -181,17 +199,11 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'shield') {
         lines.push({ label: '効果', value: `シールド${spell.effect.value}付与`, color: 'text-cyan-300' })
       }
-      if (spell.effect.type === 'hpToMp') {
-        lines.push({ label: '効果', value: `最大HP${Math.floor(spell.effect.hpCostRate * 100)}%→MP全回復`, color: 'text-purple-300' })
-      }
       if (spell.effect.type === 'repairWeapons') {
         lines.push({ label: '効果', value: `武器耐久+${spell.effect.value}回復`, color: 'text-green-300' })
       }
       if (spell.effect.type === 'weaponPowerBuff') {
         lines.push({ label: '効果', value: `次の武器攻撃P+${spell.effect.value}`, color: 'text-orange-300' })
-      }
-      if (spell.effect.type === 'guidanceBuff') {
-        lines.push({ label: '効果', value: `導き付与(次トドメで+${spell.effect.bonusExp}EXP)`, color: 'text-yellow-300' })
       }
       if (spell.effect.type === 'killBonusExpToAll') {
         lines.push({ label: '効果', value: `トドメ時全員に+${spell.effect.expAmount}EXP`, color: 'text-yellow-300' })
@@ -205,8 +217,14 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'mpAllDamage') {
         lines.push({ label: '効果', value: '現在MP全量→ダメージ', color: 'text-purple-300' })
       }
-      if (spell.effect.type === 'mpPercentHeal') {
-        lines.push({ label: '効果', value: `最大MP${Math.floor(spell.effect.rate * 100)}%回復`, color: 'text-green-300' })
+      if (spell.effect.type === 'followUp') {
+        lines.push({ label: '効果', value: `味方攻撃済みでP+${spell.effect.bonusPower}`, color: 'text-yellow-300' })
+      }
+      if (spell.effect.type === 'targetHpConditional') {
+        lines.push({ label: '条件', value: `敵HP${Math.floor(spell.effect.hpThreshold * 100)}%以下でP+${spell.effect.bonusPower}`, color: 'text-orange-300' })
+      }
+      if (spell.effect.type === 'lowMpConditional') {
+        lines.push({ label: '条件', value: `MP${Math.floor(spell.effect.mpThreshold * 100)}%以下でP+${spell.effect.bonusPower}`, color: 'text-purple-300' })
       }
       if (spell.effect.type === 'thorns') {
         lines.push({ label: '効果', value: `棘${spell.effect.value}付与`, color: 'text-green-300' })

@@ -24,7 +24,7 @@ import {
   getRepairableWeapons,
 } from '../Core/EventLogic'
 import { generateMapNodes } from '../Core/MapGenerator'
-import { getPotionEffectMultiplier, getPotionDurationMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
+import { getPotionEffectMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
 import { addExpAndProcessLevelUp } from '../Core/LevelUpCalculator'
 import {
   processExecuteCommand,
@@ -841,7 +841,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         // バフ付与ポーション共通: 持続ターン計算
         const buffDuration = effect.type === 'aoeConvert'
           ? 'nextAction' as const
-          : Math.floor(1 * getPotionDurationMultiplier(state.run.relics))
+          : 1
 
         if (effect.type === 'taunt') {
           // 挑発: 被弾率100%

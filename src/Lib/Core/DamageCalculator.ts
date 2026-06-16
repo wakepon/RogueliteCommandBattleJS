@@ -3,117 +3,156 @@ import { ExplorerWeapon } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { EnemyInstance } from '../Types/Enemy'
 import { RelicInstance } from '../Types/Relic'
-import { DamageContributor } from '../Types/Battle'
+import { CommandSlot, DamageContributor } from '../Types/Battle'
 import { getTuningValue } from '../Tuning/TuningStore'
 import {
-  getStatBonus,
-  getWeaponDamageBonus,
-  isWeaponDamageBonusApplicable,
-  getLowHpDamageMultiplier,
-  getKillStreakMultiplier,
-  getLastStrikeMultiplier,
-  getLowMpDamageMultiplier,
-  getLowestLevelDamageMultiplier,
+  getVulnerabilityPowerBoost,
+  getBrokenWeaponStrBonus,
+  getPositionStatBonus,
 } from './RelicProcessor'
 
-// DamageContributor を再エクスポート（後方互換）
 export type { DamageContributor }
 
-/**
- * ダメージ計算結果
- */
 export interface DamageResult {
   damage: number
-  isCritical: boolean  // MVP では false 固定
+  isCritical: boolean
   contributors: DamageContributor[]
 }
 
 /** ダメージ計算のオプション */
 interface DamageOptions {
-  varianceOffset?: number  // ブレのオフセット値（テスト用に固定値を指定）
+  varianceOffset?: number
   relics?: RelicInstance[]
-  killStreakActive?: boolean
-  weaponBreakMultiplier?: number  // 努力の証: 武器破壊蓄積倍率
-  party?: ExplorerState[]  // 番狂わせの一撃用: パーティ全体のレベル比較
+  party?: ExplorerState[]
+  explorerIndex?: number
+  brokenWeaponCount?: number
+  commandSlots?: CommandSlot[]
+  currentCommandIndex?: number
+  hasHpCostPowerBoost?: boolean
+  hpCostPowerBoostValue?: number
 }
 
-/**
- * ランダムなブレオフセットを生成する（-variance 〜 +variance の整数、均等分布）
- */
 function generateVarianceOffset(variance: number): number {
   if (variance <= 0) return 0
   return Math.floor(Math.random() * (2 * variance + 1)) - variance
 }
 
-/**
- * バフ倍率を計算する
- * strバフの合計値を倍率に変換（例: value=2 → 1.0 + 0.2 = 1.2倍）
- */
 function calculateBuffMultiplier(buffs: Buff[], stat: 'str' | 'int'): number {
   const statBuffs = buffs.filter(buff => buff.type === stat)
   const totalValue = statBuffs.reduce((sum, buff) => sum + buff.value, 0)
   return 1.0 + (totalValue * getTuningValue('buff_multiplier_per_point', 0.1))
 }
 
+/** 同ターンの先行スロットで味方が攻撃済みかどうか判定 */
+function hasAllyAttackedThisTurn(commandSlots?: CommandSlot[], currentCommandIndex?: number): boolean {
+  if (!commandSlots || currentCommandIndex === undefined || currentCommandIndex <= 0) return false
+  for (let i = 0; i < currentCommandIndex; i++) {
+    const slot = commandSlots[i]
+    if (slot.command && slot.targetId) {
+      const cmd = slot.command
+      if ('commandCategory' in cmd) {
+        const cat = (cmd as { commandCategory: string }).commandCategory
+        const targetType = (cmd as { targetType: string }).targetType
+        if ((cat === 'weapon' || cat === 'spell') && targetType.startsWith('enemy')) {
+          return true
+        }
+      }
+    }
+  }
+  return false
+}
+
 /**
  * 武器ダメージを計算する
- *
- * ダメージ計算式:
- *   (Str + statBonus) × (power + weaponDamageBonus) × バフ倍率 × レリック倍率 + ブレ補正
  */
 export function calculateWeaponDamage(
   attacker: ExplorerState,
   weapon: ExplorerWeapon,
-  _target: EnemyInstance,
+  target: EnemyInstance,
   options: DamageOptions = {}
 ): DamageResult {
-  const { varianceOffset, relics = [], killStreakActive = false, weaponBreakMultiplier = 0, party } = options
+  const {
+    varianceOffset, relics = [], party, explorerIndex,
+    brokenWeaponCount = 0, commandSlots, currentCommandIndex,
+    hasHpCostPowerBoost = false, hpCostPowerBoostValue = 0,
+  } = options
   const contributors: DamageContributor[] = []
 
-  // 精密バフ: ブレ幅→0、ダメージは最大ブレ値で固定
   const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
   const offset = varianceOffset ?? (hasPrecision ? weapon.variance : generateVarianceOffset(weapon.variance))
   if (hasPrecision) {
     contributors.push({ name: '精密', label: '（確定）' })
   }
 
-  // scaleStat に基づいてSTR or INT依存を決定（デフォルト: str）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
   const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, scaleStat)
 
-  // レリックによるステータスボーナス
-  const statBonus = getStatBonus(relics, scaleStat)
-  const effectiveStat = (scaleStat === 'int' ? attacker.int : attacker.str) + statBonus
-
-  // conditionalPower: HP条件でPower増加（狂戦士の斧）
-  let conditionalPowerBonus = 0
-  if ('effect' in weapon && weapon.effect?.type === 'conditionalPower') {
-    const hpRatio = attacker.hp / attacker.maxHp
-    if (hpRatio <= weapon.effect.hpThreshold) {
-      conditionalPowerBonus = weapon.effect.bonusPower
-      contributors.push({ name: weapon.name, label: `+${conditionalPowerBonus}` })
+  // ポジションボーナス
+  let positionBonus = 0
+  if (explorerIndex !== undefined && party) {
+    const posBonus = getPositionStatBonus(relics, explorerIndex, party.length)
+    positionBonus = scaleStat === 'str' ? posBonus.strBonus : posBonus.intBonus
+    if (positionBonus > 0) {
+      const label = explorerIndex === 0 ? '前衛の矜持' : '後衛の叡智'
+      contributors.push({ name: label, label: `+${positionBonus}` })
     }
   }
 
-  // weaponPowerBonus バフ: 武器強化による一時的なPower加算
+  // 努力の証: 壊れた武器STRボーナス
+  let brokenBonus = 0
+  if (brokenWeaponCount > 0 && scaleStat === 'str') {
+    const strPerWeapon = getBrokenWeaponStrBonus(relics)
+    brokenBonus = Math.floor(brokenWeaponCount * strPerWeapon)
+    if (brokenBonus > 0) {
+      contributors.push({ name: '努力の証', label: `STR+${brokenBonus}` })
+    }
+  }
+
+  const baseStat = scaleStat === 'int' ? attacker.int : attacker.str
+  const effectiveStat = baseStat + positionBonus + brokenBonus
+
+  // 条件付きPowerボーナス計算
+  let conditionalPowerBonus = 0
+
+  // 自身HP条件 (怒りの大剣)
+  if ('effect' in weapon && weapon.effect?.type === 'selfHpConditional') {
+    const hpRatio = attacker.hp / attacker.maxHp
+    if (hpRatio <= weapon.effect.hpThreshold) {
+      conditionalPowerBonus += weapon.effect.bonusPower
+      contributors.push({ name: weapon.name, label: `+${weapon.effect.bonusPower}` })
+    }
+  }
+
+  // ターゲットHP条件 (処刑の大剣)
+  if ('effect' in weapon && weapon.effect?.type === 'targetHpConditional') {
+    const hpRatio = target.currentHp / target.hp
+    if (hpRatio <= weapon.effect.hpThreshold) {
+      conditionalPowerBonus += weapon.effect.bonusPower
+      contributors.push({ name: weapon.name, label: `+${weapon.effect.bonusPower}` })
+    }
+  }
+
+  // 追撃条件 (追撃のナイフ)
+  if ('effect' in weapon && weapon.effect?.type === 'followUp') {
+    if (hasAllyAttackedThisTurn(commandSlots, currentCommandIndex)) {
+      conditionalPowerBonus += weapon.effect.bonusPower
+      contributors.push({ name: weapon.name, label: `+${weapon.effect.bonusPower}` })
+    }
+  }
+
+  // レベルスケール (成長のナイフ)
+  if ('effect' in weapon && weapon.effect?.type === 'levelScale') {
+    const levelBonus = attacker.level
+    conditionalPowerBonus += levelBonus
+    contributors.push({ name: weapon.name, label: `Lv+${levelBonus}` })
+  }
+
+  // 武器強化バフ
   const weaponPowerBonusValue = attacker.battleBuffs
     .filter(b => b.type === 'weaponPowerBonus')
     .reduce((sum, b) => sum + b.value, 0)
   if (weaponPowerBonusValue > 0) {
     contributors.push({ name: '武器強化', label: `+${weaponPowerBonusValue}` })
-  }
-
-  // レリックによる武器ダメージボーナス（INT武器・パンチは対象外）
-  const weaponDmgBonus = isWeaponDamageBonusApplicable(weapon) ? getWeaponDamageBonus(relics) : 0
-
-  // 寄与者: ステータスボーナスと武器ダメージボーナス
-  for (const relic of relics) {
-    if (relic.passiveEffect.type === 'statBonus' && relic.passiveEffect.stat === scaleStat) {
-      contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
-    }
-    if (relic.passiveEffect.type === 'weaponDamageBonus' && isWeaponDamageBonusApplicable(weapon)) {
-      contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
-    }
   }
 
   // バフ倍率の寄与者
@@ -122,80 +161,49 @@ export function calculateWeaponDamage(
     contributors.push({ name: `${statLabel}バフ`, label: `×${buffMultiplier.toFixed(1)}` })
   }
 
-  // 基本ダメージ計算（conditionalPower + weaponPowerBonus を power に加算）
-  const effectivePower = weapon.power + weaponDmgBonus + conditionalPowerBonus + weaponPowerBonusValue
+  const effectivePower = weapon.power + conditionalPowerBonus + weaponPowerBonusValue
   let rawDamage = effectiveStat * effectivePower * buffMultiplier
 
-  // 努力の証: 武器破壊蓄積倍率
-  if (weaponBreakMultiplier > 0) {
-    rawDamage *= (1 + weaponBreakMultiplier)
-    contributors.push({ name: '努力の証', label: `×${(1 + weaponBreakMultiplier).toFixed(1)}` })
+  // 修羅の血脈: HP消費時のPowerブースト
+  if (hasHpCostPowerBoost && hpCostPowerBoostValue > 0) {
+    rawDamage += effectiveStat * hpCostPowerBoostValue * buffMultiplier
+    contributors.push({ name: '修羅の血脈', label: `+${hpCostPowerBoostValue}` })
   }
 
-  // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
-  const lowHpMult = getLowHpDamageMultiplier(relics, attacker)
-  rawDamage *= lowHpMult
-  if (lowHpMult > 1.0) {
-    const relic = relics.find(r => r.passiveEffect.type === 'lowHpDamageMultiplier')
-    if (relic) contributors.push({ name: relic.name, label: `×${lowHpMult}` })
-  }
-
-  // レリック倍率: 血染めの手袋（killStreakBonus）
-  if (killStreakActive) {
-    const mult = getKillStreakMultiplier(relics)
-    rawDamage *= mult
-    if (mult > 1.0) {
-      const relic = relics.find(r => r.passiveEffect.type === 'killStreakBonus')
-      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
+  // 逆境の鎧: 被ダメ増加状態中のPowerボーナス
+  const hasVulnerability = attacker.battleDebuffs.some(d => d.type === 'vulnerability')
+  if (hasVulnerability) {
+    const vulnBonus = getVulnerabilityPowerBoost(relics)
+    if (vulnBonus > 0) {
+      rawDamage += effectiveStat * vulnBonus * buffMultiplier
+      contributors.push({ name: '逆境の鎧', label: `+${vulnBonus}` })
     }
   }
 
-  // レリック倍率: 研ぎ師の名刺（lastStrikeDamageMultiplier） - currentUses===1で壊れる直前
-  if (weapon.currentUses === 1) {
-    const mult = getLastStrikeMultiplier(relics)
-    rawDamage *= mult
-    if (mult > 1.0) {
-      const relic = relics.find(r => r.passiveEffect.type === 'lastStrikeDamageMultiplier')
-      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
-    }
+  // 連携の紋章バフ
+  const comboBuff = attacker.battleBuffs.find(b => b.type === 'comboPowerBonus')
+  if (comboBuff) {
+    rawDamage += effectiveStat * comboBuff.value * buffMultiplier
+    contributors.push({ name: '連携の紋章', label: `+${comboBuff.value}` })
   }
 
-  // レリック倍率: 番狂わせの一撃（パーティ最低レベル時）
-  if (party && party.length > 0) {
-    const mult = getLowestLevelDamageMultiplier(relics, attacker, party)
-    if (mult > 1.0) {
-      rawDamage *= mult
-      const relic = relics.find(r => r.passiveEffect.type === 'lowestLevelDamageMultiplier')
-      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
-    }
-  }
-
-  // バフ: 闘気の腕輪（レベルアップ直後の次攻撃x2）
-  const levelUpBoostBuff = attacker.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
-  if (levelUpBoostBuff) {
-    rawDamage *= levelUpBoostBuff.value
-    const relic = relics.find(r => r.passiveEffect.type === 'levelUpDamageBoost')
-    contributors.push({ name: relic?.name ?? '闘気の腕輪', label: `×${levelUpBoostBuff.value}` })
-  }
-
-  // シールドバッシュ: 攻撃者のシールド値をダメージに加算
+  // シールドバッシュ
   let shieldBashBonus = 0
   if ('effect' in weapon && weapon.effect?.type === 'shieldBash') {
     const shieldBuff = attacker.battleBuffs.find(b => b.type === 'shield')
     if (shieldBuff) {
       shieldBashBonus = shieldBuff.value
-      contributors.push({ name: 'シールドバッシュ', label: `+${shieldBashBonus}` })
+      contributors.push({ name: '盾殴り', label: `+${shieldBashBonus}` })
     }
   }
 
-  // 弱体デバフによるダメージ低下
+  // 弱体デバフ
   const weaknessDebuff = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (weaknessDebuff && weaknessDebuff.type === 'weakness') {
     rawDamage *= (1.0 - weaknessDebuff.value)
     contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
   }
 
-  // 基本ダメージを切り捨て後にブレ+シールドバッシュボーナスを加算
   const damage = Math.floor(rawDamage) + offset + shieldBashBonus
 
   return {
@@ -207,20 +215,20 @@ export function calculateWeaponDamage(
 
 /**
  * 魔法ダメージを計算する
- *
- * ダメージ計算式:
- *   (Int + statBonus) × power × バフ倍率 × レリック倍率 + ブレ補正
  */
 export function calculateSpellDamage(
   attacker: ExplorerState,
   spell: SpellInstance,
-  _target: EnemyInstance,
+  target: EnemyInstance,
   options: DamageOptions = {}
 ): DamageResult {
-  const { varianceOffset, relics = [], party } = options
+  const {
+    varianceOffset, relics = [], party, explorerIndex,
+    commandSlots, currentCommandIndex,
+    hasHpCostPowerBoost = false, hpCostPowerBoostValue = 0,
+  } = options
   const contributors: DamageContributor[] = []
 
-  // 精密バフ: ブレ幅→0、ダメージは最大ブレ値で固定
   const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
   const offset = varianceOffset ?? (hasPrecision ? spell.variance : generateVarianceOffset(spell.variance))
   if (hasPrecision) {
@@ -229,66 +237,86 @@ export function calculateSpellDamage(
 
   const buffMultiplier = calculateBuffMultiplier(attacker.battleBuffs, 'int')
 
-  // レリックによるINTボーナス
-  const effectiveInt = attacker.int + getStatBonus(relics, 'int')
-
-  // 寄与者: ステータスボーナス
-  for (const relic of relics) {
-    if (relic.passiveEffect.type === 'statBonus' && relic.passiveEffect.stat === 'int') {
-      contributors.push({ name: relic.name, label: `+${relic.passiveEffect.value}` })
+  // ポジションボーナス
+  let positionBonus = 0
+  if (explorerIndex !== undefined && party) {
+    const posBonus = getPositionStatBonus(relics, explorerIndex, party.length)
+    positionBonus = posBonus.intBonus
+    if (positionBonus > 0) {
+      const label = explorerIndex === 0 ? '前衛の矜持' : '後衛の叡智'
+      contributors.push({ name: label, label: `INT+${positionBonus}` })
     }
   }
+
+  const effectiveInt = attacker.int + positionBonus
 
   // バフ倍率の寄与者
   if (buffMultiplier > 1.0) {
     contributors.push({ name: 'INTバフ', label: `×${buffMultiplier.toFixed(1)}` })
   }
 
-  // 基本ダメージ計算
-  let rawDamage = effectiveInt * spell.power * buffMultiplier
+  // 条件付きPowerボーナス計算
+  let conditionalPowerBonus = 0
 
-  // レリック倍率: 怒りの炎（lowHpDamageMultiplier）
-  const lowHpMult = getLowHpDamageMultiplier(relics, attacker)
-  rawDamage *= lowHpMult
-  if (lowHpMult > 1.0) {
-    const relic = relics.find(r => r.passiveEffect.type === 'lowHpDamageMultiplier')
-    if (relic) contributors.push({ name: relic.name, label: `×${lowHpMult}` })
-  }
-
-  // レリック倍率: 集中の水晶（lowMpDamageBonus）
-  const lowMpMult = getLowMpDamageMultiplier(relics, attacker)
-  rawDamage *= lowMpMult
-  if (lowMpMult > 1.0) {
-    const relic = relics.find(r => r.passiveEffect.type === 'lowMpDamageBonus')
-    if (relic) contributors.push({ name: relic.name, label: `×${lowMpMult}` })
-  }
-
-  // レリック倍率: 番狂わせの一撃（パーティ最低レベル時）
-  if (party && party.length > 0) {
-    const mult = getLowestLevelDamageMultiplier(relics, attacker, party)
-    if (mult > 1.0) {
-      rawDamage *= mult
-      const relic = relics.find(r => r.passiveEffect.type === 'lowestLevelDamageMultiplier')
-      if (relic) contributors.push({ name: relic.name, label: `×${mult}` })
+  // ターゲットHP条件 (処刑の雷)
+  if (spell.effect?.type === 'targetHpConditional') {
+    const hpRatio = target.currentHp / target.hp
+    if (hpRatio <= spell.effect.hpThreshold) {
+      conditionalPowerBonus += spell.effect.bonusPower
+      contributors.push({ name: spell.name, label: `+${spell.effect.bonusPower}` })
     }
   }
 
-  // バフ: 闘気の腕輪（レベルアップ直後の次攻撃x2）
-  const levelUpBoostBuff = attacker.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
-  if (levelUpBoostBuff) {
-    rawDamage *= levelUpBoostBuff.value
-    const relic = relics.find(r => r.passiveEffect.type === 'levelUpDamageBoost')
-    contributors.push({ name: relic?.name ?? '闘気の腕輪', label: `×${levelUpBoostBuff.value}` })
+  // 追撃条件 (追撃の炎)
+  if (spell.effect?.type === 'followUp') {
+    if (hasAllyAttackedThisTurn(commandSlots, currentCommandIndex)) {
+      conditionalPowerBonus += spell.effect.bonusPower
+      contributors.push({ name: spell.name, label: `+${spell.effect.bonusPower}` })
+    }
   }
 
-  // 弱体デバフによるダメージ低下
+  // 低MP条件 (渇きの火)
+  if (spell.effect?.type === 'lowMpConditional') {
+    const mpRatio = attacker.mp / attacker.maxMp
+    if (mpRatio <= spell.effect.mpThreshold) {
+      conditionalPowerBonus += spell.effect.bonusPower
+      contributors.push({ name: spell.name, label: `+${spell.effect.bonusPower}` })
+    }
+  }
+
+  const effectivePower = spell.power + conditionalPowerBonus
+  let rawDamage = effectiveInt * effectivePower * buffMultiplier
+
+  // 修羅の血脈: HP消費時のPowerブースト
+  if (hasHpCostPowerBoost && hpCostPowerBoostValue > 0) {
+    rawDamage += effectiveInt * hpCostPowerBoostValue * buffMultiplier
+    contributors.push({ name: '修羅の血脈', label: `+${hpCostPowerBoostValue}` })
+  }
+
+  // 逆境の鎧
+  const hasVulnerability = attacker.battleDebuffs.some(d => d.type === 'vulnerability')
+  if (hasVulnerability) {
+    const vulnBonus = getVulnerabilityPowerBoost(relics)
+    if (vulnBonus > 0) {
+      rawDamage += effectiveInt * vulnBonus * buffMultiplier
+      contributors.push({ name: '逆境の鎧', label: `+${vulnBonus}` })
+    }
+  }
+
+  // 連携の紋章バフ
+  const comboBuff = attacker.battleBuffs.find(b => b.type === 'comboPowerBonus')
+  if (comboBuff) {
+    rawDamage += effectiveInt * comboBuff.value * buffMultiplier
+    contributors.push({ name: '連携の紋章', label: `+${comboBuff.value}` })
+  }
+
+  // 弱体デバフ
   const spellWeakness = attacker.battleDebuffs.find(d => d.type === 'weakness')
   if (spellWeakness && spellWeakness.type === 'weakness') {
     rawDamage *= (1.0 - spellWeakness.value)
     contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - spellWeakness.value).toFixed(2)}` })
   }
 
-  // 基本ダメージを切り捨て後にブレを加算
   const damage = Math.floor(rawDamage) + offset
 
   return {

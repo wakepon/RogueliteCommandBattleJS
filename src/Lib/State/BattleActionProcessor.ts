@@ -2,7 +2,7 @@ import { GameState } from '../Types/Game'
 import { RunState } from '../Types/Run'
 import { ExplorerState, Buff } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
-import { BattleCommand, BattleState, CommandSlot, ExpPopup, PlayerDamagePopup, DamagePopup } from '../Types/Battle'
+import { BattleCommand, BattleState, ExpPopup, PlayerDamagePopup, DamagePopup } from '../Types/Battle'
 import type { DamageContributor } from '../Core/DamageCalculator'
 import { SpellInstance } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
@@ -30,33 +30,19 @@ import { consumeNextActionBuffs } from '../Core/BuffProcessor'
 import { distributeExpToParty, LevelUpInfo } from '../Core/LevelUpCalculator'
 import {
   getWeaponDurabilitySaveChance,
-  getThornsDamage,
   getRegenPerTurn,
-  hasRelicEffect,
-  getWeaponBreakIncrement,
-  getWeaponBreakAttackBonus,
   getDamageTakenToMpValue,
-  getLevelUpDamageBoost,
+  getLevelUpStatBoost,
   hasDeathProtection,
-  getThornsMultiplier,
-  getComboBonus,
+  getThornsDurationBonus,
+  getComboAttackBonus,
+  getHpCostPowerBoost,
+  getKillMpRecover,
+  getKnifeUseDurabilityRestore,
+  getBrokenWeaponStrBonus,
+  getMpSpendShield,
 } from '../Core/RelicProcessor'
 import { processShieldDamageReduction, applyVulnerabilityMultiplier } from '../Core/BuffProcessor'
-
-/** 連携の紋章: 同ターンに2人以上が敵対象の武器攻撃をしているか判定し倍率を返す */
-function getComboMultiplier(commandSlots: CommandSlot[], relics: RelicInstance[]): number {
-  const weaponUserCount = new Set(
-    commandSlots
-      .filter(slot => slot.command && isWeapon(slot.command)
-        && slot.command.targetType !== 'allySingle'
-        && slot.command.targetType !== 'allyAll')
-      .map(slot => slot.explorerId)
-  ).size
-  if (weaponUserCount >= 2) {
-    return getComboBonus(relics)
-  }
-  return 1.0
-}
 
 /** RunStateのpartyを更新 */
 function updatePartyMember(run: RunState, updatedExplorer: ExplorerState): RunState {
@@ -186,34 +172,32 @@ function applyDeathProtection(
 }
 
 /**
- * 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフを付与
- * 戦闘中レベルアップ発生時に呼ぶ。複数回レベルアップは1回分のみ付与。
+ * 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
+ * 戦闘中レベルアップ発生時に呼ぶ。
  */
-function applyLevelUpDamageBoost(
+function applyLevelUpStatBoost(
   run: RunState,
   levelUps: LevelUpInfo[],
   relics: RelicInstance[]
 ): RunState {
   if (levelUps.length === 0) return run
-  const multiplier = getLevelUpDamageBoost(relics)
-  if (multiplier <= 1.0) return run
+  const boost = getLevelUpStatBoost(relics)
+  if (!boost) return run
 
-  // 同じキャラが複数回レベルアップしても1バフのみ付与
-  const levelUpExplorerIds = new Set(levelUps.map(l => l.explorerId))
+  // 同じキャラが複数回レベルアップしてもレベルアップ回数分加算
+  const levelUpCounts = new Map<string, number>()
+  for (const lu of levelUps) {
+    levelUpCounts.set(lu.explorerId, (levelUpCounts.get(lu.explorerId) ?? 0) + 1)
+  }
+
   let updatedRun = run
-  for (const explorerId of levelUpExplorerIds) {
+  for (const [explorerId, count] of levelUpCounts) {
     const member = updatedRun.party.find(e => e.id === explorerId)
     if (!member) continue
-    // 既に同バフがあれば重複付与しない（同ターン複数撃破で連続レベルアップした場合）
-    if (member.battleBuffs.some(b => b.type === 'levelUpDamageBoost')) continue
-    const boostBuff: Buff = {
-      type: 'levelUpDamageBoost',
-      value: multiplier,
-      duration: 'nextAction',
-    }
     const updatedMember: ExplorerState = {
       ...member,
-      battleBuffs: [...member.battleBuffs, boostBuff],
+      str: member.str + boost.strBonus * count,
+      int: member.int + boost.intBonus * count,
     }
     updatedRun = updatePartyMember(updatedRun, updatedMember)
   }
@@ -309,6 +293,25 @@ function consumeCommandCost(
   }
 
   return explorer
+}
+
+/** 魔力の残滓: MP消費量が閾値以上ならシールドバフを付与 */
+function applyMpSpendShield(explorer: ExplorerState, mpSpent: number, relics: RelicInstance[]): ExplorerState {
+  const mpShield = getMpSpendShield(relics)
+  if (!mpShield || mpSpent < mpShield.mpThreshold) return explorer
+  const existingShield = explorer.battleBuffs.find(b => b.type === 'shield')
+  if (existingShield) {
+    return {
+      ...explorer,
+      battleBuffs: explorer.battleBuffs.map(b =>
+        b === existingShield ? { ...b, value: b.value + mpShield.shieldValue } : b
+      ),
+    }
+  }
+  return {
+    ...explorer,
+    battleBuffs: [...explorer.battleBuffs, { type: 'shield' as const, value: mpShield.shieldValue, duration: 'battle' as const }],
+  }
 }
 
 /** 撃破発生時のEXPポップアップをバトルステートに追加 */
@@ -418,6 +421,7 @@ function executeAttackCommand(
   // ダメージ計算
   let calculatedDamage = 0
   let contributors: DamageContributor[] = []
+  const explorerIndex = state.run.party.findIndex(e => e.id === battleAction.explorer.id)
 
   if (isWeaponAttack && isWeaponInstance(selectedCommand)) {
     // 変換武器: HP系ステータスから直接ダメージを算出（通常のダメージ計算をバイパス）
@@ -428,11 +432,17 @@ function executeAttackCommand(
       calculatedDamage = Math.max(0, battleAction.explorer.hp - 1)
       contributors.push({ name: '捨て身', label: `現在HP${battleAction.explorer.hp}-1→${calculatedDamage}` })
     } else {
+      const hasHpCost = 'hpCost' in selectedCommand && (selectedCommand.hpCost ?? 0) > 0
+      const hpCostBoost = getHpCostPowerBoost(relics)
       const result = calculateWeaponDamage(battleAction.explorer, selectedCommand, targetEnemy, {
         relics,
-        killStreakActive: state.battleState.relicState.killStreakActive,
-        weaponBreakMultiplier: state.run.weaponBreakMultiplier ?? 0,
+        brokenWeaponCount: state.run.brokenWeaponCount ?? 0,
         party: state.run.party,
+        explorerIndex,
+        commandSlots: state.battleState.commandSlots,
+        currentCommandIndex: state.battleState.currentCommandIndex,
+        hasHpCostPowerBoost: hasHpCost && hpCostBoost !== null,
+        hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0,
       })
       calculatedDamage = result.damage
       contributors = result.contributors
@@ -441,9 +451,9 @@ function executeAttackCommand(
     // パンチなど非WeaponInstance
     const result = calculateWeaponDamage(battleAction.explorer, selectedCommand, targetEnemy, {
       relics,
-      killStreakActive: state.battleState.relicState.killStreakActive,
-      weaponBreakMultiplier: state.run.weaponBreakMultiplier ?? 0,
+      brokenWeaponCount: state.run.brokenWeaponCount ?? 0,
       party: state.run.party,
+      explorerIndex,
     })
     calculatedDamage = result.damage
     contributors = result.contributors
@@ -453,9 +463,16 @@ function executeAttackCommand(
       calculatedDamage = battleAction.explorer.mp
       contributors.push({ name: '魔力放出', label: `現在MP${battleAction.explorer.mp}→${calculatedDamage}` })
     } else {
+      const hasSpellHpCost = selectedCommand.hpCost !== undefined && selectedCommand.hpCost > 0
+      const spellHpCostBoost = getHpCostPowerBoost(relics)
       const result = calculateSpellDamage(battleAction.explorer, selectedCommand, targetEnemy, {
         relics,
         party: state.run.party,
+        explorerIndex,
+        commandSlots: state.battleState.commandSlots,
+        currentCommandIndex: state.battleState.currentCommandIndex,
+        hasHpCostPowerBoost: hasSpellHpCost && spellHpCostBoost !== null,
+        hpCostPowerBoostValue: spellHpCostBoost?.powerBonus ?? 0,
       })
       calculatedDamage = result.damage
       contributors = result.contributors
@@ -465,15 +482,7 @@ function executeAttackCommand(
     return state
   }
 
-  // 連携の紋章: 同ターンに2人以上が武器攻撃→全武器ダメージ×倍率
-  if (isWeaponAttack) {
-    const comboMult = getComboMultiplier(state.battleState.commandSlots, relics)
-    if (comboMult > 1.0) {
-      calculatedDamage = Math.floor(calculatedDamage * comboMult)
-      const relic = relics.find(r => r.passiveEffect.type === 'comboBonus')
-      if (relic) contributors.push({ name: relic.name, label: `×${comboMult}` })
-    }
-  }
+  // 連携の紋章: DamageCalculator側でcomboPowerBonusバフを参照済み（バフ付与はターン開始時に実施）
 
   // 敵のdefenseバフによるダメージ軽減
   const reducedDamage = applyDefenseReduction(calculatedDamage, targetEnemy.battleBuffs)
@@ -511,9 +520,14 @@ function executeAttackCommand(
   // コスト消費（同ID武器区別のためweaponIndexを渡す）
   const currentSlot = state.battleState.commandSlots[state.battleState.currentCommandIndex]
   const durabilitySaveChance = getWeaponDurabilitySaveChance(relics)
-  const explorerAfterCost = consumeCommandCost(
+  let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, selectedCommand, durabilitySaveChance, currentSlot?.weaponIndex
   )
+  // 魔力の残滓: 魔法使用時、MP消費量が閾値以上ならシールド付与
+  if (isSpell(selectedCommand)) {
+    const mpSpent = battleAction.explorer.mp - explorerAfterCost.mp
+    explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpent, relics)
+  }
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
 
@@ -541,59 +555,80 @@ function executeAttackCommand(
     finalExplorer = { ...finalExplorer, hp: 1 }
   }
 
-  // 魂喰いの剣: トドメを刺したら耐久を消費しない（巻き戻し）
-  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'killPreserveDurability' && defeatedCount > 0) {
-    const targetIndex = currentSlot?.weaponIndex !== undefined
-      ? currentSlot.weaponIndex
-      : finalExplorer.weapons.findIndex(w => w.id === selectedCommand.id)
-    if (targetIndex >= 0) {
-      const beforeWeapon = battleAction.explorer.weapons[targetIndex]
+  // 武器の lifestealPercent 効果: ダメージの rate% をHP回復
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'lifestealPercent') {
+    const healAmount = Math.floor(calculatedDamage * selectedCommand.effect.rate)
+    finalExplorer = { ...finalExplorer, hp: Math.min(finalExplorer.hp + healAmount, finalExplorer.maxHp) }
+  }
+
+  // 武器の manaSteal 効果: ダメージの rate% をMP回復
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'manaSteal') {
+    const mpAmount = Math.floor(calculatedDamage * selectedCommand.effect.rate)
+    finalExplorer = { ...finalExplorer, mp: Math.min(finalExplorer.mp + mpAmount, finalExplorer.maxMp) }
+  }
+
+  // 武器の combatStrGain 効果: 使用後にSTR+value(戦闘中永続)
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'combatStrGain') {
+    const gainValue = selectedCommand.effect.value
+    const existingBuff = finalExplorer.battleBuffs.find(b => b.type === 'combatStrGain')
+    if (existingBuff) {
       finalExplorer = {
         ...finalExplorer,
-        weapons: finalExplorer.weapons.map((w, i) => {
-          if (i !== targetIndex) return w
-          // 消費前の耐久に巻き戻す
-          if (beforeWeapon && 'currentUses' in beforeWeapon) {
-            return { ...w, currentUses: beforeWeapon.currentUses } as typeof w
-          }
-          return w
-        }),
+        battleBuffs: finalExplorer.battleBuffs.map(b =>
+          b.type === 'combatStrGain' ? { ...b, value: b.value + gainValue } : b
+        ),
+        str: finalExplorer.str + gainValue,
+      }
+    } else {
+      finalExplorer = {
+        ...finalExplorer,
+        battleBuffs: [...finalExplorer.battleBuffs, { type: 'combatStrGain', value: gainValue, duration: 999 }],
+        str: finalExplorer.str + gainValue,
       }
     }
   }
 
-  // 血染めの手袋: killStreakActive を1度に決定
-  if (isWeaponAttack) {
-    const killedWithWeapon = defeatedCount > 0 && hasRelicEffect(relics, 'killStreakBonus')
-    const nextKillStreakActive = killedWithWeapon
-    if (nextKillStreakActive !== state.battleState.relicState.killStreakActive) {
-      newBattleState = battleReducer(newBattleState, {
-        type: 'UPDATE_RELIC_STATE',
-        relicState: { killStreakActive: nextKillStreakActive },
-      })
-    }
-  }
-
-  // 武器破壊検出: 耐久が0になった武器があればレリック効果を適用
-  let updatedWeaponBreakMultiplier = state.run.weaponBreakMultiplier ?? 0
+  // 武器破壊検出: 耐久が0になった武器があれば壊れた本数カウントを加算
+  let updatedBrokenWeaponCount = state.run.brokenWeaponCount ?? 0
   if (isWeaponAttack) {
     const weaponBefore = battleAction.explorer.weapons.find(w => w.id === selectedCommand.id)
     const weaponAfter = finalExplorer.weapons.find(w => w.id === selectedCommand.id)
     if (weaponBefore && weaponAfter &&
         weaponBefore.currentUses !== null && weaponBefore.currentUses > 0 &&
         weaponAfter.currentUses !== null && weaponAfter.currentUses <= 0) {
-      // 努力の証: 蓄積倍率を加算
-      const breakIncrement = getWeaponBreakIncrement(relics)
-      if (breakIncrement > 0) {
-        updatedWeaponBreakMultiplier += breakIncrement
+      // 努力の証: 壊れた武器カウントを加算
+      if (getBrokenWeaponStrBonus(relics) > 0) {
+        updatedBrokenWeaponCount += 1
       }
-      // 鍛冶師の金槌: 次の武器攻撃にPowerボーナス
-      const breakBonus = getWeaponBreakAttackBonus(relics)
-      if (breakBonus > 0) {
+    }
+  }
+
+  // 研ぎ師の名刺: ナイフカテゴリ武器使用で使用回数カウント
+  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.category === 'knife') {
+    const knifeRestore = getKnifeUseDurabilityRestore(relics)
+    if (knifeRestore) {
+      const newKnifeCount = (state.battleState.relicState.knifeUseCount ?? 0) + 1
+      if (newKnifeCount >= knifeRestore.usesRequired) {
+        // カウントリセット + 全ナイフ武器の耐久回復
+        newBattleState = battleReducer(newBattleState, {
+          type: 'UPDATE_RELIC_STATE',
+          relicState: { knifeUseCount: 0 },
+        })
         finalExplorer = {
           ...finalExplorer,
-          battleBuffs: [...finalExplorer.battleBuffs, { type: 'weaponPowerBonus', value: breakBonus, duration: 'nextAction' as const }],
+          weapons: finalExplorer.weapons.map(w => {
+            if (w.currentUses === null || w.maxUses === null) return w
+            if ('category' in w && w.category === 'knife') {
+              return { ...w, currentUses: Math.min(w.currentUses + knifeRestore.restoreAmount, w.maxUses) } as typeof w
+            }
+            return w
+          }),
         }
+      } else {
+        newBattleState = battleReducer(newBattleState, {
+          type: 'UPDATE_RELIC_STATE',
+          relicState: { knifeUseCount: newKnifeCount },
+        })
       }
     }
   }
@@ -626,10 +661,20 @@ function executeAttackCommand(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    weaponBreakMultiplier: updatedWeaponBreakMultiplier,
+    brokenWeaponCount: updatedBrokenWeaponCount,
   }
 
   if (defeatedCount > 0) {
+    // 討伐の対価: 撃破時MP回復
+    const killMpRecover = getKillMpRecover(relics)
+    if (killMpRecover > 0) {
+      finalExplorer = {
+        ...finalExplorer,
+        mp: Math.min(finalExplorer.mp + killMpRecover * defeatedCount, finalExplorer.maxMp),
+      }
+      updatedRun = updatePartyMember(updatedRun, finalExplorer)
+    }
+
     // 教育の魔弾/稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'killBonusExpToAll') {
@@ -642,7 +687,6 @@ function executeAttackCommand(
     // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
     const guidance = consumeGuidanceBuff(finalExplorer)
     finalExplorer = guidance.updatedExplorer
-    // バフが除去された場合は常にpartyへ同期（冪等・将来value=0仕様にも耐える）
     updatedRun = updatePartyMember(updatedRun, finalExplorer)
 
     // パーティー全員にEXP配分（止めキャラにボーナス）
@@ -663,8 +707,8 @@ function executeAttackCommand(
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
-      // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
-      updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+      // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
+      updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }
   }
 
@@ -687,6 +731,7 @@ function executeSpellAllAttack(
 ): GameState {
   if (!state.battleState || !state.run) return state
   const partySnapshot = state.run.party
+  const explorerIndex = state.run.party.findIndex(e => e.id === battleAction.explorer.id)
 
   // 生存中の全敵に対してダメージ計算
   const aliveEnemies = state.battleState.enemies.filter(e => e.currentHp > 0)
@@ -699,6 +744,7 @@ function executeSpellAllAttack(
     const result = calculateSpellDamage(battleAction.explorer, spell, enemy, {
       relics,
       party: partySnapshot,
+      explorerIndex,
     })
     if (i === 0) allContributors = result.contributors
     // defenseバフによる軽減
@@ -727,9 +773,11 @@ function executeSpellAllAttack(
   }
 
   // MP消費
-  const explorerAfterCost = consumeCommandCost(
+  let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, spell, 0
   )
+  const mpSpent = battleAction.explorer.mp - explorerAfterCost.mp
+  explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpent, relics)
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
 
@@ -793,8 +841,8 @@ function executeSpellAllAttack(
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
-      // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
-      updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+      // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
+      updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }
   }
 
@@ -817,6 +865,7 @@ function executeEnemyAllAttack(
 ): GameState {
   if (!state.battleState || !state.run) return state
   const partySnapshot = state.run.party
+  const explorerIndex = state.run.party.findIndex(e => e.id === battleAction.explorer.id)
 
   // 生存中の全敵に対してダメージ計算
   const aliveEnemies = state.battleState.enemies.filter(e => e.currentHp > 0)
@@ -824,27 +873,24 @@ function executeEnemyAllAttack(
     return state
   }
   let allContributors: DamageContributor[] = []
-  // 連携の紋章: 全体武器攻撃にも適用
-  const comboMultAoe = getComboMultiplier(state.battleState.commandSlots, relics)
   const weaponShieldUpdates = new Map<string, Buff[]>()
+
+  const hasAoeHpCost = weapon.hpCost !== undefined && weapon.hpCost > 0
+  const aoeHpCostBoost = getHpCostPowerBoost(relics)
 
   const calculatedDamages = aliveEnemies.map((enemy, i) => {
     const result = calculateWeaponDamage(battleAction.explorer, weapon, enemy, {
       relics,
-      killStreakActive: state.battleState!.relicState.killStreakActive,
-      weaponBreakMultiplier: state.run!.weaponBreakMultiplier ?? 0,
+      brokenWeaponCount: state.run!.brokenWeaponCount ?? 0,
       party: partySnapshot,
+      explorerIndex,
+      commandSlots: state.battleState!.commandSlots,
+      currentCommandIndex: state.battleState!.currentCommandIndex,
+      hasHpCostPowerBoost: hasAoeHpCost && aoeHpCostBoost !== null,
+      hpCostPowerBoostValue: aoeHpCostBoost?.powerBonus ?? 0,
     })
     if (i === 0) allContributors = result.contributors
     let dmg = result.damage
-    // 連携倍率
-    if (comboMultAoe > 1.0) {
-      dmg = Math.floor(dmg * comboMultAoe)
-      if (i === 0) {
-        const relic = relics.find(r => r.passiveEffect.type === 'comboBonus')
-        if (relic) allContributors.push({ name: relic.name, label: `×${comboMultAoe}` })
-      }
-    }
     // defenseバフによる軽減
     dmg = applyDefenseReduction(dmg, enemy.battleBuffs)
     // シールドバフによる吸収
@@ -915,33 +961,15 @@ function executeEnemyAllAttack(
     }
   }
 
-  // 血染めの手袋: killStreakActive を1度に決定
-  const killedWithWeapon = defeatedCount > 0 && hasRelicEffect(relics, 'killStreakBonus')
-  const nextKillStreakActive = killedWithWeapon
-  if (nextKillStreakActive !== state.battleState.relicState.killStreakActive) {
-    newBattleState = battleReducer(newBattleState, {
-      type: 'UPDATE_RELIC_STATE',
-      relicState: { killStreakActive: nextKillStreakActive },
-    })
-  }
-
-  // 武器破壊検出: 耐久が0になった武器があればレリック効果を適用
-  let updatedWeaponBreakMultiplier = state.run.weaponBreakMultiplier ?? 0
+  // 武器破壊検出: 耐久が0になった武器があれば壊れた本数カウントを加算
+  let updatedBrokenWeaponCountAoe = state.run.brokenWeaponCount ?? 0
   const weaponBeforeAoe = battleAction.explorer.weapons.find(w => w.id === weapon.id)
   const weaponAfterAoe = finalExplorer.weapons.find(w => w.id === weapon.id)
   if (weaponBeforeAoe && weaponAfterAoe &&
       weaponBeforeAoe.currentUses !== null && weaponBeforeAoe.currentUses > 0 &&
       weaponAfterAoe.currentUses !== null && weaponAfterAoe.currentUses <= 0) {
-    const breakIncrement = getWeaponBreakIncrement(relics)
-    if (breakIncrement > 0) {
-      updatedWeaponBreakMultiplier += breakIncrement
-    }
-    const breakBonus = getWeaponBreakAttackBonus(relics)
-    if (breakBonus > 0) {
-      finalExplorer = {
-        ...finalExplorer,
-        battleBuffs: [...finalExplorer.battleBuffs, { type: 'weaponPowerBonus', value: breakBonus, duration: 'nextAction' as const }],
-      }
+    if (getBrokenWeaponStrBonus(relics) > 0) {
+      updatedBrokenWeaponCountAoe += 1
     }
   }
 
@@ -956,10 +984,20 @@ function executeEnemyAllAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    weaponBreakMultiplier: updatedWeaponBreakMultiplier,
+    brokenWeaponCount: updatedBrokenWeaponCountAoe,
   }
 
   if (defeatedCount > 0) {
+    // 討伐の対価: 撃破時MP回復
+    const killMpRecoverAoe = getKillMpRecover(relics)
+    if (killMpRecoverAoe > 0) {
+      finalExplorer = {
+        ...finalExplorer,
+        mp: Math.min(finalExplorer.mp + killMpRecoverAoe * defeatedCount, finalExplorer.maxMp),
+      }
+      updatedRun = updatePartyMember(updatedRun, finalExplorer)
+    }
+
     // 稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (weapon.effect?.type === 'killBonusExpToAll') {
@@ -969,7 +1007,6 @@ function executeEnemyAllAttack(
     // 導きバフ: 攻撃者にバフがあればキラーに追加EXP、バフを消費
     const guidance = consumeGuidanceBuff(finalExplorer)
     finalExplorer = guidance.updatedExplorer
-    // バフが除去された場合は常にpartyへ同期（冪等・将来value=0仕様にも耐える）
     updatedRun = updatePartyMember(updatedRun, finalExplorer)
 
     // パーティー全員にEXP配分（止めキャラにボーナス）
@@ -990,8 +1027,8 @@ function executeEnemyAllAttack(
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
-      // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
-      updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+      // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
+      updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }
   }
 
@@ -1017,6 +1054,7 @@ function executeEnemyRandomAttack(
   const targets = battleAction.randomEnemyTargets
   if (!targets || targets.length === 0) return state
 
+  const explorerIndex = state.run.party.findIndex(e => e.id === battleAction.explorer.id)
   let newBattleState = state.battleState
   const snapshotEnemies = state.battleState.enemies
 
@@ -1030,8 +1068,8 @@ function executeEnemyRandomAttack(
   const newPopups: DamagePopup[] = []
   let allContributors: DamageContributor[] = []
 
-  // 連携の紋章: ランダム攻撃にも適用
-  const comboMultRandom = getComboMultiplier(state.battleState.commandSlots, relics)
+  const randomHpCostBoost = getHpCostPowerBoost(relics)
+  const hasRandomHpCost = weapon.hpCost !== undefined && weapon.hpCost > 0
 
   for (let i = 0; i < targets.length; i++) {
     const targetId = targets[i]
@@ -1042,22 +1080,19 @@ function executeEnemyRandomAttack(
 
     const result = calculateWeaponDamage(battleAction.explorer, weapon, targetEnemy, {
       relics,
-      killStreakActive: newBattleState.relicState.killStreakActive,
-      weaponBreakMultiplier: state.run.weaponBreakMultiplier ?? 0,
+      brokenWeaponCount: state.run.brokenWeaponCount ?? 0,
       party: state.run.party,
+      explorerIndex,
+      commandSlots: state.battleState.commandSlots,
+      currentCommandIndex: state.battleState.currentCommandIndex,
+      hasHpCostPowerBoost: hasRandomHpCost && randomHpCostBoost !== null,
+      hpCostPowerBoostValue: randomHpCostBoost?.powerBonus ?? 0,
     })
     if (allContributors.length === 0) {
       allContributors = result.contributors
-      if (comboMultRandom > 1.0) {
-        const relic = relics.find(r => r.passiveEffect.type === 'comboBonus')
-        if (relic) allContributors.push({ name: relic.name, label: `×${comboMultRandom}` })
-      }
     }
 
     let dmg = result.damage
-    if (comboMultRandom > 1.0) {
-      dmg = Math.floor(dmg * comboMultRandom)
-    }
     dmg = applyDefenseReduction(dmg, targetEnemy.battleBuffs)
     // シールドバフによる吸収（ランダムhit中もシールド状態を追跡）
     const { reducedDamage: finalDamage, updatedBuffs: randomShieldBuffs } = processEnemyShieldDamageReduction(targetEnemy.battleBuffs, dmg)
@@ -1132,33 +1167,15 @@ function executeEnemyRandomAttack(
     }
   }
 
-  // 血染めの手袋: killStreakActive を1度に決定
-  const killedWithWeapon = defeatedCount > 0 && hasRelicEffect(relics, 'killStreakBonus')
-  const nextKillStreakActive = killedWithWeapon
-  if (nextKillStreakActive !== state.battleState.relicState.killStreakActive) {
-    newBattleState = battleReducer(newBattleState, {
-      type: 'UPDATE_RELIC_STATE',
-      relicState: { killStreakActive: nextKillStreakActive },
-    })
-  }
-
-  // 武器破壊検出: 耐久が0になった武器があればレリック効果を適用
-  let updatedWeaponBreakMultiplier = state.run.weaponBreakMultiplier ?? 0
+  // 武器破壊検出: 耐久が0になった武器があれば壊れた本数カウントを加算
+  let updatedBrokenWeaponCountRand = state.run.brokenWeaponCount ?? 0
   const weaponBefore = battleAction.explorer.weapons.find(w => w.id === weapon.id)
   const weaponAfter = finalExplorer.weapons.find(w => w.id === weapon.id)
   if (weaponBefore && weaponAfter &&
       weaponBefore.currentUses !== null && weaponBefore.currentUses > 0 &&
       weaponAfter.currentUses !== null && weaponAfter.currentUses <= 0) {
-    const breakIncrement = getWeaponBreakIncrement(relics)
-    if (breakIncrement > 0) {
-      updatedWeaponBreakMultiplier += breakIncrement
-    }
-    const breakBonus = getWeaponBreakAttackBonus(relics)
-    if (breakBonus > 0) {
-      finalExplorer = {
-        ...finalExplorer,
-        battleBuffs: [...finalExplorer.battleBuffs, { type: 'weaponPowerBonus', value: breakBonus, duration: 'nextAction' as const }],
-      }
+    if (getBrokenWeaponStrBonus(relics) > 0) {
+      updatedBrokenWeaponCountRand += 1
     }
   }
 
@@ -1173,10 +1190,20 @@ function executeEnemyRandomAttack(
   // まず攻撃者の結果をrunに反映
   let updatedRun = {
     ...updatePartyMember(state.run, finalExplorer),
-    weaponBreakMultiplier: updatedWeaponBreakMultiplier,
+    brokenWeaponCount: updatedBrokenWeaponCountRand,
   }
 
   if (defeatedCount > 0) {
+    // 討伐の対価: 撃破時MP回復
+    const killMpRecoverRand = getKillMpRecover(relics)
+    if (killMpRecoverRand > 0) {
+      finalExplorer = {
+        ...finalExplorer,
+        mp: Math.min(finalExplorer.mp + killMpRecoverRand * defeatedCount, finalExplorer.maxMp),
+      }
+      updatedRun = updatePartyMember(updatedRun, finalExplorer)
+    }
+
     // 稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (weapon.effect?.type === 'killBonusExpToAll') {
@@ -1206,8 +1233,8 @@ function executeEnemyRandomAttack(
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
       newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
-      // 闘気の腕輪: レベルアップしたキャラに次攻撃ダメージ倍率バフ付与
-      updatedRun = applyLevelUpDamageBoost(updatedRun, newLevelUps, relics)
+      // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
+      updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }
   }
 
@@ -1225,7 +1252,7 @@ function executeEnemyRandomAttack(
 function executeAllySpellCommand(
   state: GameState,
   battleAction: BattleAction & { type: 'EXECUTE_COMMAND' },
-  _relics: RelicInstance[]
+  relics: RelicInstance[]
 ): GameState {
   if (!state.battleState || !state.run) return state
 
@@ -1235,9 +1262,11 @@ function executeAllySpellCommand(
   let newBattleState = battleReducer(state.battleState, battleAction)
 
   // MP消費は術者に適用
-  const explorerAfterCost = consumeCommandCost(
+  let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, selectedCommand, 0
   )
+  const mpSpentAlly = battleAction.explorer.mp - explorerAfterCost.mp
+  explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpentAlly, relics)
 
   // ターゲットに効果を適用（術者と異なる場合がある）
   const isSelfTarget = battleAction.explorer.id === selectedTargetId
@@ -1289,16 +1318,6 @@ function executeAllySpellCommand(
     }
   }
 
-  // 生命変換（HP→MP）
-  if (selectedCommand.effect?.type === 'hpToMp') {
-    const hpCost = Math.ceil(updatedTarget.maxHp * selectedCommand.effect.hpCostRate)
-    updatedTarget = {
-      ...updatedTarget,
-      hp: Math.max(1, updatedTarget.hp - hpCost),
-      mp: updatedTarget.maxMp,
-    }
-  }
-
   // 武器強化（次の武器攻撃Power+N）
   if (selectedCommand.effect?.type === 'weaponPowerBuff') {
     const wpBuff: Buff = {
@@ -1309,19 +1328,6 @@ function executeAllySpellCommand(
     updatedTarget = {
       ...updatedTarget,
       battleBuffs: [...updatedTarget.battleBuffs, wpBuff],
-    }
-  }
-
-  // 師弟の絆: 導きバフ付与（次のトドメでボーナスEXP）
-  if (selectedCommand.effect?.type === 'guidanceBuff') {
-    const guidanceBuff: Buff = {
-      type: 'guidance',
-      value: selectedCommand.effect.bonusExp,
-      duration: 'battle',
-    }
-    updatedTarget = {
-      ...updatedTarget,
-      battleBuffs: [...updatedTarget.battleBuffs, guidanceBuff],
     }
   }
 
@@ -1350,25 +1356,6 @@ function executeAllySpellCommand(
       updatedTarget = {
         ...updatedTarget,
         battleBuffs: [...updatedTarget.battleBuffs, shieldBuff],
-      }
-    }
-  }
-
-  // 魔力治癒: 最大MP×rate のHP回復
-  if (selectedCommand.effect?.type === 'mpPercentHeal') {
-    const healValue = Math.floor(explorerAfterCost.maxMp * selectedCommand.effect.rate)
-    if (healValue > 0) {
-      const healedHp = Math.min(updatedTarget.hp + healValue, updatedTarget.maxHp)
-      const actualHeal = healedHp - updatedTarget.hp
-      updatedTarget = { ...updatedTarget, hp: healedHp }
-      if (actualHeal > 0) {
-        newBattleState = {
-          ...newBattleState,
-          playerDamagePopups: [
-            ...newBattleState.playerDamagePopups,
-            createPlayerDamagePopup(-actualHeal, updatedTarget.id),
-          ],
-        }
       }
     }
   }
@@ -1427,7 +1414,8 @@ function executeAllySpellCommand(
 /** 味方全体対象スペル（癒しの風など）を実行 */
 function executeAllyAllSpellCommand(
   state: GameState,
-  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' }
+  battleAction: BattleAction & { type: 'EXECUTE_COMMAND' },
+  relics: RelicInstance[]
 ): GameState {
   if (!state.battleState || !state.run) return state
 
@@ -1437,9 +1425,11 @@ function executeAllyAllSpellCommand(
   let newBattleState = battleReducer(state.battleState, battleAction)
 
   // MP消費は術者に適用
-  const explorerAfterCost = consumeCommandCost(
+  let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, selectedCommand, 0
   )
+  const mpSpentAll = battleAction.explorer.mp - explorerAfterCost.mp
+  explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpentAll, relics)
 
   let updatedRun = updatePartyMember(state.run, explorerAfterCost)
 
@@ -1553,23 +1543,37 @@ function executeAllyAllWeaponCommand(
 
   let updatedRun = updatePartyMember(state.run, explorerAfterCost)
 
-  // 護りの壁: 味方全員にシールド付与（HP×rate）
-  if (selectedCommand.effect?.type === 'hpPercentShieldAll') {
-    const shieldValue = Math.floor(battleAction.explorer.maxHp * selectedCommand.effect.rate)
-    if (shieldValue > 0) {
-      for (const member of updatedRun.party) {
-        if (member.hp <= 0) continue
-        const shieldBuff: Buff = {
-          type: 'shield',
-          value: shieldValue,
-          duration: 1,
-        }
-        const updatedMember: ExplorerState = {
-          ...member,
-          battleBuffs: [...member.battleBuffs, shieldBuff],
-        }
-        updatedRun = updatePartyMember(updatedRun, updatedMember)
+  // 棘の盾: 対象にシールド+棘バフを付与
+  if (selectedCommand.effect?.type === 'thornsShield') {
+    for (const member of updatedRun.party) {
+      if (member.hp <= 0) continue
+      const shieldBuff: Buff = {
+        type: 'shield',
+        value: selectedCommand.effect.shieldValue,
+        duration: 1,
       }
+      // 棘バフ（バトル中持続、蓄積可能）
+      const existingThorns = member.battleBuffs.find(b => b.type === 'thorns')
+      const thornsValue = selectedCommand.effect.shieldValue
+      let memberBuffs = [...member.battleBuffs, shieldBuff]
+      if (existingThorns) {
+        memberBuffs = memberBuffs.map(b =>
+          b.type === 'thorns' ? { ...b, value: b.value + thornsValue } : b
+        )
+      } else {
+        const thornsDurationBonus = getThornsDurationBonus(state.run.relics)
+        const thornsBuff: Buff = {
+          type: 'thorns',
+          value: thornsValue,
+          duration: selectedCommand.effect!.thornsDuration + thornsDurationBonus,
+        }
+        memberBuffs.push(thornsBuff)
+      }
+      const updatedMember: ExplorerState = {
+        ...member,
+        battleBuffs: memberBuffs,
+      }
+      updatedRun = updatePartyMember(updatedRun, updatedMember)
     }
   }
 
@@ -1592,32 +1596,62 @@ export function processExecuteCommand(
 
   const relics = state.run.relics
 
+  // 連携の紋章: 同ターンに規定人数以上が攻撃する場合、comboPowerBonusバフを行動者に付与
+  let effectiveState = state
+  const combo = getComboAttackBonus(relics)
+  if (combo) {
+    const attackerCount = new Set(
+      state.battleState.commandSlots
+        .filter(slot => slot.command && (isWeapon(slot.command) || isSpell(slot.command))
+          && slot.command.targetType !== 'allySingle'
+          && slot.command.targetType !== 'allyAll')
+        .map(slot => slot.explorerId)
+    ).size
+    if (attackerCount >= combo.requiredCount) {
+      const explorer = battleAction.explorer
+      const hasComboBuff = explorer.battleBuffs.some(b => b.type === 'comboPowerBonus')
+      if (!hasComboBuff) {
+        const updatedExplorer: ExplorerState = {
+          ...explorer,
+          battleBuffs: [...explorer.battleBuffs, { type: 'comboPowerBonus', value: combo.powerBonus, duration: 'nextAction' }],
+        }
+        const updatedRun = updatePartyMember(state.run, updatedExplorer)
+        effectiveState = {
+          ...state,
+          run: updatedRun,
+        }
+        // battleAction.explorerも更新
+        battleAction = { ...battleAction, explorer: updatedExplorer }
+      }
+    }
+  }
+
   // 味方対象スペル（ヒール、精密など）
   if (isSpell(selectedCommand) && selectedCommand.targetType === 'allySingle') {
-    return applyRegenAfterAction(executeAllySpellCommand(state, battleAction, relics))
+    return applyRegenAfterAction(executeAllySpellCommand(effectiveState, battleAction, relics))
   }
 
   // 味方全体対象スペル（癒しの風など）
   if (isSpell(selectedCommand) && selectedCommand.targetType === 'allyAll') {
-    return applyRegenAfterAction(executeAllyAllSpellCommand(state, battleAction))
+    return applyRegenAfterAction(executeAllyAllSpellCommand(effectiveState, battleAction, relics))
   }
 
   // 味方対象武器（守護の盾など）— 攻撃ではなくサポート行動
   if (isWeapon(selectedCommand) && selectedCommand.targetType === 'allySingle') {
-    return applyRegenAfterAction(executeAllyWeaponCommand(state, battleAction))
+    return applyRegenAfterAction(executeAllyWeaponCommand(effectiveState, battleAction))
   }
 
   // 味方全体対象武器（護りの壁など）— サポート行動
   if (isWeapon(selectedCommand) && selectedCommand.targetType === 'allyAll') {
-    return applyRegenAfterAction(executeAllyAllWeaponCommand(state, battleAction))
+    return applyRegenAfterAction(executeAllyAllWeaponCommand(effectiveState, battleAction))
   }
 
   // ランダム敵対象武器（三節棍など）— 事前選択されたターゲットリストに攻撃
   if (isWeapon(selectedCommand) && isWeaponInstance(selectedCommand) && selectedCommand.targetType === 'enemyRandom') {
-    return applyRegenAfterAction(executeEnemyRandomAttack(state, battleAction, relics, selectedCommand))
+    return applyRegenAfterAction(executeEnemyRandomAttack(effectiveState, battleAction, relics, selectedCommand))
   }
 
-  return applyRegenAfterAction(executeAttackCommand(state, battleAction, relics))
+  return applyRegenAfterAction(executeAttackCommand(effectiveState, battleAction, relics))
 }
 
 /** 行動後に再生のコケの回復を適用（行動したキャラに適用） */
@@ -1982,29 +2016,8 @@ export function processEnemyAction(
     }
   }
 
-  // 反撃の棘: 被攻撃時に敵にダメージ（ダメージが発生した場合のみ）
-  const thornsDmg = getThornsDamage(relics)
-  if (thornsDmg > 0 && actualDamage > 0) {
-    const attackingEnemy = newBattleState.enemies.find(
-      e => e.instanceId === battleAction.enemyId
-    )
-    if (attackingEnemy && attackingEnemy.currentHp > 0) {
-      const updatedEnemies = newBattleState.enemies.map(enemy => {
-        if (enemy.instanceId === battleAction.enemyId) {
-          return { ...enemy, currentHp: Math.max(0, enemy.currentHp - thornsDmg) }
-        }
-        return enemy
-      })
-      newBattleState = battleReducer(newBattleState, {
-        type: 'UPDATE_ENEMIES',
-        enemies: updatedEnemies,
-      })
-    }
-  }
-
   // 棘バフによる反撃: 被弾したメンバーのthornsバフ値 × 50% のダメージを敵に与える
   if (actualDamage > 0) {
-    const thornsMultiplier = getThornsMultiplier(relics)
     // AoE: 攻撃前に生存していたメンバーのみ（致死後hp=0も含む）
     const hitMembers = battleAction.isAoe
       ? newRun.party.filter(m => {
@@ -2018,7 +2031,7 @@ export function processEnemyAction(
       const thornsBuff = member.battleBuffs.find(b => b.type === 'thorns')
       if (thornsBuff) {
         const thornsBaseRate = getTuningValue('thorns_base_rate', 0.5)
-        totalBuffThornsDmg += Math.floor(thornsBuff.value * thornsBaseRate * thornsMultiplier)
+        totalBuffThornsDmg += Math.floor(thornsBuff.value * thornsBaseRate)
       }
     }
 

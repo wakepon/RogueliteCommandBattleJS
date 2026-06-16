@@ -85,7 +85,7 @@ export interface EnemyIntent {
 
 /** レリック戦闘内状態 */
 export interface RelicBattleState {
-  killStreakActive: boolean   // 血染めの手袋
+  knifeUseCount: number  // 研ぎ師の名刺: ナイフ使用回数カウント
 }
 
 /** 戦闘状態 */

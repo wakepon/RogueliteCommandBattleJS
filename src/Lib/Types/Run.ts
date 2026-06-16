@@ -29,7 +29,7 @@ export interface RunState {
   party: ExplorerState[]
   stats: RunStats
   battleLevelUps: LevelUpInfo[]  // 戦闘中のレベルアップ情報（一時保存）
-  weaponBreakMultiplier: number  // 努力の証: 武器破壊時の蓄積倍率
+  brokenWeaponCount: number  // 努力の証: 壊れた武器の累計本数
   battleStartSnapshot: BattleStartSnapshot | null  // リザルト画面の変化量表示用
 }
 
@@ -49,7 +49,7 @@ export function createInitialRun(): RunState {
       maxStageReached: 1,
     },
     battleLevelUps: [],
-    weaponBreakMultiplier: 0,
+    brokenWeaponCount: 0,
     battleStartSnapshot: null,
   }
 }

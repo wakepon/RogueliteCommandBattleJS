@@ -1,34 +1,29 @@
 /** パッシブ効果タイプ */
 export type PassiveEffectType =
-  // 既存
-  | { type: 'statBonus'; stat: 'str' | 'int'; value: number }
-  | { type: 'weaponDamageBonus'; value: number }
-  | { type: 'lowHpDamageMultiplier'; hpThreshold: number; multiplier: number }
-  // 新規
-  | { type: 'weaponDurabilitySave'; chance: number }
-  | { type: 'killStreakBonus'; multiplier: number }
-  | { type: 'lastStrikeDamageMultiplier'; multiplier: number }
-  | { type: 'lowMpDamageBonus'; mpThreshold: number; multiplier: number }
-  | { type: 'thornsDamage'; value: number }
-  | { type: 'regenPerTurn'; value: number }
-  | { type: 'potionEffectMultiplier'; multiplier: number }
-  // 3アーキタイプ用
-  | { type: 'battleStartHpReduction'; rate: number; strBonus: number }  // 血の契約: 戦闘開始時HP削減+STR
+  // デメリット変換
+  | { type: 'hpCostPowerBoost'; powerBonus: number; duration: number }  // 修羅の血脈: HP消費武器使用時Power+N
+  | { type: 'vulnerabilityPowerBoost'; powerBonus: number }  // 逆境の鎧: 被ダメ増加中Power+N
+  | { type: 'mpSpendShield'; mpThreshold: number; shieldValue: number }  // 魔力の残滓: MP累計消費≥threshold時シールド付与
+  // 条件付きバフ
+  | { type: 'knifeUseDurabilityRestore'; usesRequired: number; restoreAmount: number }  // 研ぎ師の名刺: ナイフN回使用で耐久回復
+  | { type: 'killMpRecover'; value: number }  // 討伐の対価: トドメ時MP回復
+  | { type: 'frontRowIntBonus'; value: number }  // 前衛の矜持: 前衛時INT+N
+  | { type: 'backRowStrBonus'; value: number }  // 後衛の叡智: 後衛時STR+N
+  | { type: 'shieldTaunt'; value: number }  // 挑発式防御: シールド付与時被ターゲット率+N
+  | { type: 'comboAttackBonus'; requiredCount: number; powerBonus: number }  // 連携の紋章: 同ターンN人以上攻撃でPower+bonus
+  | { type: 'levelUpStatBoost'; strBonus: number; intBonus: number }  // 闘気の腕輪: レベルアップ時STR/INT追加上昇
+  | { type: 'brokenWeaponStatBonus'; strPerWeapon: number }  // 努力の証: 壊れた武器1本につきSTR+N
+  // リソース変換
   | { type: 'damageTakenToMp'; value: number }  // 苦痛のリング: 被弾時固定MP回復
-  | { type: 'weaponBreakDamageMultiplier'; increment: number }  // 努力の証: 武器破壊時倍率蓄積
-  | { type: 'weaponBreakNextAttackBonus'; value: number }  // 鍛冶師の金槌: 武器破壊後Power加算
-  // EXP・防御系
-  | { type: 'levelUpDamageBoost'; multiplier: number }  // 闘気の腕輪: 戦闘中レベルアップ時、次攻撃ダメージ倍率
-  | { type: 'battleEndBonusExp'; expValue: number }  // 修羅の証: 戦闘後全員+EXP
-  | { type: 'lowestLevelDamageMultiplier'; multiplier: number }  // 番狂わせの一撃: パーティ最低レベル者のダメージ倍率
-  | { type: 'highHpTargetRateBonus'; value: number }  // 強い者いじめ: HP最大者の被弾率+N%
+  | { type: 'battleStartHpReduction'; rate: number; strBonus: number }  // 血の契約: 戦闘開始時HP削減+STR
   | { type: 'deathProtection' }  // 身代わりの人形: 致死ダメージでHP1耐え、1ラン1回消滅
-  | { type: 'growthGuarantee'; growthType: 'attack' | 'hp' | 'mp' | 'balance' | 'allBonus' }  // 成長方向保証: レベルアップ時に指定タイプを1枠確定
-  // ビルドパス拡張
-  | { type: 'thornsMultiplier'; multiplier: number }  // 棘の書: 棘バフの実効値を倍化
-  | { type: 'comboBonus'; multiplier: number }  // 連携の紋章: 同ターン2人以上武器攻撃で全武器ダメ×multiplier
+  // シンプルバフ
+  | { type: 'regenPerTurn'; value: number }  // 再生のコケ: 毎ターンHP回復
+  | { type: 'weaponDurabilitySave'; chance: number }  // 武器お手入れ用油: 耐久消費をchance%で回避
+  | { type: 'battleEndBonusExp'; expValue: number }  // 修羅の証: 戦闘後全員+EXP
+  | { type: 'thornsDurationBonus'; value: number }  // 棘の書: 反撃持続+Nターン
+  | { type: 'potionEffectMultiplier'; multiplier: number }  // 錬金術の触媒: ポーション効果倍化
   | { type: 'potionSlotBonus'; value: number }  // 薬師の鞄: ポーション所持上限+N
-  | { type: 'potionDurationMultiplier'; multiplier: number }  // ポーション効果ターンを倍化
 
 /** パッシブ効果を持つアイテム */
 export interface IPassiveEffect {

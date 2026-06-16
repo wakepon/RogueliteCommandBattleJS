@@ -16,7 +16,6 @@ interface CommandListProps {
   potions?: PotionInstance[]
   explorer?: ExplorerState
   relics?: RelicInstance[]
-  killStreakActive?: boolean
   party?: ExplorerState[]
 }
 
@@ -70,11 +69,10 @@ export function CommandList({
   potions,
   explorer,
   relics = [],
-  killStreakActive = false,
   party,
 }: CommandListProps) {
   const damageContext: DamageContext | undefined = explorer
-    ? { explorer, relics, killStreakActive, includeConditionalRelics: true, party }
+    ? { explorer, relics, includeConditionalRelics: true, party }
     : undefined
   // カーソル位置
   const [cursorIndex, setCursorIndex] = useState(0)
@@ -167,7 +165,7 @@ export function CommandList({
           let isBoosted = false
           let isWeakened = false
           if (explorer) {
-            const opts = { relics, killStreakActive, includeConditionalRelics: true, party }
+            const opts = { relics, includeConditionalRelics: true, party }
             if (isWeapon(command)) {
               const range = predictWeaponDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)

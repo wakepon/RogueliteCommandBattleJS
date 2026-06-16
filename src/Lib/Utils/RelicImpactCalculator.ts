@@ -16,8 +16,7 @@ export interface MemberAttackImpact {
  * - 怒りの炎（HP<=閾値で倍率）→ HP を閾値以下に下げる
  * - 集中の水晶（MP<=閾値で倍率）→ MP を閾値以下に下げる
  * - 血の契約（開始時HP削減+STR+3）→ STRバフを battleBuffs に追加
- * - 努力の証（武器破壊蓄積）→ weaponBreakMultiplier を 1 回分セット
- * - 鍛冶師の金槌（武器破壊後の次武器+Power）→ weaponPowerBonus バフを追加
+ * - 努力の証（武器破壊蓄積）→ brokenWeaponCount を 1 回分セット
  *
  * 現在条件を満たしていなくても「発動した時の最大攻撃力」を見せるのが目的
  */
@@ -25,19 +24,10 @@ function simulateMaxConditions(
   member: ExplorerState,
   relics: RelicInstance[]
 ): { simulated: ExplorerState; opts: DamagePredictOptions } {
-  let simulatedHp = member.hp
-  let simulatedMp = member.mp
   const extraBuffs: Buff[] = [...member.battleBuffs]
-  let weaponBreakMultiplier = 0
 
   for (const relic of relics) {
     const effect = relic.passiveEffect
-    if (effect.type === 'lowHpDamageMultiplier') {
-      simulatedHp = Math.min(simulatedHp, Math.floor(member.maxHp * effect.hpThreshold))
-    }
-    if (effect.type === 'lowMpDamageBonus') {
-      simulatedMp = Math.min(simulatedMp, Math.floor(member.maxMp * effect.mpThreshold))
-    }
     if (effect.type === 'battleStartHpReduction') {
       const already = extraBuffs.some(
         b => b.type === 'str' && b.value === effect.strBonus && b.duration === 'battle'
@@ -46,25 +36,15 @@ function simulateMaxConditions(
         extraBuffs.push({ type: 'str', value: effect.strBonus, duration: 'battle' })
       }
     }
-    if (effect.type === 'weaponBreakDamageMultiplier') {
-      weaponBreakMultiplier += effect.increment
-    }
-    if (effect.type === 'weaponBreakNextAttackBonus') {
-      extraBuffs.push({ type: 'weaponPowerBonus', value: effect.value, duration: 'nextAction' })
-    }
   }
 
   const simulated: ExplorerState = {
     ...member,
-    hp: simulatedHp,
-    mp: simulatedMp,
     battleBuffs: extraBuffs,
   }
   const opts: DamagePredictOptions = {
     relics,
     includeConditionalRelics: true,
-    killStreakActive: true, // 血染めの手袋: キル直後前提
-    weaponBreakMultiplier,
   }
   return { simulated, opts }
 }

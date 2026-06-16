@@ -5,14 +5,8 @@ import { RelicInstance } from '../Types/Relic'
 import { BattleCommand, CommandSlot } from '../Types/Battle'
 import { isWeapon, isSpell } from '../Core/CommandValidator'
 import {
-  getStatBonus,
-  getWeaponDamageBonus,
-  isWeaponDamageBonusApplicable,
-  getLowHpDamageMultiplier,
-  getKillStreakMultiplier,
-  getLastStrikeMultiplier,
-  getLowMpDamageMultiplier,
-  getLowestLevelDamageMultiplier,
+  getVulnerabilityPowerBoost,
+  getBrokenWeaponStrBonus,
 } from '../Core/RelicProcessor'
 
 /** ダメージ予測範囲 */
@@ -56,11 +50,10 @@ export interface DetailedDamagePreview {
  */
 export interface DamagePredictOptions {
   relics?: RelicInstance[]
-  killStreakActive?: boolean
   includeConditionalRelics?: boolean
   hasPrecision?: boolean  // 精密バフでブレ幅→0
-  weaponBreakMultiplier?: number  // 努力の証: 武器破壊蓄積倍率
-  party?: ExplorerState[]  // 番狂わせの一撃: パーティ全体のレベル比較
+  brokenWeaponCount?: number  // 努力の証: 壊れた武器の累計本数
+  party?: ExplorerState[]
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -86,21 +79,34 @@ export function predictWeaponDamage(
     return { min: dmg, max: dmg, isBoosted: false }
   }
 
-  const { relics = [], killStreakActive = false, includeConditionalRelics = false, hasPrecision = false, weaponBreakMultiplier = 0, party } = options
+  const { relics = [], includeConditionalRelics = false, hasPrecision = false, brokenWeaponCount = 0 } = options
 
   // scaleStat対応（魔力弾はINT依存）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
-  const statBonus = getStatBonus(relics, scaleStat)
-  const weaponDmgBonus = isWeaponDamageBonusApplicable(weapon) ? getWeaponDamageBonus(relics) : 0
-  const effectiveStat = (scaleStat === 'int' ? explorer.int : explorer.str) + statBonus
+  const baseStat = scaleStat === 'int' ? explorer.int : explorer.str
   const buffMultiplier = calculateBuffMultiplier(explorer, scaleStat)
 
-  // conditionalPower: HP条件でPower増加（猛撃の斧）
+  // 努力の証: 壊れた武器STRボーナス
+  let brokenBonus = 0
+  if (brokenWeaponCount > 0 && scaleStat === 'str') {
+    const strPerWeapon = getBrokenWeaponStrBonus(relics)
+    brokenBonus = Math.floor(brokenWeaponCount * strPerWeapon)
+  }
+
+  const effectiveStat = baseStat + brokenBonus
+
+  // 条件付きPowerボーナス
   let conditionalPowerBonus = 0
-  if (includeConditionalRelics && 'effect' in weapon && weapon.effect?.type === 'conditionalPower') {
-    const hpRatio = explorer.hp / explorer.maxHp
-    if (hpRatio <= weapon.effect.hpThreshold) {
-      conditionalPowerBonus = weapon.effect.bonusPower
+  if (includeConditionalRelics && 'effect' in weapon) {
+    if (weapon.effect?.type === 'selfHpConditional') {
+      const hpRatio = explorer.hp / explorer.maxHp
+      if (hpRatio <= weapon.effect.hpThreshold) {
+        conditionalPowerBonus += weapon.effect.bonusPower
+      }
+    }
+    if (weapon.effect?.type === 'targetHpConditional') {
+      // 予測では最大効果を想定
+      conditionalPowerBonus += weapon.effect.bonusPower
     }
   }
 
@@ -109,36 +115,25 @@ export function predictWeaponDamage(
     .filter(b => b.type === 'weaponPowerBonus')
     .reduce((sum, b) => sum + b.value, 0)
 
-  const effectivePower = weapon.power + weaponDmgBonus + conditionalPowerBonus + weaponPowerBonusValue
+  // 連携の紋章バフ
+  const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
+  const comboPowerBonus = comboBuff ? comboBuff.value : 0
+
+  const effectivePower = weapon.power + conditionalPowerBonus + weaponPowerBonusValue
   let baseDamage = effectiveStat * effectivePower * buffMultiplier
 
-  // 努力の証: 武器破壊蓄積倍率
-  if (weaponBreakMultiplier > 0) {
-    baseDamage *= (1 + weaponBreakMultiplier)
+  // 連携の紋章バフ
+  if (comboPowerBonus > 0) {
+    baseDamage += effectiveStat * comboPowerBonus * buffMultiplier
   }
 
-  // 条件付きレリック倍率（バトル中のみ）
-  let relicMultiplier = 1.0
-  if (includeConditionalRelics) {
-    relicMultiplier *= getLowHpDamageMultiplier(relics, explorer)
-    if (killStreakActive) {
-      relicMultiplier *= getKillStreakMultiplier(relics)
+  // 逆境の鎧
+  const hasVulnerability = explorer.battleDebuffs.some(d => d.type === 'vulnerability')
+  if (hasVulnerability && includeConditionalRelics) {
+    const vulnBonus = getVulnerabilityPowerBoost(relics)
+    if (vulnBonus > 0) {
+      baseDamage += effectiveStat * vulnBonus * buffMultiplier
     }
-    if ('currentUses' in weapon && weapon.currentUses === 1) {
-      relicMultiplier *= getLastStrikeMultiplier(relics)
-    }
-    // 番狂わせの一撃: パーティ最低レベル時のダメージ倍率
-    if (party && party.length > 0) {
-      relicMultiplier *= getLowestLevelDamageMultiplier(relics, explorer, party)
-    }
-  }
-
-  baseDamage *= relicMultiplier
-
-  // 闘気の腕輪バフ: 次攻撃ダメージ倍率
-  const levelUpBoostBuff = explorer.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
-  if (levelUpBoostBuff) {
-    baseDamage *= levelUpBoostBuff.value
   }
 
   // 弱体デバフによるダメージ低下
@@ -157,21 +152,17 @@ export function predictWeaponDamage(
   }
 
   const base = Math.floor(baseDamage)
-  // 精密バフ: ブレ幅→0、最大ブレ値で固定
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
   const isPrecise = hasPrecision || explorerHasPrecision
   const min = isPrecise ? Math.max(0, base + weapon.variance + shieldBashBonus) : Math.max(0, base - weapon.variance + shieldBashBonus)
   const max = Math.max(0, base + weapon.variance + shieldBashBonus)
 
-  const isBoosted = statBonus > 0
-    || weaponDmgBonus > 0
+  const isBoosted = brokenBonus > 0
     || buffMultiplier > 1.0
-    || relicMultiplier > 1.0
     || conditionalPowerBonus > 0
     || weaponPowerBonusValue > 0
-    || weaponBreakMultiplier > 0
+    || comboPowerBonus > 0
     || shieldBashBonus > 0
-    || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
 
   const isWeakened = weaknessDebuff !== undefined
 
@@ -189,30 +180,26 @@ export function predictSpellDamage(
     return { min: explorer.mp, max: explorer.mp, isBoosted: false }
   }
 
-  const { relics = [], includeConditionalRelics = false, hasPrecision = false, party } = options
+  const { relics = [], includeConditionalRelics = false, hasPrecision = false } = options
 
-  const intBonus = getStatBonus(relics, 'int')
-  const effectiveInt = explorer.int + intBonus
+  const effectiveInt = explorer.int
   const buffMultiplier = calculateBuffMultiplier(explorer, 'int')
 
   let baseDamage = effectiveInt * spell.power * buffMultiplier
 
-  // 条件付きレリック倍率（バトル中のみ）
-  let relicMultiplier = 1.0
-  if (includeConditionalRelics) {
-    relicMultiplier *= getLowHpDamageMultiplier(relics, explorer)
-    relicMultiplier *= getLowMpDamageMultiplier(relics, explorer)
-    if (party && party.length > 0) {
-      relicMultiplier *= getLowestLevelDamageMultiplier(relics, explorer, party)
-    }
+  // 連携の紋章バフ
+  const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
+  if (comboBuff) {
+    baseDamage += effectiveInt * comboBuff.value * buffMultiplier
   }
 
-  baseDamage *= relicMultiplier
-
-  // 闘気の腕輪バフ: 次攻撃ダメージ倍率
-  const levelUpBoostBuff = explorer.battleBuffs.find(b => b.type === 'levelUpDamageBoost')
-  if (levelUpBoostBuff) {
-    baseDamage *= levelUpBoostBuff.value
+  // 逆境の鎧
+  const hasVulnerability = explorer.battleDebuffs.some(d => d.type === 'vulnerability')
+  if (hasVulnerability && includeConditionalRelics) {
+    const vulnBonus = getVulnerabilityPowerBoost(relics)
+    if (vulnBonus > 0) {
+      baseDamage += effectiveInt * vulnBonus * buffMultiplier
+    }
   }
 
   // 弱体デバフによるダメージ低下
@@ -227,10 +214,8 @@ export function predictSpellDamage(
   const min = isPrecise ? Math.max(0, base + spell.variance) : Math.max(0, base - spell.variance)
   const max = Math.max(0, base + spell.variance)
 
-  const isBoosted = intBonus > 0
-    || buffMultiplier > 1.0
-    || relicMultiplier > 1.0
-    || (levelUpBoostBuff !== undefined && levelUpBoostBuff.value > 1.0)
+  const isBoosted = buffMultiplier > 1.0
+    || (comboBuff !== undefined && comboBuff.value > 0)
 
   const isWeakened = spellWeakness !== undefined
 
@@ -275,9 +260,7 @@ function detectActiveMultipliers(
   relics: RelicInstance[],
   explorer: ExplorerState,
   command: BattleCommand,
-  killStreakActive: boolean,
-  includeConditionalRelics: boolean,
-  weaponBreakMultiplier: number = 0
+  includeConditionalRelics: boolean
 ): MultiplierEffect[] {
   if (!includeConditionalRelics) return []
 
@@ -285,30 +268,6 @@ function detectActiveMultipliers(
 
   for (const relic of relics) {
     const effect = relic.passiveEffect
-    if (effect.type === 'lowHpDamageMultiplier') {
-      const threshold = explorer.maxHp * effect.hpThreshold
-      if (explorer.hp <= threshold) {
-        multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
-      }
-    }
-    if (effect.type === 'killStreakBonus' && killStreakActive && isWeapon(command)) {
-      multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
-    }
-    if (effect.type === 'lastStrikeDamageMultiplier' && isWeapon(command)) {
-      if ('currentUses' in command && command.currentUses === 1) {
-        multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
-      }
-    }
-    if (effect.type === 'lowMpDamageBonus' && isSpell(command)) {
-      const threshold = explorer.maxMp * effect.mpThreshold
-      if (explorer.mp <= threshold) {
-        multipliers.push({ relicName: relic.name, multiplier: effect.multiplier })
-      }
-    }
-    // 努力の証: 武器破壊蓄積倍率
-    if (effect.type === 'weaponBreakDamageMultiplier' && weaponBreakMultiplier > 0 && isWeapon(command)) {
-      multipliers.push({ relicName: relic.name, multiplier: 1 + weaponBreakMultiplier })
-    }
     // 血の契約: 戦闘開始時STRバフ（バフ自体はbattleBuffsに含まれるが、表示用に検出）
     if (effect.type === 'battleStartHpReduction') {
       const hasStrBuff = explorer.battleBuffs.some(b => b.type === 'str' && b.duration === 'battle')
@@ -316,21 +275,41 @@ function detectActiveMultipliers(
         multipliers.push({ relicName: relic.name, multiplier: 1.0 + effect.strBonus * 0.1 })
       }
     }
-  }
-
-  // 武器強化バフ（鍛冶師の金槌等）
-  if (isWeapon(command)) {
-    const wpBonus = explorer.battleBuffs.filter(b => b.type === 'weaponPowerBonus').reduce((s, b) => s + b.value, 0)
-    if (wpBonus > 0) {
-      multipliers.push({ relicName: '武器強化', multiplier: 0 }) // 加算なのでmultiplierは目安表示用
+    // 逆境の鎧
+    if (effect.type === 'vulnerabilityPowerBoost') {
+      const hasVuln = explorer.battleDebuffs.some(d => d.type === 'vulnerability')
+      if (hasVuln) {
+        multipliers.push({ relicName: relic.name, multiplier: 0 })
+      }
+    }
+    // 努力の証: 壊れた武器STRボーナス
+    if (effect.type === 'brokenWeaponStatBonus' && isWeapon(command)) {
+      const combatStrBuff = explorer.battleBuffs.find(b => b.type === 'combatStrGain')
+      if (combatStrBuff) {
+        multipliers.push({ relicName: relic.name, multiplier: 0 })
+      }
     }
   }
 
-  // conditionalPower（猛撃の斧）
-  if (isWeapon(command) && 'effect' in command && command.effect?.type === 'conditionalPower') {
+  // 武器強化バフ
+  if (isWeapon(command)) {
+    const wpBonus = explorer.battleBuffs.filter(b => b.type === 'weaponPowerBonus').reduce((s, b) => s + b.value, 0)
+    if (wpBonus > 0) {
+      multipliers.push({ relicName: '武器強化', multiplier: 0 })
+    }
+  }
+
+  // 連携の紋章バフ
+  const comboPowerBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
+  if (comboPowerBuff) {
+    multipliers.push({ relicName: '連携の紋章', multiplier: 0 })
+  }
+
+  // 条件付きPower（自HP条件）
+  if (isWeapon(command) && 'effect' in command && command.effect?.type === 'selfHpConditional') {
     const hpRatio = explorer.hp / explorer.maxHp
     if (hpRatio <= command.effect.hpThreshold) {
-      multipliers.push({ relicName: command.name, multiplier: 0 }) // 加算表示用
+      multipliers.push({ relicName: command.name, multiplier: 0 })
     }
   }
 
@@ -414,9 +393,7 @@ export function calculateDetailedDamagePreview(
         options.relics || [],
         explorer,
         slot.command,
-        options.killStreakActive || false,
-        options.includeConditionalRelics || false,
-        options.weaponBreakMultiplier || 0
+        options.includeConditionalRelics || false
       )
 
       segments.push({

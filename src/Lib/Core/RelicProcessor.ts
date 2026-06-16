@@ -1,7 +1,5 @@
 import { RelicInstance } from '../Types/Relic'
 import { PassiveEffectType } from '../Types/Passive'
-import { ExplorerState } from '../Types/Explorer'
-import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 特定効果の所持判定 */
 export function hasRelicEffect(
@@ -11,145 +9,109 @@ export function hasRelicEffect(
   return relics.some(r => r.passiveEffect.type === type)
 }
 
-/** ステータスボーナス合算（str/int） */
-export function getStatBonus(
-  relics: RelicInstance[],
-  stat: 'str' | 'int'
-): number {
-  return relics.reduce((sum, r) => {
-    if (r.passiveEffect.type === 'statBonus' && r.passiveEffect.stat === stat) {
-      return sum + r.passiveEffect.value
-    }
-    return sum
-  }, 0)
-}
+// ===== デメリット変換 =====
 
-/** 武器ダメージボーナス（鋭い砥石）の対象かどうか判定（INT武器・パンチは対象外） */
-export function isWeaponDamageBonusApplicable(weapon: { id: string; scaleStat?: 'str' | 'int' }): boolean {
-  if (weapon.id === 'punch') return false
-  if (weapon.scaleStat === 'int') return false
-  return true
-}
-
-/** 武器ダメージボーナス合算 */
-export function getWeaponDamageBonus(relics: RelicInstance[]): number {
-  return relics.reduce((sum, r) => {
-    if (r.passiveEffect.type === 'weaponDamageBonus') {
-      return sum + r.passiveEffect.value
-    }
-    return sum
-  }, 0)
-}
-
-/** 条件付きダメージ倍率を計算（lowHpDamageMultiplier） */
-export function getLowHpDamageMultiplier(
-  relics: RelicInstance[],
-  explorer: ExplorerState
-): number {
+/** 修羅の血脈: HP消費時のPowerボーナス値 */
+export function getHpCostPowerBoost(relics: RelicInstance[]): { powerBonus: number; duration: number } | null {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'lowHpDamageMultiplier') {
-      const threshold = explorer.maxHp * r.passiveEffect.hpThreshold
-      if (explorer.hp <= threshold) {
-        return r.passiveEffect.multiplier
-      }
+    if (r.passiveEffect.type === 'hpCostPowerBoost') {
+      return { powerBonus: r.passiveEffect.powerBonus, duration: r.passiveEffect.duration }
     }
   }
-  return 1.0
+  return null
 }
 
-/** killStreakBonus の倍率を取得 */
-export function getKillStreakMultiplier(relics: RelicInstance[]): number {
+/** 逆境の鎧: 被ダメ増加状態中のPowerボーナス */
+export function getVulnerabilityPowerBoost(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'killStreakBonus') {
-      return r.passiveEffect.multiplier
-    }
-  }
-  return 1.0
-}
-
-/** lastStrikeDamageMultiplier の倍率を取得 */
-export function getLastStrikeMultiplier(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'lastStrikeDamageMultiplier') {
-      return r.passiveEffect.multiplier
-    }
-  }
-  return 1.0
-}
-
-/** lowMpDamageBonus の倍率を取得 */
-export function getLowMpDamageMultiplier(
-  relics: RelicInstance[],
-  explorer: ExplorerState
-): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'lowMpDamageBonus') {
-      const threshold = explorer.maxMp * r.passiveEffect.mpThreshold
-      if (explorer.mp <= threshold) {
-        return r.passiveEffect.multiplier
-      }
-    }
-  }
-  return 1.0
-}
-
-/** thornsDamage の値を取得 */
-export function getThornsDamage(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'thornsDamage') {
-      return r.passiveEffect.value
-    }
+    if (r.passiveEffect.type === 'vulnerabilityPowerBoost') return r.passiveEffect.powerBonus
   }
   return 0
 }
 
-/** regenPerTurn の値を取得 */
-export function getRegenPerTurn(relics: RelicInstance[]): number {
+/** 魔力の残滓: MP消費時のシールド付与閾値と値 */
+export function getMpSpendShield(relics: RelicInstance[]): { mpThreshold: number; shieldValue: number } | null {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'regenPerTurn') {
-      return r.passiveEffect.value
+    if (r.passiveEffect.type === 'mpSpendShield') {
+      return { mpThreshold: r.passiveEffect.mpThreshold, shieldValue: r.passiveEffect.shieldValue }
     }
+  }
+  return null
+}
+
+// ===== 条件付きバフ =====
+
+/** 研ぎ師の名刺: ナイフ使用回数ごとの耐久回復 */
+export function getKnifeUseDurabilityRestore(relics: RelicInstance[]): { usesRequired: number; restoreAmount: number } | null {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'knifeUseDurabilityRestore') {
+      return { usesRequired: r.passiveEffect.usesRequired, restoreAmount: r.passiveEffect.restoreAmount }
+    }
+  }
+  return null
+}
+
+/** 討伐の対価: 撃破時MP回復量 */
+export function getKillMpRecover(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'killMpRecover') return r.passiveEffect.value
   }
   return 0
 }
 
-/** potionEffectMultiplier の倍率を取得 */
-export function getPotionEffectMultiplier(relics: RelicInstance[]): number {
+/** 前衛の矜持: 前衛キャラのINTボーナス */
+export function getFrontRowIntBonus(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'potionEffectMultiplier') {
-      return r.passiveEffect.multiplier
-    }
-  }
-  return 1.0
-}
-
-/** weaponDurabilitySave のチャンスを取得 */
-export function getWeaponDurabilitySaveChance(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'weaponDurabilitySave') {
-      return r.passiveEffect.chance
-    }
+    if (r.passiveEffect.type === 'frontRowIntBonus') return r.passiveEffect.value
   }
   return 0
 }
 
-/** 努力の証: 武器破壊時の蓄積increment */
-export function getWeaponBreakIncrement(relics: RelicInstance[]): number {
+/** 後衛の叡智: 後衛キャラのSTRボーナス */
+export function getBackRowStrBonus(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'weaponBreakDamageMultiplier') {
-      return getTuningValue('phoenix_ember_increment', r.passiveEffect.increment)
-    }
+    if (r.passiveEffect.type === 'backRowStrBonus') return r.passiveEffect.value
   }
   return 0
 }
 
-/** 鍛冶師の金槌: 武器破壊後のPowerボーナス */
-export function getWeaponBreakAttackBonus(relics: RelicInstance[]): number {
+/** 挑発式防御: シールドor反撃持ちの被弾率ボーナス */
+export function getShieldTauntBonus(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'weaponBreakNextAttackBonus') return r.passiveEffect.value
+    if (r.passiveEffect.type === 'shieldTaunt') return r.passiveEffect.value
   }
   return 0
 }
+
+/** 連携の紋章: 同ターン複数攻撃時のPowerボーナス */
+export function getComboAttackBonus(relics: RelicInstance[]): { requiredCount: number; powerBonus: number } | null {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'comboAttackBonus') {
+      return { requiredCount: r.passiveEffect.requiredCount, powerBonus: r.passiveEffect.powerBonus }
+    }
+  }
+  return null
+}
+
+/** 闘気の腕輪: レベルアップ時のSTR/INTボーナス */
+export function getLevelUpStatBoost(relics: RelicInstance[]): { strBonus: number; intBonus: number } | null {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'levelUpStatBoost') {
+      return { strBonus: r.passiveEffect.strBonus, intBonus: r.passiveEffect.intBonus }
+    }
+  }
+  return null
+}
+
+/** 努力の証: 壊れた武器1本あたりのSTRボーナス */
+export function getBrokenWeaponStrBonus(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'brokenWeaponStatBonus') return r.passiveEffect.strPerWeapon
+  }
+  return 0
+}
+
+// ===== リソース変換 =====
 
 /** 苦痛のリング: 被ダメ→MP固定回復値 */
 export function getDamageTakenToMpValue(relics: RelicInstance[]): number {
@@ -169,12 +131,27 @@ export function getBattleStartHpReduction(relics: RelicInstance[]): { rate: numb
   return null
 }
 
-/** 闘気の腕輪: 戦闘中レベルアップ時のダメージ倍率 */
-export function getLevelUpDamageBoost(relics: RelicInstance[]): number {
+/** 身代わりの人形: 致死ダメージ耐え効果所持判定 */
+export function hasDeathProtection(relics: RelicInstance[]): boolean {
+  return relics.some(r => r.passiveEffect.type === 'deathProtection')
+}
+
+// ===== シンプルバフ =====
+
+/** 再生のコケ: 毎ターンHP回復量 */
+export function getRegenPerTurn(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'levelUpDamageBoost') return r.passiveEffect.multiplier
+    if (r.passiveEffect.type === 'regenPerTurn') return r.passiveEffect.value
   }
-  return 1.0
+  return 0
+}
+
+/** 武器お手入れ用油: 耐久消費スキップ確率 */
+export function getWeaponDurabilitySaveChance(relics: RelicInstance[]): number {
+  for (const r of relics) {
+    if (r.passiveEffect.type === 'weaponDurabilitySave') return r.passiveEffect.chance
+  }
+  return 0
 }
 
 /** 修羅の証: バトル終了後の全員ボーナスEXP */
@@ -187,48 +164,18 @@ export function getBattleEndBonusExp(relics: RelicInstance[]): { expValue: numbe
   return null
 }
 
-/** 番狂わせの一撃: パーティ最低レベル時のダメージ倍率 */
-export function getLowestLevelDamageMultiplier(
-  relics: RelicInstance[],
-  attacker: ExplorerState,
-  party: ExplorerState[]
-): number {
+/** 棘の書: 反撃効果の持続ターンボーナス */
+export function getThornsDurationBonus(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'lowestLevelDamageMultiplier') {
-      const minLevel = Math.min(...party.map(p => p.level))
-      if (attacker.level === minLevel) {
-        return r.passiveEffect.multiplier
-      }
-    }
-  }
-  return 1.0
-}
-
-/** 強い者いじめ: HP最大者の被弾率ボーナス */
-export function getHighHpTargetRateBonus(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'highHpTargetRateBonus') return r.passiveEffect.value
+    if (r.passiveEffect.type === 'thornsDurationBonus') return r.passiveEffect.value
   }
   return 0
 }
 
-/** 身代わりの人形: 致死ダメージ耐え効果所持判定 */
-export function hasDeathProtection(relics: RelicInstance[]): boolean {
-  return relics.some(r => r.passiveEffect.type === 'deathProtection')
-}
-
-/** 棘の書: 棘バフの実効値倍率 */
-export function getThornsMultiplier(relics: RelicInstance[]): number {
+/** 錬金術の触媒: ポーション効果倍率 */
+export function getPotionEffectMultiplier(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'thornsMultiplier') return r.passiveEffect.multiplier
-  }
-  return 1.0
-}
-
-/** 連携の紋章: 同ターン2人以上武器攻撃時のダメージ倍率 */
-export function getComboBonus(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'comboBonus') return r.passiveEffect.multiplier
+    if (r.passiveEffect.type === 'potionEffectMultiplier') return r.passiveEffect.multiplier
   }
   return 1.0
 }
@@ -241,10 +188,23 @@ export function getPotionSlotBonus(relics: RelicInstance[]): number {
   }, 0)
 }
 
-/** 持続の指輪: ポーションバフのduration倍率 */
-export function getPotionDurationMultiplier(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'potionDurationMultiplier') return r.passiveEffect.multiplier
+// ===== ポジション判定ヘルパー =====
+
+/** キャラクターが前衛かどうかを判定 */
+export function isFrontRow(explorerIndex: number, partySize: number): boolean {
+  if (partySize <= 1) return true
+  return explorerIndex === 0
+}
+
+/** ポジションに基づくステータスボーナスを計算 */
+export function getPositionStatBonus(
+  relics: RelicInstance[],
+  explorerIndex: number,
+  partySize: number
+): { strBonus: number; intBonus: number } {
+  const front = isFrontRow(explorerIndex, partySize)
+  return {
+    strBonus: front ? 0 : getBackRowStrBonus(relics),
+    intBonus: front ? getFrontRowIntBonus(relics) : 0,
   }
-  return 1.0
 }

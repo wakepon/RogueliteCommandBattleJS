@@ -1,6 +1,5 @@
 import { CharacterClass, ExplorerState } from '../Types/Explorer'
 import { GrowthTypeOption, GrowthTypeName } from '../Types/GrowthType'
-import { RelicInstance } from '../Types/Relic'
 import { getTuningValue } from '../Tuning/TuningStore'
 
 /** 簡易的な疑似乱数生成器（シード付き） */
@@ -67,20 +66,6 @@ export function getGrowthTypesForClass(characterClass: CharacterClass): GrowthTy
 }
 
 /**
- * レリックから成長保証タイプを取得
- * growthGuarantee 効果を持つレリックがあれば、そのタイプを返す
- */
-function getGuaranteedGrowthType(relics: RelicInstance[]): GrowthTypeName | null {
-  for (const relic of relics) {
-    const effect = relic.passiveEffect
-    if (effect.type === 'growthGuarantee') {
-      return (effect as { type: 'growthGuarantee'; growthType: GrowthTypeName }).growthType
-    }
-  }
-  return null
-}
-
-/**
  * 重み付き抽選で選択肢を1つ選ぶ
  */
 function weightedSelectOne(options: GrowthTypeOption[], randomValue: number): GrowthTypeOption {
@@ -102,29 +87,17 @@ function weightedSelectOne(options: GrowthTypeOption[], randomValue: number): Gr
 /**
  * 重み付き抽選で2つの成長タイプを選出する
  *
- * - レリックによる出現保証がある場合: 1枠を確定、残り1枠を抽選
- * - 通常: 2枠とも重み付き抽選（重複なし）
+ * - 2枠とも重み付き抽選（重複なし）
  * - seed により決定的な結果を返す
+ *
+ * relics パラメータは後方互換のために残していますが、現在は使用されません。
  */
 export function selectGrowthOptions(
   characterClass: CharacterClass,
-  relics: RelicInstance[],
+  _relics: unknown,
   seed: number,
 ): [GrowthTypeOption, GrowthTypeOption] {
   const allOptions = getGrowthTypesForClass(characterClass)
-
-  // レリックによる出現保証チェック
-  const guaranteedType = getGuaranteedGrowthType(relics)
-
-  if (guaranteedType !== null) {
-    const guaranteed = allOptions.find(o => o.type === guaranteedType)
-    if (guaranteed) {
-      // 保証タイプを1枠目に確定、残りから1つ抽選
-      const remaining = allOptions.filter(o => o.type !== guaranteedType)
-      const second = weightedSelectOne(remaining, seededRandom(seed))
-      return [guaranteed, second]
-    }
-  }
 
   // 通常: 2枠とも重み付き抽選
   const first = weightedSelectOne(allOptions, seededRandom(seed))

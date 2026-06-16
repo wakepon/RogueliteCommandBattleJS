@@ -141,7 +141,7 @@ export function generateEnemyIntents(
 /** レリック戦闘状態を初期化 */
 function createRelicBattleState(): RelicBattleState {
   return {
-    killStreakActive: false,
+    knifeUseCount: 0,
   }
 }
 

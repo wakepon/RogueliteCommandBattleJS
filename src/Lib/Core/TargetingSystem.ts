@@ -1,7 +1,6 @@
 import { ExplorerState } from '../Types/Explorer'
 import { RelicInstance } from '../Types/Relic'
 import { getTuningValue } from '../Tuning/TuningStore'
-import { getHighHpTargetRateBonus } from './RelicProcessor'
 import { getFrontMemberId } from './PositionUtils'
 
 /** 各キャラの被ターゲット率 */
@@ -22,7 +21,7 @@ export interface TargetRate {
  */
 export function calculateTargetRates(
   party: ExplorerState[],
-  relics: RelicInstance[] = []
+  _relics: RelicInstance[] = []
 ): TargetRate[] {
   const alive = party.filter(m => m.hp > 0)
   if (alive.length === 0) return []
@@ -52,14 +51,6 @@ export function calculateTargetRates(
     return sum + (prayerBuff ? prayerBuff.value / 100 : 0)  // value=25 → 0.25
   }, 0)
 
-  // 強い者いじめ: HP最大者を特定し、被弾率ボーナスを加算（同率複数人は全員対象）
-  const bullyBonus = getHighHpTargetRateBonus(relics) / 100  // value=15 → 0.15
-  const highestHpIds = new Set<string>()
-  if (bullyBonus > 0) {
-    const maxHp = Math.max(...alive.map(m => m.hp))
-    alive.forEach(m => { if (m.hp === maxHp) highestHpIds.add(m.id) })
-  }
-
   // まず基本確率を計算
   const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0)
   const baseRates = weights.map(w => ({
@@ -67,18 +58,17 @@ export function calculateTargetRates(
     rate: w.weight / totalWeight,
   }))
 
-  if (prayerBonuses === 0 && highestHpIds.size === 0) return baseRates
+  if (prayerBonuses === 0) return baseRates
 
-  // バフ/レリックによる補正の合計
+  // バフによる補正の合計
   // 対象者: 被弾率を +value% (絶対値加算)
   // 非対象者: 合計 value% を前衛/後衛の重みで按分減少
-  const totalBonus = prayerBonuses + bullyBonus * highestHpIds.size
+  const totalBonus = prayerBonuses
 
-  // ボーナス対象者（祈り or 強い者いじめ）を判定
+  // ボーナス対象者（祈りバフ持ち）を判定
   const isBonusTarget = (explorerId: string): boolean => {
     const member = alive.find(m => m.id === explorerId)
     if (member?.battleBuffs.some(b => b.type === 'targetRateUp')) return true
-    if (highestHpIds.has(explorerId)) return true
     return false
   }
 
@@ -92,11 +82,6 @@ export function calculateTargetRates(
     let rate = r.rate
     if (prayerBuff) {
       rate += prayerBuff.value / 100
-    }
-    if (highestHpIds.has(r.explorerId)) {
-      rate += bullyBonus
-    }
-    if (prayerBuff || highestHpIds.has(r.explorerId)) {
       return { ...r, rate }
     }
     // 非対象者: 重みに応じて減少を按分

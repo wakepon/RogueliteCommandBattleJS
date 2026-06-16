@@ -1,323 +1,127 @@
 {
   "magic_bullet": {
-    "id": "magic_bullet",
-    "name": "魔力弾",
-    "rarity": "Common",
-    "price": 0,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 0,
-    "power": 1,
-    "variance": 2,
-    "effect": null,
-    "slotFree": true
+    "id": "magic_bullet", "name": "魔力弾", "rarity": "Common", "price": 0,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 0, "power": 1, "variance": 2, "effect": null, "slotFree": true
   },
   "prayer": {
-    "id": "prayer",
-    "name": "祈り",
-    "rarity": "Common",
-    "price": 0,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 0,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "targetRateUp",
-      "value": 25
-    },
-    "slotFree": true
+    "id": "prayer", "name": "祈り", "rarity": "Common", "price": 0,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 0, "power": 0, "variance": 0,
+    "effect": { "type": "targetRateUp", "value": 25 }, "slotFree": true
   },
   "fire": {
-    "id": "fire",
-    "name": "ファイア",
-    "rarity": "Common",
-    "price": 4,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 4,
-    "power": 3,
-    "variance": 5,
-    "effect": null
+    "id": "fire", "name": "ファイア", "rarity": "Common", "price": 5,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 6, "power": 5, "variance": 4, "effect": null
   },
-  "flame": {
-    "id": "flame",
-    "name": "フレイム",
-    "rarity": "Common",
-    "price": 6,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 6,
-    "power": 4,
-    "variance": 5,
-    "effect": null
-  },
-  "blaze": {
-    "id": "blaze",
-    "name": "ブレイズ",
-    "rarity": "Uncommon",
-    "price": 10,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 10,
-    "power": 6,
-    "variance": 8,
-    "effect": null
-  },
-  "volcano": {
-    "id": "volcano",
-    "name": "ボルケーノ",
-    "rarity": "Rare",
-    "price": 18,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 20,
-    "power": 9,
-    "variance": 10,
-    "effect": null
-  },
-  "training_fire": {
-    "id": "training_fire",
-    "name": "お手本ファイア",
-    "rarity": "Common",
-    "price": 7,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 6,
-    "power": 3,
-    "variance": 6,
-    "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
-  },
-  "training_flame": {
-    "id": "training_flame",
-    "name": "お手本フレイム",
-    "rarity": "Uncommon",
-    "price": 9,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 8,
-    "power": 4,
-    "variance": 8,
-    "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
-  },
-  "training_blaze": {
-    "id": "training_blaze",
-    "name": "お手本ブレイズ",
-    "rarity": "Rare",
-    "price": 15,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 14,
-    "power": 6,
-    "variance": 10,
-    "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
-  },
-  "recoil_flame": {
-    "id": "recoil_flame",
-    "name": "反動フレイム",
-    "rarity": "Common",
-    "price": 4,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 4,
-    "power": 4,
-    "variance": 5,
-    "hpCost": 4,
-    "effect": null
-  },
-  "recoil_blaze": {
-    "id": "recoil_blaze",
-    "name": "反動ブレイズ",
-    "rarity": "Uncommon",
-    "price": 6,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 6,
-    "power": 6,
-    "variance": 8,
-    "hpCost": 8,
-    "effect": null
-  },
-  "recoil_volcano": {
-    "id": "recoil_volcano",
-    "name": "反動ボルケーノ",
-    "rarity": "Rare",
-    "price": 10,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 10,
-    "power": 9,
-    "variance": 10,
-    "hpCost": 16,
-    "effect": null
+  "ice": {
+    "id": "ice", "name": "アイス", "rarity": "Common", "price": 5,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 5, "power": 4, "variance": 2, "effect": null
   },
   "heal": {
-    "id": "heal",
-    "name": "ヒール",
-    "rarity": "Common",
-    "price": 0,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 3,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "heal",
-      "value": 15
-    }
-  },
-  "greater_heal": {
-    "id": "greater_heal",
-    "name": "大ヒール",
-    "rarity": "Uncommon",
-    "price": 8,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 6,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "heal",
-      "value": 25
-    }
-  },
-  "precision": {
-    "id": "precision",
-    "name": "精密",
-    "rarity": "Common",
-    "price": 4,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 2,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "buff",
-      "stat": "precision",
-      "value": 1,
-      "duration": "nextAction"
-    }
-  },
-  "healing_wind": {
-    "id": "healing_wind",
-    "name": "癒しの風",
-    "rarity": "Common",
-    "price": 7,
-    "commandCategory": "spell",
-    "targetType": "allyAll",
-    "mpCost": 7,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "heal",
-      "value": 8
-    }
+    "id": "heal", "name": "ヒール", "rarity": "Common", "price": 4,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 3, "power": 0, "variance": 0,
+    "effect": { "type": "heal", "value": 15 }
   },
   "barrier": {
-    "id": "barrier",
-    "name": "バリア",
-    "rarity": "Uncommon",
-    "price": 8,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 4,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "shield",
-      "value": 15
-    }
+    "id": "barrier", "name": "バリア", "rarity": "Common", "price": 5,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 4, "power": 0, "variance": 0,
+    "effect": { "type": "shield", "value": 15 }
+  },
+  "volcano": {
+    "id": "volcano", "name": "ボルケーノ", "rarity": "Rare", "price": 12,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 16, "power": 8, "variance": 6, "effect": null
+  },
+  "recoil_flame": {
+    "id": "recoil_flame", "name": "反動フレイム", "rarity": "Common", "price": 5,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 6, "power": 7, "variance": 5, "hpCost": 8, "effect": null
+  },
+  "chaos_magic": {
+    "id": "chaos_magic", "name": "暴走魔法", "rarity": "Common", "price": 5,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 8, "power": 8, "variance": 14, "effect": null
+  },
+  "thirst_fire": {
+    "id": "thirst_fire", "name": "渇きの火", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 4, "power": 3, "variance": 4,
+    "effect": { "type": "lowMpConditional", "mpThreshold": 0.25, "bonusPower": 5 }
+  },
+  "followup_flame": {
+    "id": "followup_flame", "name": "追撃の炎", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 5, "power": 3, "variance": 3,
+    "effect": { "type": "followUp", "bonusPower": 4 }
+  },
+  "execution_thunder": {
+    "id": "execution_thunder", "name": "処刑の雷", "rarity": "Uncommon", "price": 8,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 6, "power": 3, "variance": 4,
+    "effect": { "type": "targetHpConditional", "hpThreshold": 0.3, "bonusPower": 5 }
+  },
+  "training_fire": {
+    "id": "training_fire", "name": "お手本ファイア", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 5, "power": 3, "variance": 4,
+    "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
+  },
+  "greater_heal": {
+    "id": "greater_heal", "name": "大ヒール", "rarity": "Uncommon", "price": 8,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 6, "power": 0, "variance": 0,
+    "effect": { "type": "heal", "value": 25 }
+  },
+  "healing_wind": {
+    "id": "healing_wind", "name": "癒しの風", "rarity": "Uncommon", "price": 8,
+    "commandCategory": "spell", "targetType": "allyAll",
+    "mpCost": 7, "power": 0, "variance": 0,
+    "effect": { "type": "heal", "value": 8 }
   },
   "weapon_enchant": {
-    "id": "weapon_enchant",
-    "name": "武器強化",
-    "rarity": "Uncommon",
-    "price": 7,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 4,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "weaponPowerBuff",
-      "value": 3
-    }
+    "id": "weapon_enchant", "name": "武器強化", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 4, "power": 0, "variance": 0,
+    "effect": { "type": "weaponPowerBuff", "value": 3 }
   },
-  "mana_shield": {
-    "id": "mana_shield",
-    "name": "魔力の盾",
-    "rarity": "Uncommon",
-    "price": 7,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 0,
-    "mpCostRate": 0.5,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "mpPercentShield",
-      "rate": 0.5
-    }
-  },
-  "mana_cure": {
-    "id": "mana_cure",
-    "name": "魔力治癒",
-    "rarity": "Uncommon",
-    "price": 7,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 0,
-    "mpCostRate": 0.5,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "mpPercentHeal",
-      "rate": 0.5
-    }
-  },
-  "mana_release": {
-    "id": "mana_release",
-    "name": "魔力放出",
-    "rarity": "Rare",
-    "price": 9,
-    "commandCategory": "spell",
-    "targetType": "enemySingle",
-    "mpCost": 0,
-    "mpCostRate": 1.0,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "mpAllDamage"
-    }
-  },
-  "field_repair": {
-    "id": "field_repair",
-    "name": "戦場の鍛冶",
-    "rarity": "Rare",
-    "price": 8,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 6,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "repairWeapons",
-      "value": 2
-    }
+  "precision": {
+    "id": "precision", "name": "精密", "rarity": "Common", "price": 4,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 2, "power": 0, "variance": 0,
+    "effect": { "type": "buff", "stat": "precision", "value": 1, "duration": "nextAction" }
   },
   "thorns_grant": {
-    "id": "thorns_grant",
-    "name": "棘の護り",
-    "rarity": "Uncommon",
-    "price": 7,
-    "commandCategory": "spell",
-    "targetType": "allySingle",
-    "mpCost": 4,
-    "power": 0,
-    "variance": 0,
-    "effect": {
-      "type": "thorns",
-      "value": 10
-    }
+    "id": "thorns_grant", "name": "棘の護り", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 4, "power": 0, "variance": 0,
+    "effect": { "type": "thorns", "value": 10 }
+  },
+  "field_repair": {
+    "id": "field_repair", "name": "戦場の鍛冶", "rarity": "Rare", "price": 10,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 6, "power": 0, "variance": 0,
+    "effect": { "type": "repairWeapons", "value": 2 }
+  },
+  "flame_storm": {
+    "id": "flame_storm", "name": "フレイムストーム", "rarity": "Rare", "price": 11,
+    "commandCategory": "spell", "targetType": "enemyAll",
+    "mpCost": 10, "power": 3, "variance": 4, "effect": null
+  },
+  "mana_release": {
+    "id": "mana_release", "name": "魔力放出", "rarity": "Rare", "price": 10,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 0, "mpCostRate": 1.0, "power": 0, "variance": 0,
+    "effect": { "type": "mpAllDamage" }
+  },
+  "mana_shield": {
+    "id": "mana_shield", "name": "魔力の盾", "rarity": "Rare", "price": 10,
+    "commandCategory": "spell", "targetType": "allySingle",
+    "mpCost": 0, "mpCostRate": 0.5, "power": 0, "variance": 0,
+    "effect": { "type": "mpPercentShield", "rate": 0.5 }
   }
 }

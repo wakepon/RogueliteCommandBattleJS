@@ -14,79 +14,68 @@ type ItemType = WeaponData | SpellData | RelicData | PotionData | ExplorerWeapon
 export interface DamageContext {
   explorer: ExplorerState
   relics: RelicInstance[]
-  killStreakActive?: boolean
   includeConditionalRelics?: boolean
-  party?: ExplorerState[]  // 番狂わせの一撃用: パーティ全体のレベル比較
+  party?: ExplorerState[]
+  brokenWeaponCount?: number
 }
 
 /** DamageContextからDamagePredictOptionsへ変換 */
 function toPredictOptions(context: DamageContext): DamagePredictOptions {
   return {
     relics: context.relics,
-    killStreakActive: context.killStreakActive,
     includeConditionalRelics: context.includeConditionalRelics,
     party: context.party,
+    brokenWeaponCount: context.brokenWeaponCount,
   }
 }
 
 /** パッシブ効果の説明を生成 */
 export function getPassiveEffectDescription(effect: PassiveEffectType): string {
   switch (effect.type) {
-    case 'statBonus': {
-      const statName = effect.stat === 'str' ? 'STR' : effect.stat === 'int' ? 'INT' : 'AGI'
-      return `${statName} +${effect.value}`
-    }
-    case 'weaponDamageBonus':
-      return `物理武器ダメージ +${effect.value}（パンチ除く）`
-    case 'lowHpDamageMultiplier':
-      return `HP${Math.floor(effect.hpThreshold * 100)}%以下でダメージx${effect.multiplier}`
-    case 'weaponDurabilitySave':
-      return `武器使用時、${Math.floor(effect.chance * 100)}%の確率で耐久値を消費しない`
-    case 'killStreakBonus':
-      return `武器で敵を倒すと次の武器攻撃${effect.multiplier}倍`
-    case 'lastStrikeDamageMultiplier':
-      return `武器が壊れる直前の一振りはダメージ${effect.multiplier}倍`
-    case 'lowMpDamageBonus':
-      return `MP半分以下で魔法ダメージ+${Math.floor((effect.multiplier - 1) * 100)}%`
-    case 'thornsDamage':
-      return `被弾時に敵に${effect.value}ダメージ`
-    case 'regenPerTurn':
-      return `毎ターンHP${effect.value}回復`
-    case 'potionEffectMultiplier':
-      return `ポーション効果${effect.multiplier}倍`
-    case 'battleStartHpReduction':
-      return `戦闘開始時HP${Math.floor(effect.rate * 100)}%化、STR+${effect.strBonus}`
+    // デメリット変換
+    case 'hpCostPowerBoost':
+      return `HP消費武器/魔法使用時Power+${effect.powerBonus}`
+    case 'vulnerabilityPowerBoost':
+      return `被ダメ増加中Power+${effect.powerBonus}`
+    case 'mpSpendShield':
+      return `MP${effect.mpThreshold}以上消費時シールド${effect.shieldValue}付与`
+    // 条件付きバフ
+    case 'knifeUseDurabilityRestore':
+      return `ナイフ${effect.usesRequired}回使用で耐久+${effect.restoreAmount}`
+    case 'killMpRecover':
+      return `敵撃破時MP${effect.value}回復`
+    case 'frontRowIntBonus':
+      return `前衛時INT+${effect.value}`
+    case 'backRowStrBonus':
+      return `後衛時STR+${effect.value}`
+    case 'shieldTaunt':
+      return `シールド付与時被ターゲット率+${effect.value}%`
+    case 'comboAttackBonus':
+      return `同ターン${effect.requiredCount}人以上攻撃でPower+${effect.powerBonus}`
+    case 'levelUpStatBoost':
+      return `レベルアップ時STR+${effect.strBonus}/INT+${effect.intBonus}`
+    case 'brokenWeaponStatBonus':
+      return `壊れた武器1本につきSTR+${effect.strPerWeapon}`
+    // リソース変換
     case 'damageTakenToMp':
       return `被弾時にMP${effect.value}回復`
-    case 'weaponBreakDamageMultiplier':
-      return `武器破壊ごとにダメージ+${Math.floor(effect.increment * 100)}%蓄積`
-    case 'weaponBreakNextAttackBonus':
-      return `武器破壊後、次の武器攻撃Power+${effect.value}`
-    case 'levelUpDamageBoost':
-      return `戦闘中レベルアップ時、そのキャラの次の行動ダメージ×${effect.multiplier}`
-    case 'battleEndBonusExp':
-      return `戦闘後に全員経験値+${effect.expValue}`
-    case 'lowestLevelDamageMultiplier':
-      return `パーティで最もレベルが低いキャラのダメージ×${effect.multiplier}`
-    case 'highHpTargetRateBonus':
-      return `最もHPが多いキャラの被弾率+${effect.value}%`
+    case 'battleStartHpReduction':
+      return `戦闘開始時HP${Math.floor(effect.rate * 100)}%化、STR+${effect.strBonus}`
     case 'deathProtection':
       return '致死ダメージでHP1で耐える（1ランに1回消滅）'
-    case 'growthGuarantee': {
-      const typeLabels: Record<string, string> = {
-        attack: '攻撃', hp: '生命力', mp: '魔力', balance: 'バランス', allBonus: '覚醒',
-      }
-      return `レベルアップ時「${typeLabels[effect.growthType] ?? effect.growthType}」が必ず出現`
-    }
-    // ビルドパス拡張
-    case 'thornsMultiplier':
-      return `棘バフの実効値${effect.multiplier}倍`
-    case 'comboBonus':
-      return `同ターン2人以上武器攻撃でダメージ×${effect.multiplier}`
+    // シンプルバフ
+    case 'regenPerTurn':
+      return `毎ターンHP${effect.value}回復`
+    case 'weaponDurabilitySave':
+      return `武器使用時、${Math.floor(effect.chance * 100)}%の確率で耐久値を消費しない`
+    case 'battleEndBonusExp':
+      return `戦闘後に全員経験値+${effect.expValue}`
+    case 'thornsDurationBonus':
+      return `棘バフ持続+${effect.value}ターン`
+    case 'potionEffectMultiplier':
+      return `ポーション効果${effect.multiplier}倍`
     case 'potionSlotBonus':
       return `ポーション所持上限+${effect.value}`
-    case 'potionDurationMultiplier':
-      return `ポーションのバフ効果ターン×${effect.multiplier}`
   }
 }
 
@@ -109,20 +98,38 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       if (weapon.effect.type === 'lifesteal') {
         desc += ` | 吸血: ${weapon.effect.value}`
       }
-      if (weapon.effect.type === 'conditionalPower') {
-        desc += ` | HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`
+      if (weapon.effect.type === 'selfHpConditional') {
+        desc += ` | 自HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`
+      }
+      if (weapon.effect.type === 'targetHpConditional') {
+        desc += ` | 敵HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`
       }
       if (weapon.effect.type === 'shield') {
         desc += ` | シールド${weapon.effect.value}付与`
       }
-      if (weapon.effect.type === 'killPreserveDurability') {
-        desc += ' | トドメ時に耐久消費なし'
-      }
       if (weapon.effect.type === 'hpPercentDamage') {
         desc += ` | 最大HP${Math.floor(weapon.effect.rate * 100)}%のダメージ`
       }
-      if (weapon.effect.type === 'hpPercentShieldAll') {
-        desc += ` | 味方全員に最大HP${Math.floor(weapon.effect.rate * 100)}%のシールド`
+      if (weapon.effect.type === 'followUp') {
+        desc += ` | 味方攻撃済みでPower+${weapon.effect.bonusPower}`
+      }
+      if (weapon.effect.type === 'levelScale') {
+        desc += ' | Lv分Power加算'
+      }
+      if (weapon.effect.type === 'combatStrGain') {
+        desc += ` | 使用後STR+${weapon.effect.value}(戦闘中)`
+      }
+      if (weapon.effect.type === 'lifestealPercent') {
+        desc += ` | ダメージの${Math.floor(weapon.effect.rate * 100)}%HP回復`
+      }
+      if (weapon.effect.type === 'manaSteal') {
+        desc += ` | ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`
+      }
+      if (weapon.effect.type === 'thornsShield') {
+        desc += ` | シールド${weapon.effect.shieldValue}+棘付与`
+      }
+      if (weapon.effect.type === 'aoe') {
+        desc += ' | 全体攻撃'
       }
       if (weapon.effect.type === 'currentHpDamage') {
         desc += ' | 現在HP-1のダメージ（HPが1になる）'
@@ -173,14 +180,10 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += spell.effect.stat === 'precision' ? ' | 攻撃時のダメージブレを0にする' : ` | STR +${spell.effect.value}`
       } else if (spell.effect.type === 'shield') {
         desc += ` | シールド${spell.effect.value}付与`
-      } else if (spell.effect.type === 'hpToMp') {
-        desc += ` | 最大HP${Math.floor(spell.effect.hpCostRate * 100)}%消費→MP全回復`
       } else if (spell.effect.type === 'repairWeapons') {
         desc += ` | 武器耐久+${spell.effect.value}回復`
       } else if (spell.effect.type === 'weaponPowerBuff') {
         desc += ` | 次の武器攻撃Power+${spell.effect.value}`
-      } else if (spell.effect.type === 'guidanceBuff') {
-        desc += ` | 導き付与（次トドメで+${spell.effect.bonusExp}EXP）`
       } else if (spell.effect.type === 'killBonusExpToAll') {
         desc += ` | トドメ時に全員へ+${spell.effect.expAmount}EXP`
       } else if (spell.effect.type === 'targetRateUp') {
@@ -189,8 +192,6 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 最大MP${Math.floor(spell.effect.rate * 100)}%のシールド付与`
       } else if (spell.effect.type === 'mpAllDamage') {
         desc += ' | 現在MP全量をダメージに変換'
-      } else if (spell.effect.type === 'mpPercentHeal') {
-        desc += ` | 最大MP${Math.floor(spell.effect.rate * 100)}%のHP回復`
       } else if (spell.effect.type === 'thorns') {
         desc += ` | 棘${spell.effect.value}付与（バトル中蓄積、被弾時に反撃）`
       }
@@ -250,16 +251,28 @@ export function getItemSpecialEffect(item: ItemType): string {
     if ('effect' in weapon && weapon.effect) {
       if (weapon.effect.type === 'lifesteal') {
         parts.push(`ダメージを与えたときHP+${weapon.effect.value}回復`)
-      } else if (weapon.effect.type === 'conditionalPower') {
-        parts.push(`HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`)
+      } else if (weapon.effect.type === 'selfHpConditional') {
+        parts.push(`自HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`)
+      } else if (weapon.effect.type === 'targetHpConditional') {
+        parts.push(`敵HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`)
       } else if (weapon.effect.type === 'shield') {
         parts.push(`シールド${weapon.effect.value}付与`)
-      } else if (weapon.effect.type === 'killPreserveDurability') {
-        parts.push('トドメ時に耐久消費なし')
       } else if (weapon.effect.type === 'hpPercentDamage') {
         parts.push(`最大HP${Math.floor(weapon.effect.rate * 100)}%のダメージ`)
-      } else if (weapon.effect.type === 'hpPercentShieldAll') {
-        parts.push(`味方全員に最大HP${Math.floor(weapon.effect.rate * 100)}%のシールド`)
+      } else if (weapon.effect.type === 'followUp') {
+        parts.push(`味方攻撃済みでPower+${weapon.effect.bonusPower}`)
+      } else if (weapon.effect.type === 'levelScale') {
+        parts.push('Lv分Power加算')
+      } else if (weapon.effect.type === 'combatStrGain') {
+        parts.push(`使用後STR+${weapon.effect.value}(戦闘中)`)
+      } else if (weapon.effect.type === 'lifestealPercent') {
+        parts.push(`ダメージの${Math.floor(weapon.effect.rate * 100)}%HP回復`)
+      } else if (weapon.effect.type === 'manaSteal') {
+        parts.push(`ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`)
+      } else if (weapon.effect.type === 'thornsShield') {
+        parts.push(`シールド${weapon.effect.shieldValue}+棘付与`)
+      } else if (weapon.effect.type === 'aoe') {
+        parts.push('全体攻撃')
       } else if (weapon.effect.type === 'currentHpDamage') {
         parts.push('現在HP-1のダメージ（HPが1になる）')
       } else if (weapon.effect.type === 'shieldBash') {
@@ -295,14 +308,10 @@ export function getItemSpecialEffect(item: ItemType): string {
         return spell.effect.stat === 'precision' ? '攻撃時のダメージブレを0にする' : `STR+${spell.effect.value}`
       case 'shield':
         return `シールド${spell.effect.value}付与`
-      case 'hpToMp':
-        return `最大HP${Math.floor(spell.effect.hpCostRate * 100)}%消費→MP全回復`
       case 'repairWeapons':
         return `武器耐久+${spell.effect.value}回復`
       case 'weaponPowerBuff':
         return `次の武器攻撃Power+${spell.effect.value}`
-      case 'guidanceBuff':
-        return `導き付与（次トドメで+${spell.effect.bonusExp}EXP）`
       case 'killBonusExpToAll':
         return `トドメ時に全員へ+${spell.effect.expAmount}EXP`
       case 'targetRateUp':
@@ -311,8 +320,6 @@ export function getItemSpecialEffect(item: ItemType): string {
         return `最大MP${Math.floor(spell.effect.rate * 100)}%のシールド付与`
       case 'mpAllDamage':
         return '現在MP全量をダメージに変換'
-      case 'mpPercentHeal':
-        return `最大MP${Math.floor(spell.effect.rate * 100)}%のHP回復`
       case 'thorns':
         return `棘${spell.effect.value}付与（バトル中蓄積、被弾時反撃）`
       default:
@@ -383,8 +390,11 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       if (command.effect.type === 'lifesteal') {
         desc += ` 吸血:${command.effect.value}`
       }
-      if (command.effect.type === 'conditionalPower') {
-        desc += ` HP${Math.floor(command.effect.hpThreshold * 100)}%以下P+${command.effect.bonusPower}`
+      if (command.effect.type === 'selfHpConditional') {
+        desc += ` 自HP${Math.floor(command.effect.hpThreshold * 100)}%以下P+${command.effect.bonusPower}`
+      }
+      if (command.effect.type === 'targetHpConditional') {
+        desc += ` 敵HP${Math.floor(command.effect.hpThreshold * 100)}%以下P+${command.effect.bonusPower}`
       }
       if (command.effect.type === 'selfVulnerability') {
         desc += ` ${command.effect.duration}T被ダメ×${command.effect.multiplier}`
@@ -429,14 +439,10 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += command.effect.stat === 'precision' ? ' 精密付与' : ` STR+${command.effect.value}`
       } else if (command.effect.type === 'shield') {
         desc += ` シールド${command.effect.value}`
-      } else if (command.effect.type === 'hpToMp') {
-        desc += ` 最大HP${Math.floor(command.effect.hpCostRate * 100)}%→MP全回復`
       } else if (command.effect.type === 'repairWeapons') {
         desc += ` 耐久+${command.effect.value}`
       } else if (command.effect.type === 'weaponPowerBuff') {
         desc += ` 次武器P+${command.effect.value}`
-      } else if (command.effect.type === 'guidanceBuff') {
-        desc += ` 導き(+${command.effect.bonusExp}EXP)`
       } else if (command.effect.type === 'killBonusExpToAll') {
         desc += ` 全員+${command.effect.expAmount}EXP`
       } else if (command.effect.type === 'targetRateUp') {
@@ -445,8 +451,6 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ` 最大MP${Math.floor(command.effect.rate * 100)}%シールド`
       } else if (command.effect.type === 'mpAllDamage') {
         desc += ' 現在MP→ダメージ'
-      } else if (command.effect.type === 'mpPercentHeal') {
-        desc += ` 最大MP${Math.floor(command.effect.rate * 100)}%回復`
       } else if (command.effect.type === 'thorns') {
         desc += ` 棘${command.effect.value}付与`
       }

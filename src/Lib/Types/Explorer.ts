@@ -105,7 +105,7 @@ function getClassTemplates(): Record<CharacterClass, ClassTemplate> {
       int: getTuningValue('warrior_int', 3),
       weaponSlotCount: getTuningValue('warrior_weaponSlotCount', 4),
       magicSlotCount: getTuningValue('warrior_magicSlotCount', 0),
-      weapons: () => [createPunch(), createWeaponInstance('rusty_knife')],
+      weapons: () => [createPunch(), createWeaponInstance('knife')],
       spells: () => [],
     },
     mage: {
