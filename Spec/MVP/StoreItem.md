@@ -2,8 +2,8 @@
 
 ## ストア画面
 
-* **表示タイミング:** 毎戦闘後に必ず表示（Stage 4の休憩/宝箱/修理後は表示なし）。
-* **陳列数:** 2択選択制（4カテゴリを2+2分割、各3枠=6枠）。各枠数・レリック上限・ポーション上限はTuning Editorで調整可能。
+* **表示タイミング:** 毎戦闘後に必ず表示（イベントステージ後は表示なし）。
+* **陳列数:** 5枠2選択方式。5枠（武器1/魔法1/ランダム〔武器or魔法〕1/レリック1/ポーション1）から2つを選択する。
 * **レイアウト:** 1画面に全商品を表示（タブ切り替えなし）。
 * **品揃え変更 (Reroll):** 初期コスト3G（Tuning Editorで調整可能）、使用ごとに1G増加。
   * 同じ商品が再度出現する可能性あり（完全ランダム）。
@@ -15,12 +15,11 @@
 ### 商品抽選システム
 
 * **アイテムデータ:** 各アイテムに`価格`と`レアリティ`を個別設定（JSONデータで管理）。
-* **抽選方式:** JSONデータから均等抽選（レアリティ別の重み付けはMVP未実装）。
-* **第二階層でのRare出現率補正:** 第二階層（Stage 8-11）ではRareアイテムが高確率で出現する（Tuning Editorで調整可能）。
-* **商品構成（2択選択制）:**
-  * 武器/魔法グループを2+2に分割し、各グループから3枠ずつ提示。プレイヤーはどちらのグループから購入するか選択できる。
-  * レリック枠（3つ）: レリックからランダムに3つ選択。
-  * ポーション枠（3つ）: ポーションからランダムに3つ選択。
+* **階層別レアリティフィルタ:**
+  * 第1階層（Stage 1-7）: Common/Uncommonのみ出現
+  * 第2階層（Stage 8-14）: Uncommon/Rareのみ出現
+  * 第3階層（Stage 15-21）: Rareのみ出現（floor_3_rare_rate=0.7の加重抽選も適用）
+* **薬師の鞄レリック:** potionSlotBonusによってポーション枠が拡張される。
 
 ## MVP用データセット
 
@@ -28,84 +27,102 @@
 
 ### 武器 (Weapons)
 各武器にはvariance（ダメージブレ幅）が設定されており、ダメージ計算時に±varianceの加算ブレが適用される。
+カテゴリ（category）プロパティ: knife, greatsword, staff, shield, other。
 
-| 名前 | 威力 | 回数 | 価格 | レアリティ | 範囲 | 特殊効果 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **錆びたナイフ** | 3 | 3 | 4 | Common | 単体 | 戦士初期装備。効果なし。 |
-| **魔力弾** | - | 無制限 | - | Common | 単体 | 魔法使い初期装備。INT依存ダメージ（scaleStat: 'int'）。枠を消費しない。 |
-| **祈り** | - | 無制限 | - | Common | 味方単体(allySingle) | 僧侶初期装備。被ターゲット率UP（targetRateUp）効果。枠を消費しない。 |
-| **ショートソード** | - | - | - | Common | 単体 | 標準的な武器。 |
-| **鉄の剣** | 5 | 6 | 10 | Uncommon | 単体 | 標準的な武器。 |
-| **大斧** | - | - | - | Uncommon | 単体 | 高威力・低回数。 |
-| **グレートソード** | - | - | - | Rare | 単体 | - |
-| **投げナイフ** | - | - | - | Common | 全体(enemyAll) | 全体攻撃。 |
-| **旋風の刃** | - | - | - | Uncommon | 全体(enemyAll) | 全体攻撃。 |
-| **吸血の刃** | 4 | 4 | 9 | Rare | 単体 | lifesteal効果（固定値HP回復）。 |
-| **呪いの槍** | - | - | - | Rare | 単体 | 攻撃時にHPを消費する（hpCost）。 |
-| **猛撃の斧** | - | - | - | Uncommon | 単体 | 条件を満たした際に追加威力が加算される（conditionalPower）。 |
-| **黄金の剣** | - | - | - | Uncommon | 単体 | 攻撃時にゴールドを消費する（goldCost）。 |
-| **宝石の杖** | - | - | - | Rare | 単体 | 攻撃時にゴールドを消費する（goldCost）。INT依存。 |
-| **使い捨ての剣** | - | - | - | Uncommon | 単体 | 使用回数が非常に少ない代わりに高威力。 |
-| **ガラスの剣** | - | - | - | Rare | 単体 | 高威力だが脆く、使用回数が少ない。 |
-| **錆びた大剣** | - | - | - | Common | 単体 | 重量感のある低速・高威力武器。 |
-| **魂喰いの剣** | 6 | 1 | - | Uncommon | 単体 | トドメを刺した際に耐久を消費しない（killPreserveDurability）。variance=5。 |
-| **守護の盾** | 0 | 5 | - | Uncommon | 味方単体(allySingle) | 味方単体にシールド（value=20）を付与する（shield）。 |
+| 名前 | カテゴリ | 威力 | 回数 | 価格 | レアリティ | 範囲 | 特殊効果 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **ナイフ** | knife | 4 | 6 | 4 | Common | 単体 | 戦士初期装備。効果なし。 |
+| **追撃のナイフ** | knife | 3 | 5 | 7 | Uncommon | 単体 | 同ターン味方攻撃後に追加Power（followUp）。 |
+| **成長のナイフ** | knife | 2 | 6 | 7 | Uncommon | 単体 | 使用者レベル分のPower追加（levelScale）。 |
+| **鍛錬のナイフ** | knife | 2 | 6 | 8 | Uncommon | 単体 | 使用時に戦闘中STR永続加算（combatStrGain）。 |
+| **反動の大剣** | greatsword | 8 | 3 | 5 | Common | 単体 | 使用時にHP消費（hpCost: 10）。 |
+| **後隙の大剣** | greatsword | 7 | 4 | 5 | Common | 単体 | 使用後に自身にvulnerability付与（selfVulnerability）。 |
+| **気まぐれ大剣** | greatsword | 9 | 2 | 4 | Common | 単体 | 高variance（14）。 |
+| **怒りの大剣** | greatsword | 3 | 4 | 7 | Uncommon | 単体 | 自身HP≤50%で追加Power（selfHpConditional, +5）。 |
+| **処刑の大剣** | greatsword | 3 | 3 | 8 | Uncommon | 単体 | ターゲットHP≤30%で追加Power（targetHpConditional, +5）。 |
+| **稽古の杖** | staff | 3 | 5 | 8 | Uncommon | 単体 | INT依存。キル時全員追加EXP（killBonusExpToAll）。 |
+| **吸血の杖** | staff | 3 | 4 | 10 | Rare | 単体 | INT依存。ダメージの50%ライフスティール（lifestealPercent）。 |
+| **吸魔の杖** | staff | 2 | 4 | 10 | Rare | 単体 | INT依存。ダメージの75%をMP吸収（manaSteal）。 |
+| **守護の盾** | shield | 0 | 5 | 7 | Uncommon | 味方単体 | 味方単体にシールド付与（shield, value=20）。 |
+| **棘の盾** | shield | 0 | 4 | 10 | Rare | 味方単体 | 味方単体にシールド＋棘バフ付与（thornsShield）。 |
+| **旋風剣** | other | 3 | 3 | 10 | Rare | 全体(enemyAll) | 全体攻撃。 |
+| **盾殴り** | other | 2 | 4 | 8 | Uncommon | 単体 | シールドバフのvalue分ボーナスダメージ（shieldBash）。 |
+| **生命の拳** | other | - | 3 | 7 | Uncommon | 単体 | ターゲット最大HPの30%ダメージ（hpPercentDamage）。 |
+| **捨て身の一撃** | other | - | 2 | 10 | Rare | 単体 | 使用者の現在HPに基づくダメージ（currentHpDamage）。 |
 
 ### 魔法 (Spells)
-各魔法にもvariance（ダメージブレ幅）が設定されている。
+commandCategory: "spell"。各魔法にもvariance（ダメージブレ幅）が設定されている。
+
+**slotFree魔法（枠を消費しない）:**
+
+| 名前 | MP | レアリティ | 範囲 | 特殊効果 |
+| :--- | :--- | :--- | :--- | :--- |
+| **魔力弾** | 0 | Common | 単体 | 魔法使い初期。INT依存ダメージ（slotFree: true）。 |
+| **祈り** | 0 | Common | 味方単体 | 僧侶初期。被ターゲット率UP（targetRateUp, slotFree: true）。 |
+
+**通常魔法（攻撃系）:**
 
 | 名前 | 威力 | MP | 価格 | レアリティ | 範囲 | 特殊効果 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ファイア** | 4 | 4 | 6 | Common | 単体 | 魔法使い初期装備。単体ダメージ。 |
-| **精密** | - | 2 | 4 | Common | 味方単体(allySingle) | ショップで購入可能。次の攻撃のダメージブレを最大値で固定。 |
-| **アイスボルト** | - | - | - | Common | 単体 | 単体ダメージ。 |
-| **ファイアストーム** | 2 | 5 | 8 | Uncommon | 全体 | 全体ダメージ。各敵に同じダメージ。 |
-| **サンダー** | - | - | - | Rare | 単体 | 単体ダメージ。 |
-| **ブリザード** | - | - | - | Rare | 全体 | 全体ダメージ。 |
-| **ヒール** | - | - | 8 | Common | 味方単体(allySingle) | 僧侶初期装備。HPを回復（最大HPでキャップ）。MP消費量はTuning Editorで調整可能。 |
-| **バリア** | - | - | - | Uncommon | 味方単体(allySingle) | シールドを付与する（shield）。 |
-| **生命変換** | - | - | - | Uncommon | 自分 | HPをMPに変換する（hpToMp）。 |
-| **金のまじない** | - | - | - | Uncommon | 単体 | 攻撃命中時にゴールドを獲得する（goldOnHit）。 |
-| **ゴールドバースト** | - | - | - | Rare | 単体 | 所持ゴールドに応じてダメージが変動する（goldDamage）。 |
-| **戦場の鍛冶** | - | - | - | Rare | 味方単体(allySingle) | 味方単体の武器使用回数を回復する（repairWeapons）。 |
-| **武器強化** | - | - | - | Uncommon | 味方単体(allySingle) | 武器威力を一時的に上昇させるバフを付与する（weaponPowerBuff）。 |
-| **師弟の絆** | - | 3 | 5 | Uncommon | 自分 | 使用者に導きバフ（guidanceBuff）を付与。次のキルで追加EXPが発生する。 |
-| **教育の魔弾** | 3 | 5 | 7 | Uncommon | 単体 | 攻撃魔法。キル時にパーティー全員に追加EXPを付与（killBonusExpToAll）。 |
-| **癒しの風** | - | 7 | 7 | Common | 味方全体(allyAll) | 味方全員のHPを回復（heal valueはTuning Editorで調整可能）。 |
+| **ファイア** | 5 | 6 | 5 | Common | 単体 | 単体ダメージ。 |
+| **アイス** | 4 | 5 | 5 | Common | 単体 | 単体ダメージ。 |
+| **ボルケーノ** | 8 | 16 | 12 | Rare | 単体 | 高威力単体ダメージ。 |
+| **反動フレイム** | 7 | 6 | 5 | Common | 単体 | HP消費（hpCost: 8）の高威力ダメージ。 |
+| **暴走魔法** | 8 | 8 | 5 | Common | 単体 | 高variance（14）の高威力ダメージ。 |
+| **渇きの火** | 3 | 4 | 7 | Uncommon | 単体 | MP≤25%で追加Power（lowMpConditional, +5）。 |
+| **追撃の炎** | 3 | 5 | 7 | Uncommon | 単体 | 同ターン味方攻撃後に追加Power（followUp, +4）。 |
+| **処刑の雷** | 3 | 6 | 8 | Uncommon | 単体 | ターゲットHP≤30%で追加Power（targetHpConditional, +5）。 |
+| **お手本ファイア** | 3 | 5 | 7 | Uncommon | 単体 | キル時全員追加EXP（killBonusExpToAll）。 |
+| **フレイムストーム** | 3 | 10 | 11 | Rare | 全体(enemyAll) | 全体ダメージ。各敵に同じダメージ。 |
+| **魔力放出** | - | 全MP | 10 | Rare | 単体 | 現在MP全消費のダメージ（mpAllDamage）。 |
+
+**通常魔法（補助系）:**
+
+| 名前 | MP | 価格 | レアリティ | 範囲 | 特殊効果 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **ヒール** | 5 | 4 | Common | 味方単体 | 僧侶初期。HPを回復（heal, value=20）。 |
+| **バリア** | 4 | 5 | Common | 味方単体 | シールドを付与（shield, value=15）。 |
+| **大ヒール** | 6 | 8 | Uncommon | 味方単体 | HP大回復（heal, value=25）。 |
+| **癒しの風** | 7 | 8 | Uncommon | 味方全体 | 味方全員HP回復（heal, value=8, allyAll）。 |
+| **武器強化** | 4 | 7 | Uncommon | 味方単体 | 武器威力バフ付与（weaponPowerBuff, value=3）。 |
+| **精密** | 2 | 4 | Common | 味方単体 | 次の攻撃ダメージブレを最大値に固定（buff: precision）。 |
+| **棘の護り** | 4 | 7 | Uncommon | 味方単体 | 棘バフ付与（thorns, value=10）。 |
+| **戦場の鍛冶** | 6 | 10 | Rare | 味方単体 | 武器使用回数回復（repairWeapons, value=2）。 |
+| **魔力の盾** | 50%MP | 10 | Rare | 味方単体 | MP50%消費してシールド付与（mpPercentShield）。 |
 
 ### レリック (Relics)
-| 名前 | 価格 | レアリティ | 効果 |
-| :--- | :--- | :--- | :--- |
-| **戦士の腕輪** | 7 | Common | 筋力加算（statBonus, 常時適用）。重複可能。 |
-| **魔術師の指輪** | 7 | Common | 知力加算（statBonus, 常時適用）。重複可能。 |
-| **鋭い砥石** | 8 | Uncommon | 武器/パンチ攻撃時にダメージ加算（weaponDamageBonus, 魔法は対象外）。 |
-| **貯金箱** | 10 | Rare | 戦闘終了時の利子上限を拡大（interestCap）。 |
-| **壊れかけの鎧** | - | Common | 最初の被弾を防ぐ（firstHitShield）。 |
-| **武器お手入れ用油** | - | Common | 確率で武器使用回数消費を防ぐ（weaponDurabilitySave）。 |
-| **ストレス発散** | - | Uncommon | 武器攻撃時にMP回復（weaponAttackMpRecover, パンチは対象外）。 |
-| **研ぎ師の名刺** | - | Common | 武器の最後の一撃でダメージ倍率上昇（lastStrikeDamageMultiplier）。 |
-| **集中の水晶** | - | Uncommon | MP低下時に魔法ダメージ倍率上昇（lowMpDamageBonus）。 |
-| **反撃の棘** | - | Common | 被弾時に固定ダメージ反射（thornsDamage）。 |
-| **再生のコケ** | - | Uncommon | 毎ターンHP回復（regenPerTurn）。 |
-| **錬金術の触媒** | - | Common | ポーション効果倍率上昇（potionEffectMultiplier）。 |
-| **血の契約** | - | Rare | 攻撃時にHPを消費してダメージ上昇。 |
-| **苦痛のリング** | - | Uncommon | HP低下時に特殊効果発動。 |
-| **商人の護符** | - | Uncommon | ゴールド関連の効果（購入・獲得に影響）。 |
-| **金の指輪** | - | Common | ゴールド獲得量増加。 |
-| **努力の証** | - | Rare | 武器破壊時にダメージ倍率上昇（weaponBreakMultiplier）。 |
-| **鍛冶師の金槌** | - | Uncommon | 武器使用回数または耐久に関する強化。 |
-| **怒りの炎** | - | Uncommon | HP低下時に攻撃ダメージ倍率上昇（lowHpDamageMultiplier）。 |
-| **闘気の腕輪** | - | Uncommon | 戦闘中レベルアップ後の次攻撃にダメージ倍率バフを付与（levelUpDamageBoost）。 |
-| **修羅の証** | - | Uncommon | 敵撃破時にゴールドを獲得（goldPerKill）。 |
-| **番狂わせの一撃** | - | Rare | 最低レベルキャラの攻撃時にダメージ倍率上昇（lowestLevelDamageMultiplier）。 |
-| **強い者いじめ** | - | Uncommon | HP高い敵への被ターゲット率補正（highHpTargetRateBonus）。 |
-| **身代わりの人形** | - | Rare | 瀕死時に1度だけ生存する（deathProtection）。 |
+| 名前 | 価格 | レアリティ | 効果タイプ | 説明 |
+| :--- | :--- | :--- | :--- | :--- |
+| **修羅の血脈** | 10 | Rare | hpCostPowerBoost | HP消費コマンド使用時にPowerブースト（duration=1） |
+| **逆境の鎧** | 8 | Uncommon | vulnerabilityPowerBoost | vulnerability状態中にPowerボーナス加算 |
+| **魔力の残滓** | 7 | Uncommon | mpSpendShield | MP消費時に閾値以上消費でシールド付与 |
+| **研ぎ師の名刺** | 5 | Common | knifeUseDurabilityRestore | ナイフ系武器を一定回数使用ごとに耐久自動回復 |
+| **討伐の対価** | 5 | Common | killMpRecover | 敵撃破時にMP回復 |
+| **前衛の矜持** | 5 | Common | frontRowIntBonus | 前衛（index=0）のINTにボーナス加算 |
+| **後衛の叡智** | 5 | Common | backRowStrBonus | 後衛のSTRにボーナス加算 |
+| **挑発式防御** | 7 | Uncommon | shieldTaunt | シールドバフ付与時に挑発効果も付与 |
+| **連携の紋章** | 10 | Rare | comboAttackBonus | 同ターン味方攻撃後にcomboPowerBonusバフ付与 |
+| **闘気の腕輪** | 7 | Uncommon | levelUpStatBoost | レベルアップ時にSTR/INTを永続加算 |
+| **努力の証** | 7 | Uncommon | brokenWeaponStatBonus | 壊れた武器1本あたりSTRを加算 |
+| **苦痛のリング** | 5 | Common | damageTakenToMp | 被ダメージをMP変換 |
+| **血の契約** | 7 | Uncommon | battleStartHpReduction | 戦闘開始時にHPを一定割合減らしSTR加算 |
+| **身代わりの人形** | 10 | Rare | deathProtection | 瀕死時に1度だけ生存する |
+| **再生のコケ** | 5 | Common | regenPerTurn | 毎ターンHP回復 |
+| **武器お手入れ用油** | 5 | Common | weaponDurabilitySave | 確率で武器使用回数消費を防ぐ |
+| **修羅の証** | 10 | Rare | battleEndBonusExp | 戦闘終了時にボーナスEXP獲得 |
+| **棘の書** | 10 | Rare | thornsDurationBonus | thorns（棘）バフの持続ターン延長 |
+| **錬金術の触媒** | 5 | Common | potionEffectMultiplier | ポーション効果倍率上昇（×1.5） |
+| **薬師の鞄** | 7 | Uncommon | potionSlotBonus | ポーション所持枠を+2拡張 |
 
 ### ポーション (Potions)
 | 名前 | 価格 | レアリティ | 効果 |
 | :--- | :--- | :--- | :--- |
-| **HPポーション** | - | Common | HPを回復（最大HPでキャップ）。targetType: allySingle（回復対象を選択）。同じポーション複数所持可能。価格はTuning Editorで調整可能。 |
-| **MPポーション** | - | Common | MPを回復（最大MPでキャップ）。targetType: allySingle（回復対象を選択）。同じポーション複数所持可能。価格はTuning Editorで調整可能。 |
-| **修復ポーション** | 4 | Common | 武器使用回数を回復する（repairWeapons value=2）。targetType: allySingle。 |
+| **HPポーション** | 2 | Common | HPを回復（healHp, value=10）。targetType: allySingle。 |
+| **MPポーション** | 2 | Common | MPを回復（healMp, value=10）。targetType: allySingle。 |
+| **修復ポーション** | 4 | Common | 武器使用回数を回復（repairWeapons value=2）。targetType: allySingle。 |
+| **挑発ポーション** | 3 | Uncommon | 使用者を敵に挑発（taunt）。targetType: allySingle。 |
+| **興奮ポーション** | 4 | Uncommon | STR・INT両方を一時的に加算（statBoost: str+4, int+4）。targetType: allySingle。 |
+| **防御ポーション** | 3 | Uncommon | 被ダメージを軽減（damageReduction, rate=0.5）。targetType: allySingle。 |
+| **全体化ポーション** | 5 | Rare | 次の攻撃を全体化（aoeConvert）。targetType: allySingle。 |
 
 * **即時発動:** ポーションはターン消費なし（フリーアクション）。1ターンに複数回使用可能（所持数が上限）。

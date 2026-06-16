@@ -6,23 +6,39 @@
 ### 1.2 **攻撃の種類：** 武器か魔法を選んで攻撃
 * 単体、全体、味方単体、味方全体、ランダム。
 ### 1.3 **パンチ**
-* 戦士のみが初期から持つ、無制限使用の無限行動コマンド。他クラスは魔力弾や祈りなど別の無限行動を持つ。
+* 戦士が持つ、無制限使用の無限行動コマンド（枠を消費しない）。他クラスは魔力弾や祈りなど別の無限行動を持つ。
+* 戦士の初期武器はパンチ（枠消費なし）とナイフ（knife）。
 * power値は1（STR x 1 = STR分のダメージ）、variance（ブレ幅）が設定されている。
 * `maxUses: null` により枠を消費しない。
 ### 1.4 **ダメージ計算：**
-MVP実装のダメージ計算式:
+現在のダメージ計算式（DamageCalculator.ts）:
 
 ```
-最終ダメージ = (Str/Int + レリックstatBonus) x (power + conditionalPower + weaponDamageBonus + weaponPowerBonus) x バフ倍率 x レリック倍率 x weaponBreakMultiplier + ブレ補正(±variance)
+rawDamage = effectiveStat * effectivePower * buffMultiplier
+          + 各種追加Power加算分（修羅の血脈・逆境の鎧・連携の紋章）
+          + 弱体補正（乗算）
+最終ダメージ = floor(rawDamage) + offset(±variance) + shieldBashBonus
 ```
 
-* ブレ補正は加算方式。各武器/魔法にvariance値が設定されており、`-variance ~ +variance` の整数が均等分布で生成され、基礎ダメージ(floor済み)に加算される。乗算方式ではない。
-* **conditionalPower:** 条件付きで加算される追加威力（猛撃の斧など、特定条件下でのみ発動）。
+* **effectiveStat:** `baseStat + positionBonus + brokenBonus`。positionBonusはポジションボーナス（前衛の矜持/後衛の叡智）、brokenBonusは壊れた武器STRボーナス（努力の証）。
+* **effectivePower:** `weapon.power + conditionalPowerBonus + weaponPowerBonusValue`。
+* **conditionalPower:** 条件付きで加算される追加威力。以下の種類が実装されている:
+  * **selfHpConditional（怒りの大剣）**: 自身HPが閾値以下のとき追加Power加算。
+  * **targetHpConditional（処刑の大剣/処刑の雷）**: ターゲットHPが閾値以下のとき追加Power加算。
+  * **followUp（追撃のナイフ/追撃の炎）**: 同ターンで味方が先に攻撃済みのとき追加Power加算。
+  * **levelScale（成長のナイフ）**: 使用者のレベル分を追加Power加算。
+  * **lowMpConditional（渇きの火）**: MPが閾値以下のとき追加Power加算。
 * **weaponPowerBonus:** 武器強化バフによって付与される威力加算ボーナス。
-* **weaponBreakMultiplier:** 武器破壊時などに乗算される倍率（努力の証レリックが付与）。
-* **レリック倍率（追加）:** `lowHpDamageMultiplier`（怒りの炎）、`lowestLevelDamageMultiplier`（番狂わせの一撃）、`levelUpDamageBoost`（闘気の腕輪、戦闘中レベルアップ後の次攻撃バフ）も乗算される。
+* **バフ倍率（buffMultiplier）:** STRまたはINTバフの合計値に応じた乗算。未適用時は1.0。
+* **ポジションボーナス:** 前衛の矜持（frontRowIntBonus）または後衛の叡智（backRowStrBonus）によってStat値に加算。
+* **壊れた武器STRボーナス（努力の証）:** 壊れた武器1本あたりSTRに加算（brokenWeaponStatBonus）。
+* **修羅の血脈:** HP消費時にPowerブーストを rawDamage に加算（`effectiveStat * hpCostPowerBoostValue * buffMultiplier`）。
+* **逆境の鎧:** vulnerability（被ダメ増加）デバフ中にPowerボーナスを rawDamage に加算。
+* **連携の紋章:** comboPowerBonusバフ分を rawDamage に加算。
+* **シールドバッシュ（shieldBash）:** シールドバフのvalue値を最終ダメージに加算。
+* **弱体（weakness）:** rawDamage に`(1.0 - debuff.value)`を乗算。
 
-* **戦闘ペース：** 1戦闘は平均3ターン程度。ダンジョンクリアまでにトータル45回分の攻撃リソースが必要。
+* **戦闘ペース：** 1戦闘は平均3ターン程度。ダンジョンクリアまでにトータル45回分の攻撃リソースが必要（21ステージ構成では増加）。
 
 ### 1.5 **武器のscaleStat**
 * 武器にscaleStatプロパティが追加されており、`str` または `int` いずれかのステータスでダメージ計算が可能。
@@ -43,83 +59,118 @@ MVP実装のダメージ計算式:
 ## 2. 武器・魔法
 * **武器の特性：**
     * 攻撃力と攻撃対象への特殊効果。
-    * 使用回数：平均3〜8回程度。
-    * 回数変化：使うほどに強くなる/弱くなる武器。
-    * 特殊例：経験値消費、HP/MP変換、敵撃破でMP回復、MPを奪う、相手の攻撃力を上げる
-    * lifesteal効果を持つ武器が存在する（吸血の刃）。
-    * 全体攻撃(enemyAll)の武器が存在する（投げナイフ、旋風の刃）。
-* **新規武器（7種）:**
-    * **呪いの槍:** 攻撃時にHPを消費する（hpCost）。
-    * **猛撃の斧:** 条件を満たした際に追加威力が加算される（conditionalPower）。
-    * **黄金の剣:** 攻撃時にゴールドを消費する（goldCost）。
-    * **宝石の杖:** 攻撃時にゴールドを消費する（goldCost）。
-    * **使い捨ての剣:** 使用回数が非常に少ない代わりに高威力。
-    * **ガラスの剣:** 高威力だが脆く、使用回数が少ない。
-    * **錆びた大剣:** 重量感のある低速・高威力武器。
-* **魔法の特性：**
-    * 使用回数：平均3〜8回程度。
-    * 効果の例:単体ダメージ、全体ダメージ、回数ダメージ、ゴールド獲得倍化、敵撃破で経験値プラス1、対象者の次の攻撃を全体化、スカラ・ルカニ的な魔法（バフ/デバフ）、盗む（MP $\rightarrow$ お金）。
-* **新規魔法（6種）:**
-    * **バリア:** 使用者にシールドを付与する（shield）。
-    * **生命変換:** HPをMPに変換する（hpToMp）。
-    * **金のまじない:** 攻撃命中時にゴールドを獲得する（goldOnHit）。
-    * **ゴールドバースト:** 所持ゴールドに応じてダメージが変動する（goldDamage）。
-    * **戦場の鍛冶:** 味方単体（allySingle）の武器使用回数を回復する（repairWeapons）。
-    * **武器強化:** 味方の武器威力を一時的に上昇させるバフを付与する（weaponPowerBuff）。
-* 武器・魔法には **呪い**、**祝福**がついている場合もある。
-* 呪い
-    * MP使用量25%増加
-    * 使用のたびに1ダメージを受ける
-* 祝福
-    * MP使用量25%減少
-    * 基礎ダメージ x 1.5倍
-    * 基礎ダメージ + 50
-    * 装備枠+1
+    * 使用回数：平均3〜6回程度。
+    * カテゴリ制（knife, greatsword, staff, shield, other）が導入されている。
+    * 特殊効果：lifesteal、シールド付与、HP消費、自己vulnerability付与、追撃、HP%ダメージ、現在HP依存ダメージなど。
 
-### 2.x 新武器・新魔法（クラス初期装備・追加実装）
-* **魔力弾** (magic_bullet): 無制限使用の武器。INT依存ダメージ（scaleStat: 'int'）。魔法使いの初期装備。
-* **祈り** (prayer): 無制限使用の武器。味方単体対象（allySingle）。効果: 被ターゲット率UP（targetRateUp）。僧侶の初期装備。
-* **精密** (precision): 味方単体対象のバフ魔法。次の攻撃のダメージブレを最大値で固定する。ショップで購入可能。
-* **魂喰いの剣** (soul_eater_sword): トドメを刺した際に耐久を消費しない（`killPreserveDurability`）効果を持つ武器。
-* **守護の盾** (guardian_shield): 味方単体（allySingle）にシールドを付与する武器。
-* **師弟の絆** (master_bond): 使用者に「導きバフ」（`guidanceBuff`）を付与する魔法。次のキルで追加EXPが発生する。
-* **教育の魔弾** (education_bullet): 攻撃魔法。キル時にパーティー全員に追加EXPを付与する（`killBonusExpToAll`）。
-* **癒しの風** (healing_wind): 味方全体（allyAll）を回復する魔法。heal valueはTuning Editorで調整可能。
+* **武器カテゴリ別一覧（18種）:**
+
+  **knifeカテゴリ（4種）:**
+    * **ナイフ（knife）:** 汎用ナイフ。効果なし。戦士初期装備。
+    * **追撃のナイフ（followup_knife）:** 同ターン味方攻撃後に追加Power加算（followUp）。
+    * **成長のナイフ（growth_knife）:** 使用者レベル分のPowerを追加（levelScale）。
+    * **鍛錬のナイフ（training_knife）:** 使用時に戦闘中STR永続加算（combatStrGain）。
+
+  **greatswordカテゴリ（5種）:**
+    * **反動の大剣（recoil_greatsword）:** 高威力だが使用時にHPを消費（hpCost）。
+    * **後隙の大剣（opening_greatsword）:** 高威力だが使用後に自身にvulnerability付与（selfVulnerability）。
+    * **気まぐれ大剣（fickle_greatsword）:** 高威力・高variance。
+    * **怒りの大剣（rage_greatsword）:** 自身HP閾値以下で追加Power（selfHpConditional）。
+    * **処刑の大剣（execution_greatsword）:** ターゲットHP閾値以下で追加Power（targetHpConditional）。
+
+  **staffカテゴリ（3種）:**
+    * **稽古の杖（training_staff）:** INT依存。キル時全員追加EXP（killBonusExpToAll）。
+    * **吸血の杖（vampire_staff）:** INT依存。ダメージの50%ライフスティール（lifestealPercent）。
+    * **吸魔の杖（mana_drain_staff）:** INT依存。ダメージの75%をMP吸収（manaSteal）。
+
+  **shieldカテゴリ（2種）:**
+    * **守護の盾（guardian_shield）:** 味方単体にシールド付与（shield, value=20）。
+    * **棘の盾（thorns_shield）:** 味方単体にシールド＋棘バフ付与（thornsShield）。
+
+  **otherカテゴリ（4種）:**
+    * **旋風剣（whirlwind_sword）:** 全体攻撃（enemyAll）。
+    * **盾殴り（shield_bash）:** 自身のシールドvalue分のボーナスダメージ（shieldBash）。
+    * **生命の拳（life_fist）:** ターゲット最大HPの30%ダメージ（hpPercentDamage）。
+    * **捨て身の一撃（desperate_strike）:** 使用者の現在HPに基づくダメージ（currentHpDamage）。
+
+* **魔法の特性：**
+    * commandCategory: "spell"として実装。
+    * 使用回数：MPを消費して発動。
+    * 魔力弾・祈りはslotFree: trueでspells配列に格納（武器枠を消費しない）。
+
+* **魔法一覧（22種）:**
+
+  **slotFree魔法（2種）:**
+    * **魔力弾（magic_bullet）:** 無制限。INT依存単体ダメージ。魔法使い初期装備。
+    * **祈り（prayer）:** 無制限。味方単体の被ターゲット率UP（targetRateUp, value=25）。僧侶初期装備。
+
+  **攻撃魔法（11種）:**
+    * **ファイア（fire）:** 単体ダメージ（Common）。
+    * **アイス（ice）:** 単体ダメージ（Common）。
+    * **ボルケーノ（volcano）:** 高威力単体ダメージ（Rare）。
+    * **反動フレイム（recoil_flame）:** HP消費の高威力単体ダメージ（Common）。
+    * **暴走魔法（chaos_magic）:** 高威力・高variance単体ダメージ（Common）。
+    * **渇きの火（thirst_fire）:** MP低下時に追加Power（lowMpConditional, Uncommon）。
+    * **追撃の炎（followup_flame）:** 同ターン味方攻撃後に追加Power（followUp, Uncommon）。
+    * **処刑の雷（execution_thunder）:** ターゲットHP閾値以下で追加Power（targetHpConditional, Uncommon）。
+    * **お手本ファイア（training_fire）:** キル時全員追加EXP（killBonusExpToAll, Uncommon）。
+    * **フレイムストーム（flame_storm）:** 全体ダメージ（enemyAll, Rare）。
+    * **魔力放出（mana_release）:** 現在MP全消費のダメージ（mpAllDamage, Rare）。
+
+  **補助魔法（9種）:**
+    * **ヒール（heal）:** 味方単体HP回復（Common）。
+    * **バリア（barrier）:** 味方単体シールド付与（shield, value=15, Common）。
+    * **大ヒール（greater_heal）:** 味方単体HP大回復（Uncommon）。
+    * **癒しの風（healing_wind）:** 味方全体HP回復（allyAll, Uncommon）。
+    * **武器強化（weapon_enchant）:** 味方単体に武器強化バフ付与（weaponPowerBuff, Uncommon）。
+    * **精密（precision）:** 次の攻撃のダメージブレを最大値で固定（Uncommon）。
+    * **棘の護り（thorns_grant）:** 味方単体に棘バフ付与（thorns, Uncommon）。
+    * **戦場の鍛冶（field_repair）:** 味方単体の武器使用回数回復（repairWeapons, Rare）。
+    * **魔力の盾（mana_shield）:** MP50%消費してシールド付与（mpPercentShield, Rare）。
 
 ## 3. ポーション(消耗アイテム)
-* **種類：** ステータス上昇（一時的もしくはダンジョン内で永続だが微量）、武器、魔法への永続バフ
-* **役割：** お金で購入し、MP/HPなどに変換するリソースとしても機能。
+* **役割：** ゴールドで購入し、HP/MP回復やバフ付与に使用。
 * **ターゲット:** targetTypeがallySingle（パーティー制で回復対象を選択）。
-* **実装済みポーション（3種）:** HPポーション（HP回復）、MPポーション（MP回復）、修復ポーション（repair_potion、武器使用回数を回復）。
+* **実装済みポーション（7種）:**
+  * **HPポーション（hp_potion）:** HP回復。targetType: allySingle。
+  * **MPポーション（mp_potion）:** MP回復。targetType: allySingle。
+  * **修復ポーション（repair_potion）:** 武器使用回数を回復（repairWeapons value=2）。
+  * **挑発ポーション（taunt_potion）:** 使用者を敵に挑発（taunt）。Uncommon。
+  * **興奮ポーション（excitement_potion）:** STR・INT両方を一時的に加算（statBoost）。Uncommon。
+  * **防御ポーション（defense_potion）:** 被ダメージを一定率軽減（damageReduction）。Uncommon。
+  * **全体化ポーション（aoe_potion）:** 次の攻撃を全体化（aoeConvert）。Rare。
 * **即時発動:** ポーションはターン消費なしで使用可能。1ターンに複数回使用可能（所持数が上限）。
 
 ## 4. バフ
 * MVP実装されているバフ:
-    * **マッスルアップ** ダメージ倍率として機能（`1.0 + totalValue * 0.1` の乗算倍率）。戦闘終了まで持続。
-    * **力溜め** 次の攻撃まで有効（主に敵が使用）
-    * **精密バフ** (precision): 次の攻撃のダメージブレを最大値で固定（nextAction持続）。
-    * **被ターゲット率UP** (targetRateUp): 祈り効果による被弾率上昇バフ。
-    * **自己防御バフ (selfDefense):** 敵が自分自身に付与する防御強化バフ。被ダメージを軽減する。
-    * **シールド (shield):** 被ダメージを一定量吸収するバリア。魔法「バリア」によって付与される。
-    * **武器強化 (weaponPowerBonus):** 武器の威力を加算するバフ。魔法「武器強化」によって付与される。
-    * **レベルアップ後ダメージバフ (levelUpDamageBoost):** 戦闘中にレベルアップした直後の次の攻撃に乗算されるダメージ倍率バフ。レリック「闘気の腕輪」により付与される。
-    * **導きバフ (guidanceBuff):** 師弟の絆により付与される。次のキルで追加EXPが発生する。
-* シールドは2系統で実装されている: レリック「壊れかけの鎧」(firstHitShield, 最初の被弾を防ぐ) と魔法「バリア」(shield, バフとして付与)。
+    * **マッスルアップ（筋力バフ）:** 倍率として機能（`1.0 + totalValue * 0.1` の乗算倍率）。
+    * **力溜め:** 次の攻撃まで有効（主に敵が使用）。
+    * **精密バフ (precision):** 次の攻撃のダメージブレを最大値で固定（nextAction持続）。
+    * **被ターゲット率UP (targetRateUp):** 祈り効果による被弾率上昇バフ。
+    * **自己防御バフ (selfDefense):** 敵が自分自身に付与する防御強化バフ。
+    * **シールド (shield):** 被ダメージを一定量吸収するバリア。
+    * **武器強化 (weaponPowerBonus):** 武器の威力を加算するバフ。
+    * **棘 (thorns):** 被弾時に反撃ダメージを与えるバフ（棘の護り魔法等が付与）。
+    * **damageReduction:** 被ダメージ軽減バフ（防御ポーション）。
+    * **comboPowerBonus（連携の紋章）:** 連携ボーナスのPower加算バフ。
 * 毎ターン回復はレリック「再生のコケ」(regenPerTurn)として実装されている。
-* 「強化」「知力アップ」はMVP未実装。
 
 ## 5. デバフ
 * MVP実装されているデバフ:
-    * **毒** スタック制。毎ターン固定ダメージ、スタックは毎ターン1減少し0になると解除される。ただし、敵行動から毒攻撃は全削除されており実質的に発動しない（コードに処理は残存）。
-    * **弱体 (weakness)** 持続ターン制（durationが毎ターン減少し0で解除）。プレイヤーのダメージを低下させる。武器・魔法の両方に適用される。敵が付与するデバフ。
+    * **毒:** スタック制。毎ターン固定ダメージ、スタックは毎ターン1減少し0になると解除される。ただし、敵行動から毒攻撃は全削除されており実質的に発動しない（コードに処理は残存）。
+    * **弱体 (weakness):** 持続ターン制（durationが毎ターン減少し0で解除）。プレイヤーのダメージを低下させる。武器・魔法の両方に適用される。敵が付与するデバフ。
+    * **vulnerability（被ダメ増加）:** 持続ターン制。multiplierで受けるダメージが倍化される。シャーマンの「弱体の呪い」が付与する。BuffProcessor.tsで被ダメージ計算時に適用。Explorer型に実装。
 * 「出血」はMVP未実装。
 
 ## 6. 討伐ターン
-* ターン制限はStageパターンごとに固定値として設定されている（例: stage_1は5, stage_7は12, stage_8は10, stage_10は10, stage_11は14）。
+* ターン制限はStageパターンごとに固定値として設定されている（StagePatterns.json）。
 * 討伐ターン数を超過した場合のペナルティダメージは現状未実装。UIにのみターン超過の表示がある。
 
-### 第二階層（ステージ8-11）
+### 第二階層（Stage 8-14）
 * BattleState に `enemyHpMultiplier` / `enemyDamageMultiplier` フィールドが存在し、第二階層では敵HP・敵攻撃力に倍率が適用される（Tuning Editorで調整可能）。
+
+### 第三階層（Stage 15-21）
+* `floor_3_hp_multiplier`（デフォルト3.0）と `floor_3_damage_multiplier`（デフォルト2.5）が適用される。
 
 ## 6.x ターゲティングシステム
 * 前衛・後衛の判定は party 配列順から動的に決定される（1.1 参照）。
@@ -127,13 +178,26 @@ MVP実装のダメージ計算式:
 * 祈りバフ（targetRateUp）による被ターゲット率の補正がある。
 
 ## 7. 戦闘後の報酬
-* 基礎ゴールドがもらえる（TuningData.json の運用値: normal 6G / elite 10G / boss 20G。RewardCalculator.ts のフォールバック値は normal 3G / elite 5G / boss 10G）
-* 現在所持しているゴールド5ゴールドにつき1ゴールドの利息がもらえる（利息上限はTuning Editorで調整可能、デフォルト: 5G、貯金箱所持時10G）
-* 報酬は BaseGold + Interest + StolenGold のみ（討伐数分のゴールドボーナスは存在しない）。
+* 報酬は出現した**全ての敵のgoldReward合計**（利子システムは削除済み）。
+  * normal敵: 4G、elite敵: 7G、boss敵: 12G（Enemies.jsonで固定値）。
+* BaseGold/Interest方式は廃止。利子（interest）は存在しない。
 
-> **バランス調整:** 多くのバトルパラメータ（報酬、バフ係数、前衛/後衛ウェイト等）がTuning Editorで調整可能である。コードに直接触れずにゲームバランスを調整できる。
+## 8. 回復メニュー（recoveryフェーズ）
+* 戦闘後のストア画面に加え、別途回復メニューが表示される（phase: 'recovery'）。
+* ゴールドを消費して以下の操作が可能：
+  * HP回復
+  * MP回復
+  * 武器修理（全武器+1）
+  * HP→MP変換
+  * MP→HP変換
+* 各操作にはコストが設定されており、Tuning Editorで調整可能。
 
-## 8. 経験値
+## 9. レベルアップ成長選択（GrowthType）
+* レベルアップ時、固定成長値の代わりに **2択の成長方向選択** が提示される。
+* 5種の成長タイプ（attack/hp/mp/balance/allBonus）から重み付きランダムで2択を生成。
+* 選択内容はBattleStateの`pendingGrowthChoices`キューに追加され、プレイヤーが戦闘中または戦闘後に選択する。
+
+## 10. 経験値
 * 全パーティーメンバーに1EXP加算 + 止めを刺したキャラにさらに+1EXP。
-* 倒した瞬間に経験値を入手し、戦闘中でもレベルアップが発生する場合もある
-* レベルアップタイミングは次のユニットの行動前
+* 倒した瞬間に経験値を入手し、戦闘中でもレベルアップが発生する場合もある。
+* レベルアップタイミングは次のユニットの行動前。

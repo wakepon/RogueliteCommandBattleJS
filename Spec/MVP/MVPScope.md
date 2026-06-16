@@ -13,13 +13,16 @@ MVPでは**「3人パーティー制、2階層、コアシステム完備」**�
 * **3人パーティー制:** 戦士・魔法使い・僧侶の3人編成。コマンドスロット制で行動順管理。
 * **リソース管理:** HP, MP, Gold, 武器使用回数の増減とUI表示。
 * **戦闘計算式:** ダメージ計算ロジック完全実装。
-* **ストア機能:** 2択ショップ制（2つのショップ選択肢からどちらかを選ぶ）。商品のランダム陳列、売買、品揃え変更。
-* **金利システム:** 所持金による利子ボーナス（戦略の核なので必須）。
+* **ストア機能:** 5枠2選択方式（5つの商品スロットから最大2つを選択できる）。商品のランダム陳列、購入・破棄、品揃え変更。
 * **敵AI:** 敵種別ごとに行動バリエーションが実装されている（確率テーブルによる行動選択、力溜め（自身/全味方）、連続攻撃、HPフェーズ切替、自己防御、自己回復、味方回復、仲間呼び（召喚）、全体攻撃（AoE）、弱体デバフ付与など）。討伐ターン制限も実装。
+* **回復メニュー（Recovery）フェーズ:** リザルト画面後・ストア前にHP回復・MP回復・武器修理・HP↔MP変換を選択できるフェーズ。`RecoveryMenuId` （healHp / healMp / repairWeapons / convertHpToMp / convertMpToHp）の5種。
+* **成長方向選択システム（Growth Type）:** レベルアップ時に2択の成長方向（attack / hp / mp / balance / allBonus）を選択できるシステム。`BattleState.pendingGrowthChoices` にキューイングされ、`SUBMIT_GROWTH_CHOICE` アクションで確定する。
+* **武器・魔法強化システム（Enhancement）:** ストアで武器・魔法に merit/demerit のペアを付与できる強化システム。1アイテムあたり最大3つまで付与可能。
 * **バランス調整ツール（Tuning Editor）:** DEV専用のパラメータ調整エディタ。BroadcastChannelによるリアルタイム反映。7カテゴリのパラメータを調整可能。
 * **第二階層（ステージ8-11）:** 第一階層クリア後に続く第二セット。敵HP倍率・ダメージ倍率が上昇し、ショップのRare品出現率も上昇する。
-* **3アーキタイプシステム:** ローHP戦略（低HP時ダメージ増）、金策戦略（ゴールドをダメージ源に）、武器破壊戦略（武器破壊時のダメージ倍率増）の3つのビルドアーキタイプを実現するレリック・魔法・武器群。EXP/防御系アーキタイプ群も追加実装済み（闘気の腕輪 `levelUpDamageBoost`、修羅の証 `battleEndBonusExp`、番狂わせの一撃 `lowestLevelDamageMultiplier`、強い者いじめ `highHpTargetRateBonus`、身代わりの人形 `deathProtection`）。魔法での支援（師弟の絆 `guidanceBuff`、教育の魔弾 `killBonusExpToAll`）も含む。
-* **ポーション即時発動（USE_POTION_INSTANT）:** コマンド選択フェーズ中にポーションをその場で即時発動できる。HP回復・MP回復・武器修理（repair_potion）に対応。
+* **3アーキタイプシステム:** ローHP戦略（低HP時ダメージ増）、武器破壊戦略（壊れた武器累計でSTR上昇）の2つの軸を実現するレリック・魔法・武器群。EXP/防御系アーキタイプ群も追加実装済み（闘気の腕輪 `levelUpStatBoost`、修羅の証 `battleEndBonusExp`、努力の証 `brokenWeaponStatBonus`、身代わりの人形 `deathProtection`）。魔法での支援（killBonusExpToAll系）も含む。
+* **ポーション即時発動（USE_POTION_INSTANT）:** コマンド選択フェーズ中にポーションをその場で即時発動できる。HP回復・MP回復・武器修理・バフ系（挑発・興奮・防御・全体化）に対応。
+* **slotFree魔法:** `slotFree: true` の魔法は魔法枠を消費しない（魔力弾・祈り等がパンチに相当）。
 * **リザルト画面の戦闘前後差分表示:** BattleStartSnapshot を戦闘開始時に記録し、リザルト画面でメンバーカードに HP/MP/レベル/EXP/武器耐久の変化を逐次アニメ（MemberAnimationPhase）で表示する。
 
 ## 今回は見送るもの（Post-MVP）

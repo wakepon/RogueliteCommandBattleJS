@@ -45,38 +45,53 @@
 | stage_6 | 9ターン |
 | stage_7 | 12ターン |
 | stage_8 | 10ターン |
-| stage_10 | 10ターン |
-| stage_11 | 14ターン |
+| stage_9 | 10ターン |
+| stage_10 | 11ターン |
+| stage_12 | 12ターン |
+| stage_13 | 12ターン |
+| stage_14 | 14ターン |
+| stage_15 | 12ターン |
+| stage_16 | 12ターン |
+| stage_17 | 13ターン |
+| stage_19 | 14ターン |
+| stage_20 | 14ターン |
+| stage_21 | 16ターン |
 
 * **ペナルティダメージ:** 現状ペナルティ未実装、UIにのみ超過表示がある。
 
 ## ダメージ計算式（最重要）
 
-**シンプル構造**を採用:
+現在の実装（DamageCalculator.ts）:
 
 ```
-最終ダメージ = (Str/Int + レリックstatBonus) x (power + conditionalPower + weaponDamageBonus + weaponPowerBonus) x バフ倍率 x レリック倍率 x weaponBreakMultiplier + ブレ補正(±variance)
+rawDamage = effectiveStat * effectivePower * buffMultiplier
+          + effectiveStat * hpCostPowerBoostValue * buffMultiplier  // 修羅の血脈
+          + effectiveStat * vulnBonus * buffMultiplier              // 逆境の鎧
+          + effectiveStat * comboBuff.value * buffMultiplier        // 連携の紋章
+          × weakness補正（1.0 - debuff.value）
+
+最終ダメージ = floor(rawDamage) + offset(±variance) + shieldBashBonus
 ```
 
-* **UnitStat:** 武器のscaleStatプロパティに従い、`str` または `int` で計算。弱体（weakness）デバフが付与されている場合、最終ダメージが低下する。武器・魔法の両方に適用される。
-* **power:** 武器/魔法に設定された基本威力。パンチはpower=1（STR x 1 = STR分のダメージ）。
-* **conditionalPower:** 条件付きで加算される追加威力（例: 猛撃の斧）。条件不成立時は0。
-* **weaponDamageBonus:** 鋭い砥石など、武器/パンチ攻撃時に加算されるボーナス。
-* **weaponPowerBonus:** 武器強化バフによって付与される威力加算ボーナス。
-* **バフ倍率:** 倍率効果を**加算**。未適用時は1.0。複数のバフ倍率は加算される。
-* **レリック倍率（武器ダメージ）:** lastStrikeDamageMultiplier（研ぎ師の名刺、武器最終使用時）が乗算される。
-* **weaponBreakMultiplier:** 武器破壊時に乗算される倍率（努力の証レリックが付与）。
-* **レリック倍率（魔法ダメージ）:** lowMpDamageBonus（集中の水晶）が乗算される。
-* **追加レリック倍率:** `lowHpDamageMultiplier`（怒りの炎、HP低下時に乗算）、`lowestLevelDamageMultiplier`（番狂わせの一撃、最低レベルキャラ使用時に乗算）、`levelUpDamageBoost`（闘気の腕輪、戦闘中レベルアップ後の次攻撃に対してバフとして付与）も乗算される。
-
-### マッスルアップの計算
-* マッスルアップはダメージ倍率として機能する（`1.0 + totalValue * 0.1` の乗算倍率）。
-* バフ倍率の加算部分に寄与する（Str直接加算ではない）。
+* **effectiveStat:** `baseStat + positionBonus + brokenBonus`
+  * positionBonus: 前衛の矜持（frontRowIntBonus）または後衛の叡智（backRowStrBonus）
+  * brokenBonus: 努力の証（brokenWeaponStatBonus）により壊れた武器1本あたりSTR加算
+* **effectivePower:** `weapon.power + conditionalPowerBonus + weaponPowerBonusValue`
+* **conditionalPower（条件付きPower加算）の種類:**
+  * `selfHpConditional`（怒りの大剣）: 自身HP閾値以下で追加Power
+  * `targetHpConditional`（処刑の大剣/処刑の雷）: ターゲットHP閾値以下で追加Power
+  * `followUp`（追撃のナイフ/追撃の炎）: 同ターンで味方が先に攻撃済みのとき追加Power
+  * `levelScale`（成長のナイフ）: 使用者レベル分を追加Power
+  * `lowMpConditional`（渇きの火）: MP閾値以下のとき追加Power
+* **weaponPowerBonus:** 武器強化バフ（weaponPowerBuff）によって付与される威力加算。
+* **buffMultiplier:** `1.0 + totalStatBuffValue * buff_multiplier_per_point(0.1)`
+* **shieldBashBonus:** 盾殴り（shieldBash）の場合、シールドバフのvalue値を最終ダメージに加算。
+* **弱体（weakness）:** rawDamage に`(1.0 - debuff.value)`を乗算。
+* **UnitStat:** 武器のscaleStatプロパティに従い、`str` または `int` で計算。
 
 ### ダメージ/回復ブレ幅
 * **ブレ補正:** 加算方式。各武器/魔法にvariance値が設定されている。
 * **分布:** `-variance ~ +variance` の整数が均等分布で生成され、基礎ダメージ(floor済み)に加算される。
-* **適用対象:** ダメージ・回復の両方に適用。
 * 計算例: 基礎ダメージ100、variance=5の場合、最終的に95～105のダメージになる。
 
 ### 端数処理
@@ -85,7 +100,7 @@
 * HP回復は最大HPでキャップされる（オーバーヒールなし）。
 
 ### 全体攻撃
-* 全体攻撃（ファイアストーム等）は**各敵に同じダメージ**を与える。
+* 全体攻撃（フレイムストーム等）は**各敵に同じダメージ**を与える。
 
 ## バフ/デバフ
 
@@ -100,9 +115,19 @@
 | 精密バフ | 次の攻撃まで（nextAction持続） |
 | 被ターゲット率UP | 戦闘中持続 |
 | 弱体（weakness） | 持続ターン制（durationが毎ターン減少、0で解除） |
+| vulnerability（被ダメ増加） | 持続ターン制（durationが毎ターン減少、0で解除） |
 | 自己防御バフ（selfDefense） | 持続ターン制 |
 | シールド（shield） | 持続ターン制（ダメージ吸収、0で解除） |
 | 武器強化（weaponPowerBonus） | 持続ターン制（weaponPowerBonusに加算） |
+| damageReduction | 持続ターン制（防御ポーション効果） |
+| comboPowerBonus | 持続ターン制（連携の紋章効果） |
+| thorns（棘） | 持続ターン制（被弾時反撃） |
+
+### vulnerability（被ダメ増加）デバフ
+* multiplierで受けるダメージが倍化される持続ターン制デバフ。
+* シャーマンの「弱体の呪い」が付与する。
+* BuffProcessor.tsで被ダメージ計算時に適用される。
+* 逆境の鎧（vulnerabilityPowerBoost）を持つ場合、vulnerability状態中に攻撃力ボーナスを得る。
 
 ### 精密バフ
 * 次の攻撃のダメージブレを最大値で固定する（varianceを最大値に固定）。
@@ -118,40 +143,36 @@
 * 戦闘終了時にリセットされる。
 * **注意:** 敵行動から毒攻撃は全削除されており実質的に発動しない（コードに処理は残存）。
 
-## レリック効果の詳細
+## レリック効果の詳細（20種）
 
 ### 効果の適用タイミング
 
-| レリック | 効果タイミング |
-| :--- | :--- |
-| 戦士の腕輪 | 常時（ステータス画面に反映） |
-| 魔術師の指輪 | 常時（ステータス画面に反映、INT statBonus） |
-| 鋭い砥石 | 武器/パンチ攻撃実行時にダメージ計算に加算（魔法は対象外） |
-| 貯金箱 | 報酬計算時（利子上限を10Gに変更） |
-| 壊れかけの鎧 | 最初の被弾を防ぐ（firstHitShield） |
-| 武器お手入れ用油 | 確率で武器使用回数消費を防ぐ（weaponDurabilitySave） |
-| ストレス発散 | 武器攻撃時にMP回復（weaponAttackMpRecover、パンチは対象外） |
-| 研ぎ師の名刺 | 武器の最後の一撃でダメージ倍率上昇（lastStrikeDamageMultiplier） |
-| 集中の水晶 | MP低下時に魔法ダメージ倍率上昇（lowMpDamageBonus） |
-| 反撃の棘 | 被弾時に固定ダメージ反射（thornsDamage） |
-| 再生のコケ | 毎ターンHP回復（regenPerTurn） |
-| 錬金術の触媒 | ポーション効果倍率上昇（potionEffectMultiplier） |
-| 血の契約 | 攻撃時にHPを消費してダメージ上昇 |
-| 苦痛のリング | HP低下時に特殊効果発動 |
-| 商人の護符 | ゴールド関連の効果（購入・獲得に影響） |
-| 金の指輪 | ゴールド獲得量増加 |
-| 努力の証 | 武器破壊時にダメージ倍率上昇（weaponBreakMultiplier） |
-| 鍛冶師の金槌 | 武器使用回数または耐久に関する強化 |
-| 怒りの炎 | HP低下時に攻撃ダメージ倍率上昇（lowHpDamageMultiplier） |
-| 闘気の腕輪 | 戦闘中レベルアップ後の次攻撃にダメージ倍率バフを付与（levelUpDamageBoost） |
-| 修羅の証 | 敵撃破時にゴールド獲得（goldPerKill） |
-| 番狂わせの一撃 | 最低レベルキャラの攻撃時にダメージ倍率上昇（lowestLevelDamageMultiplier） |
-| 強い者いじめ | HP高い敵への被ターゲット率補正（highHpTargetRateBonus） |
-| 身代わりの人形 | 瀕死時に1度だけ生存する（deathProtection） |
+| レリック | 効果タイプ | 説明 |
+| :--- | :--- | :--- |
+| 修羅の血脈 | hpCostPowerBoost | HP消費コマンド使用時、Power加算ブーストが適用される |
+| 逆境の鎧 | vulnerabilityPowerBoost | vulnerability状態中にPowerボーナス加算 |
+| 魔力の残滓 | mpSpendShield | MP消費時、閾値以上のMP消費でシールド付与 |
+| 研ぎ師の名刺 | knifeUseDurabilityRestore | ナイフ系武器の使用回数を一定使用ごとに自動回復 |
+| 討伐の対価 | killMpRecover | 敵撃破時にMP回復 |
+| 前衛の矜持 | frontRowIntBonus | 前衛（index=0）のINTにボーナス加算 |
+| 後衛の叡智 | backRowStrBonus | 後衛のSTRにボーナス加算 |
+| 挑発式防御 | shieldTaunt | シールドバフ付与時に挑発効果も付与 |
+| 連携の紋章 | comboAttackBonus | 同ターン味方攻撃後にcomboPowerBonusバフ付与 |
+| 闘気の腕輪 | levelUpStatBoost | レベルアップ時にSTR/INTを永続加算 |
+| 努力の証 | brokenWeaponStatBonus | 壊れた武器1本あたりSTRを加算 |
+| 苦痛のリング | damageTakenToMp | 被ダメージをMP変換 |
+| 血の契約 | battleStartHpReduction | 戦闘開始時にHPを一定割合減らしSTRを加算 |
+| 身代わりの人形 | deathProtection | 瀕死時に1度だけ生存する |
+| 再生のコケ | regenPerTurn | 毎ターンHP回復 |
+| 武器お手入れ用油 | weaponDurabilitySave | 確率で武器使用回数消費を防ぐ |
+| 修羅の証 | battleEndBonusExp | 戦闘終了時にボーナスEXP獲得 |
+| 棘の書 | thornsDurationBonus | thorns（棘）バフの持続ターン延長 |
+| 錬金術の触媒 | potionEffectMultiplier | ポーション効果倍率上昇 |
+| 薬師の鞄 | potionSlotBonus | ポーション所持枠を拡張 |
 
 ### レリックの重複
 * 同じレリックを複数所持可能。
-* 効果は加算される（例: 戦士の腕輪 x2 → 筋力+4）。
+* 効果は加算される（例: 前衛の矜持 x2 → INTボーナス2倍）。
 
 ### レリック効果の永続性
 * レリック効果はダンジョン内で永続する。
@@ -173,16 +194,23 @@
 | 3→4 | 6体 | 14体 |
 | 4→5 | 7体 | 21体 |
 
-### レベルアップ効果（クラス別成長値）
+### レベルアップ効果（GrowthType選択制）
 
-| クラス | HP | MP | STR | INT |
-| :--- | :--- | :--- | :--- | :--- |
-| warrior（戦士） | +7 | +1 | +2 | - |
-| mage（魔法使い） | +3 | +4 | - | +2 |
-| cleric（僧侶） | +5 | +3 | +1 | +1 |
+レベルアップ時、固定成長値の代わりに **2択の成長方向選択** が提示される。
 
-* **HP/MP回復:** レベルアップ時の回復率はTuning Editorで調整可能（コード上のフォールバック値は旧最大値の50%）。回復量の端数はceil（切り上げ）処理。上限は新最大値。
-* **HP成長値:** HP成長値はTuning Editorで調整可能なパラメータ調整対象値（上表の値はコード上のデフォルト）。
+* 5種の成長タイプ（attack/hp/mp/balance/allBonus）からクラス別重み付きランダムで2択を生成。
+* 選択内容はBattleStateの`pendingGrowthChoices`キューに追加され、プレイヤーが選択する。
+* 選択後に成長値が即時適用される。
+
+| GrowthType | 概要 |
+| :--- | :--- |
+| attack | STRまたはINT重点成長 |
+| hp | HP重点成長 |
+| mp | MP重点成長 |
+| balance | バランス型成長 |
+| allBonus | 全ステータス小幅成長 |
+
+* **HP/MP回復:** レベルアップ時の回復率はTuning Editorで調整可能（コード上のフォールバック値は25%: `levelup_hp_recovery_rate: 0.25`, `levelup_mp_recovery_rate: 0.25`）。回復量の端数はceil（切り上げ）処理。上限は新最大値。
 * **Agi:** ExplorerState（プレイヤー）にAgiは存在しない。Agiは敵のみ。
 
 ### レベルアップのタイミング
@@ -207,14 +235,15 @@
 戦闘中に以下の状態が管理される:
 
 * **battleMessage:** 敵行動のメッセージ表示。
-* **relicState:** 壊れかけの鎧のシールド状態（firstHitShield）など、レリックに関連する戦闘内部状態。
+* **relicState:** レリックに関連する戦闘内部状態。
+* **pendingGrowthChoices:** レベルアップ時の成長選択キュー（GrowthType[][]）。
 
 ## 報酬処理
 
 勝利時、以下の計算でゴールドを加算する。
 
-* **BaseGold:** 戦闘に出現した**最も強い敵**の報酬のみ（TuningData.json の運用値: normal 6G / elite 10G / boss 20G。RewardCalculator.ts のフォールバック値は normal 3G / elite 5G / boss 10G）。
-  * 例: ボス + 雑魚3体の戦闘 → ボスのBaseGoldのみ（雑魚の報酬は加算されない）
-* **Interest (利子):** min( floor(CurrentGold / 5), 利子上限 )。利子上限はTuning Editorで調整可能（デフォルト5G、貯金箱所持時10G）。
-  * 例: 所持金23Gの場合、利子は4G。所持金100Gでも利子は上限の5G（貯金箱なし）。
-* **盗んだゴールド:** ゴールドラッシュで盗んだ金額は別枠で加算される。
+* **報酬:** 戦闘に出現した**全ての敵のgoldReward合計**。
+  * normal敵: 4G、elite敵: 7G、boss敵: 12G（Enemies.jsonで定義、パラメータ調整対象）。
+  * 例: ボス（12G） + 雑魚2体（各4G）= 20G
+* 利子（interest）システムは削除済み。BaseGold/Interest方式は廃止。
+* **盗んだゴールド:** 別枠で加算（吸魔の杖等の効果）。

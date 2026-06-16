@@ -15,6 +15,30 @@ Spec/
 
 ## 更新履歴
 
+### 2026-06-16: カテゴリ制リデザイン + ゴールドシステム廃止 + 第三階層追加 + 回復メニュー + 成長選択システム
+
+3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。
+
+**Core Game チーム** (9ファイル更新):
+- `Overview/BattleOverview.md` — ダメージ計算式をPower加算方式に全面改訂、武器18種（カテゴリ制: knife/greatsword/staff/shield/other）・魔法22種に全面刷新、ポーション7種に拡大、vulnerabilityデバフ・thorns・damageReduction・comboPowerBonusバフ追加、第三階層（Stage 15-21）追加、回復メニューセクション追加、GrowthType選択制セクション追加、利子システム削除
+- `Overview/EnemyOverview.md` — 敵14種に更新（盾持ちゴブリン/ガーディアン/リッチ追加、オークロード削除）、ゴブリン・シャーマン・ダークメイジ・ドラゴンの行動パターン修正、HP/goldReward値を実装値に修正、新規行動カテゴリ8種追加
+- `Overview/StoreOverview.md` — 5枠2選択方式に変更、レリック20種に全面刷新、階層別レアリティフィルタ（第3階層追加）、ポーション7種更新
+- `Overview/DungeonExploreOverview.md` — 全21ステージ構成に更新、第三階層（Stage 15-21）追加、イベントステージをStage 4/11/18に修正、回復メニュー追加
+- `MVP/BattleSystem.md` — ダメージ計算式全面改訂、レリック効果20種に刷新、レベルアップをGrowthType選択制に変更、HP/MP回復率25%に修正、報酬処理簡素化
+- `MVP/EnemyCharacter.md` — 敵一覧全面更新（14種）、出現パターンをStage 21まで拡張、goldReward方式に変更
+- `MVP/GameFlow.md` — 全21ステージ進行に更新、第三階層追加、回復メニューフェーズ追加、初期所持金0Gに修正
+- `MVP/StoreItem.md` — 5枠2選択方式、武器18種・魔法22種・レリック20種・ポーション7種に全面刷新、階層別レアリティフィルタ追加
+- `MVP/PlayerStatus.md` — 初期所持金0G、戦士初期武器「ナイフ」、魔法使い初期魔法「アイス」、僧侶初期「祈り+ヒール」に修正、GrowthType選択制に変更、HP/MP回復率25%に修正
+
+**Data & State チーム** (4ファイル更新):
+- `Architecture/SystemDesign.md` — GamePhaseにrecovery追加、RecoveryState/GrowthType/Enhancement型定義追加、PassiveEffectType全面更新（20種）、WeaponEffect全面更新（16種）、SpellEffect更新（13種）、PotionEffect7種に拡張、StoreState5枠方式に変更、BattleState/ResultState整理、GameReducerアクション更新（SELL系→DISCARD系、Recovery/Growth系追加）、データ数更新（武器18/魔法22/レリック20/ポーション7/敵14種）、SAVE_VERSION=6
+- `MVP/MVPScope.md` — 5枠2選択方式に修正、金利システム削除、回復メニュー/成長選択/強化システム/slotFree魔法を追加
+- `MVP/DevelopmentRoadmap.md` — データ数修正、フェーズ7（ゴールドシステム廃止・カテゴリ制リデザイン）新規追加
+- `MVP/ImplementationTasks.md` — スライス12/14のタスク修正、スライス15（ゴールドシステム廃止・カテゴリ制リデザイン）新規追加、ファイル一覧更新
+
+**UI チーム** (1ファイル更新):
+- `MVP/UIUXDesign.md` — recoveryフェーズ追加、回復メニュー画面セクション新規追加、成長方向選択モーダル（GrowthSelectModal）セクション追加、ストア画面を5枠2選択・削除枠方式に全面改訂（2段階構成廃止）、Reroll無料化、所持金表示を回復メニューのみに変更、結果画面ボタン「回復メニューへ」に修正、報酬内訳表示簡素化、ツールチップ武器・魔法効果リスト全面更新、ItemDescriptionレリック効果リスト更新、BuffIcon新規バフ表示追加、vulnerabilityデバフ視覚化、ダメージ予測値インライン表示追加、slotFree魔法のストア表示追加
+
 ### 2026-05-11: 第二階層追加 + 敵改善 + UIレイアウト刷新 + バランス調整の反映
 
 3チーム並列（Core Game / Data & State / UI）で分析・書き出しを実施。

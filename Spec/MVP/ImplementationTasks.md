@@ -190,29 +190,20 @@
 
 ---
 
-## スライス12: 3アーキタイプ + ショップ2択制
-**動作確認**: 3アーキタイプ（ローHP/金策/武器破壊）のビルドが機能し、ストアで2択からショップを選べる
+## スライス12: 3アーキタイプ + ショップ2択制（旧仕様。現在は5枠2選択方式に更新済み）
+**動作確認**: アーキタイプビルドが機能し、ストアで複数アイテムを選択できる
 
 | # | タスク | 説明 | ステータス |
 |---|--------|------|:----------:|
-| 12.1 | StoreState型変更 | weaponSlots/relicSlots/potionSlots を削除し shopOptions[ShopOption, ShopOption] + selectedShopIndex に変更。StoreCategory, ShopSlot, ShopOption 型を追加 | ✅ 完了 |
-| 12.2 | SELECT_SHOP アクション | GameReducer にSELECT_SHOPアクション追加。2択からどちらかのショップを選択する処理 | ✅ 完了 |
-| 12.3 | shield効果処理 | SpellEffect shield に対応する BattleActionProcessor の処理（被ダメージ軽減バフ付与） | ✅ 完了 |
-| 12.4 | hpToMp効果処理 | SpellEffect hpToMp に対応する処理（HPをMPに変換） | ✅ 完了 |
-| 12.5 | goldOnHit効果処理 | SpellEffect goldOnHit に対応する処理（攻撃ヒット時ゴールド獲得） | ✅ 完了 |
-| 12.6 | goldDamage効果処理 | SpellEffect goldDamage に対応する処理（所持ゴールドに応じてダメージ増加） | ✅ 完了 |
-| 12.7 | repairWeapons効果処理 | SpellEffect repairWeapons に対応する処理（装備中武器の耐久回復） | ✅ 完了 |
-| 12.8 | weaponPowerBuff効果処理 | SpellEffect weaponPowerBuff に対応する処理（武器ダメージバフ付与） | ✅ 完了 |
-| 12.9 | battleStartHpReduction処理 | PassiveEffectType battleStartHpReduction に対応する処理（戦闘開始時HP減少、applyBloodPact） | ✅ 完了 |
-| 12.10 | damageTakenToMp処理 | PassiveEffectType damageTakenToMp に対応する処理（被ダメージをMPに変換） | ✅ 完了 |
-| 12.11 | goldPerKill処理 | PassiveEffectType goldPerKill に対応する処理（敵撃破時ゴールド獲得） | ✅ 完了 |
-| 12.12 | weaponBreakDamageMultiplier処理 | PassiveEffectType weaponBreakDamageMultiplier に対応する処理（武器破壊時ダメージ倍率）。RunState.weaponBreakMultiplier を使用 | ✅ 完了 |
-| 12.13 | weaponBreakNextAttackBonus処理 | PassiveEffectType weaponBreakNextAttackBonus に対応する処理（武器破壊後の次攻撃ボーナス） | ✅ 完了 |
-| 12.14 | WeaponEffect conditionalPower追加 | WeaponEffect に conditionalPower を追加し DamageCalculator で対応 | ✅ 完了 |
-| 12.15 | 新武器9種追加 | Weapons.json に cursed_spear, berserker_axe, golden_sword, jewel_staff, disposable_blade, glass_sword, rusty_greatsword, soul_eater_sword, guardian_shield を追加（最終19種） | ✅ 完了 |
-| 12.16 | 新魔法6種追加 | Spells.json に barrier, life_tap, gold_hex, gold_burst, field_repair, weapon_enchant を追加（最終16種。master_bond, education_bullet, healing_wind を含む） | ✅ 完了 |
-| 12.17 | 新レリック追加 | Relics.json に3アーキタイプ対応レリック群を追加（最終24種） | ✅ 完了 |
-| 12.18 | 武器修理バグ修正 | repairWeapons効果が正しく全スロットの武器を修理するよう修正 | ✅ 完了 |
+| 12.1 | StoreState型変更 | 5枠2選択方式（slots: ShopSlot[], maxSelections, rerollCount, rareRate, floor）に変更。ShopOption型は削除済み | ✅ 完了 |
+| 12.2 | shield効果処理 | SpellEffect shield に対応する BattleActionProcessor の処理（被ダメージ軽減バフ付与） | ✅ 完了 |
+| 12.3 | repairWeapons効果処理 | SpellEffect repairWeapons に対応する処理（装備中武器の耐久回復） | ✅ 完了 |
+| 12.4 | weaponPowerBuff効果処理 | SpellEffect weaponPowerBuff に対応する処理（武器ダメージバフ付与） | ✅ 完了 |
+| 12.5 | battleStartHpReduction処理 | PassiveEffectType battleStartHpReduction に対応する処理（戦闘開始時HP減少、applyBloodPact） | ✅ 完了 |
+| 12.6 | damageTakenToMp処理 | PassiveEffectType damageTakenToMp に対応する処理 | ✅ 完了 |
+| 12.7 | 新武器追加 | Weapons.json を18種に更新（knife, followup_knife, growth_knife, training_knife, recoil_greatsword, opening_greatsword, fickle_greatsword, rage_greatsword, execution_greatsword, training_staff, vampire_staff, mana_drain_staff, guardian_shield, thorns_shield, whirlwind_sword, shield_bash, life_fist, desperate_strike） | ✅ 完了 |
+| 12.8 | 新魔法追加 | Spells.json を22種に更新 | ✅ 完了 |
+| 12.9 | 新レリック追加 | Relics.json を20種に更新 | ✅ 完了 |
 
 ---
 
@@ -249,24 +240,44 @@
 | 14.1 | StagePatterns.json 拡張 | stage_8〜stage_11 を追加。stage_9 はイベントステージ | ✅ 完了 |
 | 14.2 | isEventStage 更新 | stage 4 と stage 9 の両方をイベントステージと判定 | ✅ 完了 |
 | 14.3 | StageManager 定数追加 | TOTAL_STAGES = 11、getFloor(stage)、isBossStage(stage) 実装 | ✅ 完了 |
-| 14.4 | BattleState 拡張 | enemyHpMultiplier / enemyDamageMultiplier / currentActorIndex / bonusGains フィールド追加 | ✅ 完了 |
+| 14.4 | BattleState 拡張 | enemyHpMultiplier / enemyDamageMultiplier / currentActorIndex / pendingGrowthChoices フィールド追加 | ✅ 完了 |
 | 14.5 | generateEnemyIntents 拡張 | damageMultiplier 引数追加 | ✅ 完了 |
 | 14.6 | EnemyEffectProcessor 更新 | applySummonEnemy で enemyHpMultiplier 参照。applyHealAlly 引数をオブジェクト型に変更 | ✅ 完了 |
 | 14.7 | StoreState rareRate 追加 | rareRate フィールド追加。createStoreState に stage 引数追加。pickWithRarity 関数追加 | ✅ 完了 |
 | 14.8 | TuningConfig floor カテゴリ追加 | 7カテゴリ化（floor: 階層倍率調整） | ✅ 完了 |
 | 14.9 | BattleResultDiff.ts 追加 | Lib/Core/ に戦闘結果差分計算を追加 | ✅ 完了 |
-| 14.10 | ResultState 型拡張 | 全フィールド（result, goldEarned, baseGold, interestGold, stolenGold, bonusEntries, killCount, memberDiffs, goldDiff）を追加 | ✅ 完了 |
-| 14.11 | WeaponUsesDiff 型更新 | weaponName, currentUses, maxUses, usesDiff, broken フィールドを追加 | ✅ 完了 |
-| 14.12 | MemberBattleDiff 型更新 | 現在値 + 差分値 + 戦闘前値の構造に更新 | ✅ 完了 |
+| 14.10 | ResultState 型整理 | result, killCount, goldEarned, memberDiffs の4フィールドに整理 | ✅ 完了 |
+| 14.11 | WeaponUsesDiff 型更新 | weaponName, currentUses, maxUses, usesBefore, usesDiff, broken フィールド構成 | ✅ 完了 |
+| 14.12 | MemberBattleDiff 型更新 | name, characterClass, maxHpDiff, maxMpDiff追加。weapons（旧weaponUsesDiff）に名称変更 | ✅ 完了 |
 | 14.13 | EnemyActionResult 拡張 | transformName / isRandomTarget フィールド追加 | ✅ 完了 |
 | 14.14 | PlayerDamagePopup 拡張 | shielded フィールド追加 | ✅ 完了 |
 | 14.15 | Debuff weakness 拡張 | justApplied フィールド追加 | ✅ 完了 |
-| 14.16 | ShopSlot/ShopOption 型更新 | ShopSlot をタグ付きユニオン型（単一 item）に変更。ShopOption に categories フィールド追加 | ✅ 完了 |
+| 14.16 | ShopSlot 型更新 | ShopSlot をタグ付きユニオン型（単一 item）に変更。ShopOption型は削除 | ✅ 完了 |
 | 14.17 | EventState 型拡張 | revealedRelic / selectedWeaponIds フィールド追加 | ✅ 完了 |
 | 14.18 | GameReducer イベントアクション追加 | CONFIRM_TREASURE, CANCEL_TREASURE, REPLACE_RELIC, TOGGLE_REPAIR_WEAPON, CONFIRM_REPAIR, CLOSE_EVENT | ✅ 完了 |
-| 14.19 | BattleReducer アクション追加 | ADD_EXP_POPUPS, REMOVE_EXP_POPUP | ✅ 完了 |
-| 14.20 | PassiveEffectType パラメータ追加 | levelUpDamageBoost.multiplier, battleEndBonusExp.expValue/goldPenalty | ✅ 完了 |
-| 14.21 | バランス調整各種 | HP調整、敵改善、売値設定、stage1変更、ヒールMP軽減 | ✅ 完了 |
+| 14.19 | BattleReducer アクション追加 | ADD_EXP_POPUPS, REMOVE_EXP_POPUP, ADD_GROWTH_CHOICE, REMOVE_GROWTH_CHOICE | ✅ 完了 |
+| 14.20 | GameReducer 新アクション追加 | SUBMIT_GROWTH_CHOICE, OPEN_RECOVERY, EXECUTE_RECOVERY, CLOSE_RECOVERY, DISCARD_WEAPON/SPELL/RELIC/POTION | ✅ 完了 |
+| 14.21 | バランス調整各種 | HP調整、敵改善、stage1変更、ヒールMP軽減 | ✅ 完了 |
+
+---
+
+## スライス15: ゴールドシステム廃止・5枠2選択方式・カテゴリ制リデザイン
+**動作確認**: ゴールドなしでストアが機能し、武器カテゴリ・slotFree魔法・vulnerabilityデバフが動作する
+
+| # | タスク | 説明 | ステータス |
+|---|--------|------|:----------:|
+| 15.1 | ゴールドシステム削除 | RunState.gold は残置（表示用）だが goldPerKill / goldDamage / goldOnHit / 利子 / goldPenalty 等を廃止 | ✅ 完了 |
+| 15.2 | SELL→DISCARD変換 | SELL_WEAPON → DISCARD_WEAPON 等に全面変更 | ✅ 完了 |
+| 15.3 | StoreState 5枠2選択方式 | shopOptions[ShopOption, ShopOption] → slots(5枠) + maxSelections + rerollCount + floor | ✅ 完了 |
+| 15.4 | 武器カテゴリ制導入 | WeaponData.category: 'knife' \| 'greatsword' \| 'staff' \| 'shield' \| 'other' 追加 | ✅ 完了 |
+| 15.5 | vulnerabilityデバフ追加 | Debuff union型に vulnerability（multiplier/duration）追加 | ✅ 完了 |
+| 15.6 | slotFree魔法 | SpellData.slotFree?: boolean 追加。魔法枠を消費しない魔法（magic_bullet/prayer等）を実装 | ✅ 完了 |
+| 15.7 | 回復メニュー実装 | RecoveryLogic.ts 追加。OPEN_RECOVERY / EXECUTE_RECOVERY / CLOSE_RECOVERY アクション実装 | ✅ 完了 |
+| 15.8 | 成長方向選択システム | GrowthType.ts / GrowthTypeCalculator.ts 追加。SUBMIT_GROWTH_CHOICE アクション実装 | ✅ 完了 |
+| 15.9 | 武器・魔法強化システム | Enhancement.ts 追加。WeaponInstance.enhancements / SpellInstance.enhancements 実装 | ✅ 完了 |
+| 15.10 | ポーションバフ系追加 | PotionEffect に taunt / statBoost / damageReduction / aoeConvert 追加（計7種） | ✅ 完了 |
+| 15.11 | 敵パターンリデザイン | Enemies.json を14種（normal 7種 / elite 5種 / boss 2種）に更新。goldReward フィールドに変更 | ✅ 完了 |
+| 15.12 | SAVE_VERSION = 6 | バージョンを6に更新 | ✅ 完了 |
 
 ---
 
@@ -285,10 +296,11 @@
 | 9: パーティー制 | 10 | 10 | 100% |
 | 10: 敵パターン拡張 | 6 | 6 | 100% |
 | 11: Tuning Editor | 11 | 11 | 100% |
-| 12: 3アーキタイプ+ショップ2択制 | 18 | 18 | 100% |
+| 12: 3アーキタイプ+ショップ方式 | 9 | 9 | 100% |
 | 13: EXP/防御系アーキタイプ+リザルトアニメ+ポジション動的化 | 17 | 17 | 100% |
 | 14: 第二階層実装 | 21 | 21 | 100% |
-| **合計** | **123** | **123** | **100%** |
+| 15: ゴールド廃止・カテゴリ制リデザイン | 12 | 12 | 100% |
+| **合計** | **126** | **126** | **100%** |
 
 ---
 
@@ -337,13 +349,14 @@ src/
 │   │   ├── Battle.ts
 │   │   ├── Run.ts
 │   │   ├── Game.ts
+│   │   ├── Enhancement.ts   # WeaponEnhancement, SpellEnhancement
+│   │   ├── GrowthType.ts    # GrowthTypeName, GrowthChoice等
 │   │   └── index.ts
 │   ├── Core/            # コアロジック
 │   │   ├── DamageCalculator.ts
 │   │   ├── CommandValidator.ts
 │   │   ├── BattleEngine.ts
 │   │   ├── StageManager.ts
-│   │   ├── RewardCalculator.ts
 │   │   ├── LevelUpCalculator.ts
 │   │   ├── StoreLogic.ts
 │   │   ├── EnemyAI.ts
@@ -351,8 +364,10 @@ src/
 │   │   ├── EventLogic.ts
 │   │   ├── MapGenerator.ts
 │   │   ├── RelicProcessor.ts
-│   │   ├── TargetingSystem.ts   # 前衛/後衛ターゲット率計算
-│   │   ├── BattleResultDiff.ts  # 戦闘結果差分計算
+│   │   ├── TargetingSystem.ts      # 前衛/後衛ターゲット率計算
+│   │   ├── BattleResultDiff.ts     # 戦闘結果差分計算
+│   │   ├── RecoveryLogic.ts        # 回復メニューロジック
+│   │   ├── GrowthTypeCalculator.ts # 成長方向選択ロジック
 │   │   └── index.ts
 │   ├── State/           # 状態管理
 │   │   ├── BattleReducer.ts
