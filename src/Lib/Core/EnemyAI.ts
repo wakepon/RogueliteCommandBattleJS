@@ -182,11 +182,11 @@ function selectHedroSlimeAction(_enemy: EnemyInstance): EnemyActionResult {
   return selectByWeight(table)
 }
 
-/** ダークメイジの行動決定 — 武器封印追加 */
+/** ダークメイジの行動決定 — 武器消耗追加 */
 function selectDarkMageAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
     { weight: 0.35, value: { ...defaultResult('MPドレイン', 0), mpDrain: 10 } },
-    { weight: 0.35, value: { ...defaultResult('武器封印', 0), weaponSeal: true } },
+    { weight: 0.35, value: { ...defaultResult('武器消耗', 0), weaponSeal: true } },
     { weight: 0.30, value: defaultResult('ダークショット', 9) },
   ]
   return selectByWeight(table)
@@ -268,9 +268,9 @@ function selectLichAction(enemy: EnemyInstance): EnemyActionResult {
     return selectByWeight(table)
   }
 
-  // Phase2: 武器封印全体 / 暗黒ブレス / 召喚
+  // Phase2: 武器消耗全体 / 暗黒ブレス / 召喚
   const table: { weight: number; value: EnemyActionResult }[] = [
-    { weight: 0.35, value: { ...defaultResult('武器封印', 0), weaponSealAll: true } },
+    { weight: 0.35, value: { ...defaultResult('武器消耗', 0), weaponSealAll: true } },
     { weight: 0.35, value: { ...defaultResult('暗黒ブレス', 12), isAoe: true } },
     { weight: 0.30, value: { ...defaultResult('召喚', 0), summonEnemyId: 'hedro_slime', unlimitedSummon: true } },
   ]

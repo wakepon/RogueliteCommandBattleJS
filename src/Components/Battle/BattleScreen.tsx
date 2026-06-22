@@ -140,6 +140,11 @@ function CharacterPanel({
                   攻↓{(member.battleDebuffs.find(d => d.type === 'weakness') as { duration: number }).duration}
                 </span>
               )}
+              {member.battleDebuffs.find(d => d.type === 'vulnerability') && (
+                <span className="text-red-400 text-xs font-bold bg-red-900/50 px-1 rounded shrink-0">
+                  被↑{(member.battleDebuffs.find(d => d.type === 'vulnerability') as { duration: number }).duration}
+                </span>
+              )}
             </div>
             <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
           </div>

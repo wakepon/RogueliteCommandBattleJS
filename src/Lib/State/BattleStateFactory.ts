@@ -133,6 +133,7 @@ export function generateEnemyIntents(
         enemyInstanceId: enemy.instanceId,
         actionName: storedAction.actionName,
         damage: storedAction.damage,
+        hits: storedAction.hits > 1 ? storedAction.hits : undefined,
         storedAction,
       }
     })

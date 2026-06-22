@@ -1074,9 +1074,14 @@ function executeEnemyRandomAttack(
     }
 
     if (aliveEnemy) {
-      updatedEnemies = updatedEnemies.map(e =>
-        e.instanceId === targetId ? { ...e, currentHp: Math.max(0, e.currentHp - finalDamage) } : e
-      )
+      updatedEnemies = updatedEnemies.map(e => {
+        if (e.instanceId !== targetId) return e
+        const newHp = Math.max(0, e.currentHp - finalDamage)
+        const shouldTransform = e.id === 'sleep_tiger'
+          && e.name !== 'マッドタイガー'
+          && newHp / e.hp <= 0.8
+        return { ...e, currentHp: newHp, ...(shouldTransform ? { name: 'マッドタイガー' } : {}) }
+      })
     }
     newPopups.push({
       ...createDamagePopup(targetId, finalDamage, result.contributors, finalDamage !== dmg),
@@ -2012,7 +2017,11 @@ export function processEnemyAction(
       if (attackingEnemy && attackingEnemy.currentHp > 0) {
         const updatedEnemies = newBattleState.enemies.map(enemy => {
           if (enemy.instanceId === battleAction.enemyId) {
-            return { ...enemy, currentHp: Math.max(0, enemy.currentHp - totalBuffThornsDmg) }
+            const newHp = Math.max(0, enemy.currentHp - totalBuffThornsDmg)
+            const shouldTransform = enemy.id === 'sleep_tiger'
+              && enemy.name !== 'マッドタイガー'
+              && newHp / enemy.hp <= 0.8
+            return { ...enemy, currentHp: newHp, ...(shouldTransform ? { name: 'マッドタイガー' } : {}) }
           }
           return enemy
         })

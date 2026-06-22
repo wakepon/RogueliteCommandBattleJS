@@ -107,7 +107,7 @@ export function EnemyDisplay({
             {intent.actionName}
           </span>
           {intent.damage > 0 && (
-            <span className="text-red-300 text-[15px] font-bold ml-0.5">({intent.damage})</span>
+            <span className="text-red-300 text-[15px] font-bold ml-0.5">({intent.damage}{intent.hits && intent.hits > 1 ? `x${intent.hits}` : ''})</span>
           )}
         </div>
       )}

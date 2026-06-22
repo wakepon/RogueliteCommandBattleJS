@@ -234,7 +234,11 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         const updatedEnemies = state.enemies.map(enemy => {
           const dmgEntry = action.calculatedDamages!.find(d => d.targetId === enemy.instanceId)
           if (dmgEntry) {
-            return { ...enemy, currentHp: Math.max(0, enemy.currentHp - dmgEntry.damage) }
+            const newHp = Math.max(0, enemy.currentHp - dmgEntry.damage)
+            const shouldTransform = enemy.id === 'sleep_tiger'
+              && enemy.name !== 'マッドタイガー'
+              && newHp / enemy.hp <= 0.8
+            return { ...enemy, currentHp: newHp, ...(shouldTransform ? { name: 'マッドタイガー' } : {}) }
           }
           return enemy
         })
@@ -255,7 +259,11 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
 
       const updatedEnemies = state.enemies.map(enemy => {
         if (enemy.instanceId === targetId) {
-          return { ...enemy, currentHp: Math.max(0, enemy.currentHp - damage) }
+          const newHp = Math.max(0, enemy.currentHp - damage)
+          const shouldTransform = enemy.id === 'sleep_tiger'
+            && enemy.name !== 'マッドタイガー'
+            && newHp / enemy.hp <= 0.8
+          return { ...enemy, currentHp: newHp, ...(shouldTransform ? { name: 'マッドタイガー' } : {}) }
         }
         return enemy
       })

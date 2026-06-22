@@ -80,6 +80,7 @@ export interface EnemyIntent {
   enemyInstanceId: string
   actionName: string
   damage: number  // 0 = 非攻撃行動
+  hits?: number   // 複数ヒット時のヒット数
   storedAction: EnemyActionResult  // 実行時に使用（インテントと行動の一致を保証）
 }
 
