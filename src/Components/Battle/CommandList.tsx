@@ -165,7 +165,9 @@ export function CommandList({
           let isBoosted = false
           let isWeakened = false
           if (explorer) {
-            const opts = { relics, includeConditionalRelics: true, party }
+            const idx = party ? party.findIndex(e => e.id === explorer.id) : -1
+            const explorerIndex = idx >= 0 ? idx : undefined
+            const opts = { relics, includeConditionalRelics: true, party, explorerIndex }
             if (isWeapon(command)) {
               const range = predictWeaponDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)

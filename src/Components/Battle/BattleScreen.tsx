@@ -67,6 +67,7 @@ function CharacterPanel({
   draggingPanel,
   orderIndex,
   dragHandleProps,
+  relics,
   acting,
   shaking,
   levelingUp,
@@ -88,6 +89,7 @@ function CharacterPanel({
   allParty: ExplorerState[]
   draggingPanel: boolean
   orderIndex: number
+  relics: RelicInstance[]
   dragHandleProps?: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }
   /** 行動中ならアニメ種別。攻撃/ヒール時にパネル全体を浮かせる */
   acting: AvatarActingType | null
@@ -219,8 +221,9 @@ function CharacterPanel({
                   commandIndex={weaponIdx}
                   disabled={!isCommandPhase || isDead || isGameOver}
                   isAvailable={isAvail}
-                  attackerStr={member.str}
-                  attackerInt={member.int}
+                  explorer={member}
+                  relics={relics}
+                  party={allParty}
                 />
               )
             })}
@@ -792,7 +795,7 @@ export function BattleScreen() {
                 }
               }
               const damagePreview = isCommandPhase
-                ? calculateDetailedDamagePreview(commandSlots, enemy.instanceId, party, previewOptions, tentative, aliveEnemyCount)
+                ? calculateDetailedDamagePreview(commandSlots, enemy.instanceId, party, previewOptions, tentative, aliveEnemyCount, enemy.battleBuffs.some(b => b.type === 'shield'), enemy.currentHp, enemy.hp)
                 : null
 
               return (
@@ -872,6 +875,7 @@ export function BattleScreen() {
                       allParty={party}
                       draggingPanel={draggingPanel}
                       orderIndex={index}
+                      relics={run.relics}
                       dragHandleProps={dragHandleProps}
                       acting={acting?.explorerId === member.id ? acting.type : null}
                       shaking={shakingIds.has(member.id)}

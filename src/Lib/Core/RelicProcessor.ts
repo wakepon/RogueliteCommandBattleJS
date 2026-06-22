@@ -67,7 +67,7 @@ export function getFrontRowIntBonus(relics: RelicInstance[]): number {
   return 0
 }
 
-/** 後衛の叡智: 後衛キャラのSTRボーナス */
+/** 後衛の底力: 後衛キャラのSTRボーナス */
 export function getBackRowStrBonus(relics: RelicInstance[]): number {
   for (const r of relics) {
     if (r.passiveEffect.type === 'backRowStrBonus') return r.passiveEffect.value

@@ -94,7 +94,7 @@ export function calculateWeaponDamage(
     const posBonus = getPositionStatBonus(relics, explorerIndex, party.length)
     positionBonus = scaleStat === 'str' ? posBonus.strBonus : posBonus.intBonus
     if (positionBonus > 0) {
-      const label = explorerIndex === 0 ? '前衛の矜持' : '後衛の叡智'
+      const label = explorerIndex === 0 ? '前衛の矜持' : '後衛の底力'
       contributors.push({ name: label, label: `+${positionBonus}` })
     }
   }
@@ -252,7 +252,7 @@ export function calculateSpellDamage(
     const posBonus = getPositionStatBonus(relics, explorerIndex, party.length)
     positionBonus = posBonus.intBonus
     if (positionBonus > 0) {
-      const label = explorerIndex === 0 ? '前衛の矜持' : '後衛の叡智'
+      const label = explorerIndex === 0 ? '前衛の矜持' : '後衛の底力'
       contributors.push({ name: label, label: `INT+${positionBonus}` })
     }
   }

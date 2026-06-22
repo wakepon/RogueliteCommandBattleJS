@@ -465,12 +465,12 @@ function executeAttackCommand(
     calculatedDamage = reducedDamage
   }
 
-  // 敵のシールドバフによるダメージ吸収
+  // 敵のシールドバフによるダメージ50%軽減
   const { reducedDamage: shieldReducedDamage, updatedBuffs: enemyUpdatedBuffs } =
     processEnemyShieldDamageReduction(targetEnemy.battleBuffs, calculatedDamage)
   const wasShielded = shieldReducedDamage !== calculatedDamage
   if (wasShielded) {
-    contributors.push({ name: 'シールド', label: `吸収${calculatedDamage - shieldReducedDamage}` })
+    contributors.push({ name: 'シールド', label: '×0.5' })
     calculatedDamage = shieldReducedDamage
   }
 

@@ -24,7 +24,7 @@
     "passiveEffect": { "type": "frontRowIntBonus", "value": 3 }
   },
   "back_wisdom": {
-    "id": "back_wisdom", "name": "後衛の叡智", "rarity": "Common", "price": 5,
+    "id": "back_wisdom", "name": "後衛の底力", "rarity": "Common", "price": 5,
     "passiveEffect": { "type": "backRowStrBonus", "value": 2 }
   },
   "taunt_defense": {

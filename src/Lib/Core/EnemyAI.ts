@@ -204,8 +204,8 @@ function selectFairyAction(_enemy: EnemyInstance): EnemyActionResult {
 /** 盾持ちゴブリンの行動決定 */
 function selectShieldGoblinAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.80, value: { ...defaultResult('シールドバッシュ', 9), applyShieldToSelf: 10 } },
-    { weight: 0.20, value: { ...defaultResult('ガード', 0), applyShieldToSelf: 20 } },
+    { weight: 0.80, value: { ...defaultResult('シールドバッシュ', 9), applyShieldToSelf: 1 } },
+    { weight: 0.20, value: { ...defaultResult('ガード', 0), applyShieldToSelf: 1 } },
   ]
   return selectByWeight(table)
 }
@@ -213,7 +213,7 @@ function selectShieldGoblinAction(_enemy: EnemyInstance): EnemyActionResult {
 /** ガーディアンの行動決定 */
 function selectGuardianAction(_enemy: EnemyInstance): EnemyActionResult {
   const table = [
-    { weight: 0.40, value: { ...defaultResult('守護の盾', 0), applyShieldToAlly: 15 } },
+    { weight: 0.40, value: { ...defaultResult('守護の盾', 0), applyShieldToAlly: 1 } },
     { weight: 0.30, value: { ...defaultResult('庇う', 0), applyGuard: true } },
     { weight: 0.30, value: defaultResult('体当たり', 12) },
   ]

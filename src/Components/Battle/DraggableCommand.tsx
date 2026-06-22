@@ -1,6 +1,9 @@
 import { useDraggable } from '@dnd-kit/core'
 import { BattleCommand } from '../../Lib/Types/Battle'
+import { ExplorerState } from '../../Lib/Types/Explorer'
+import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
+import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 import { Tooltip, TooltipCard } from '../Common'
 
 interface DraggableCommandProps {
@@ -9,14 +12,14 @@ interface DraggableCommandProps {
   commandIndex?: number  // 同ID武器区別用: weapons/spells配列内のインデックス
   disabled?: boolean
   isAvailable: boolean
-  attackerStr?: number  // ダメージ予測用: キャラのSTR
-  attackerInt?: number  // ダメージ予測用: キャラのINT
+  explorer?: ExplorerState
+  relics?: RelicInstance[]
+  party?: ExplorerState[]
 }
 
 /** コマンドカテゴリに応じたアイコン */
 function getCommandStyle(command: BattleCommand): { bgColor: string; label: string } {
   if (isWeapon(command)) {
-    // 味方対象武器（祈り/守護の盾/護りの壁）
     if (command.targetType === 'allySingle' || command.targetType === 'allyAll') return { bgColor: 'bg-green-600', label: '護' }
     return { bgColor: 'bg-orange-600', label: '剣' }
   }
@@ -33,7 +36,7 @@ function getCommandStyle(command: BattleCommand): { bgColor: string; label: stri
  * ドラッグ可能なコマンドアイテム
  * 武器/魔法を敵や味方にドラッグ&ドロップしてコマンドをセット
  */
-export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, attackerStr = 0, attackerInt = 0 }: DraggableCommandProps) {
+export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party }: DraggableCommandProps) {
   const uniqueId = commandIndex !== undefined ? `cmd-${explorerId}-${command.id}-${commandIndex}` : `cmd-${explorerId}-${command.id}`
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: uniqueId,
@@ -48,20 +51,26 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
       ? `${command.mpCost}MP`
       : ''
 
-  // 素のダメージ予測（バフ/レリックなし、ブレ幅込み）
+  // ダメージ予測（バフ/レリック/条件付き効果を含む）
   let damageText = ''
+  let isBoosted = false
+  let isWeakened = false
   const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll'
-  if (isEnemyTarget && command.power > 0) {
-    let stat = attackerStr
-    if (isWeapon(command) && 'scaleStat' in command && command.scaleStat === 'int') {
-      stat = attackerInt
+  if (isEnemyTarget && command.power > 0 && explorer) {
+    const idx = party ? party.findIndex(e => e.id === explorer.id) : -1
+    const explorerIndex = idx >= 0 ? idx : undefined
+    const opts = { relics, includeConditionalRelics: true, party, explorerIndex }
+    if (isWeapon(command)) {
+      const range = predictWeaponDamage(explorer, command, opts)
+      damageText = formatDamageRange(range)
+      isBoosted = range.isBoosted
+      isWeakened = range.isWeakened ?? false
     } else if (isSpell(command)) {
-      stat = attackerInt
+      const range = predictSpellDamage(explorer, command, opts)
+      damageText = formatDamageRange(range)
+      isBoosted = range.isBoosted
+      isWeakened = range.isWeakened ?? false
     }
-    const base = stat * command.power
-    const min = Math.max(0, base - command.variance)
-    const max = Math.max(0, base + command.variance)
-    damageText = min === max ? `${min}` : `${min}-${max}`
   }
 
   // 耐久値テキスト（武器のみ。無限使用武器は∞表示）
@@ -72,6 +81,8 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   const tooltipContent = (
     <TooltipCard item={command} damageText={damageText || undefined} durabilityText={durabilityText} />
   )
+
+  const damageColor = isWeakened ? 'text-blue-400' : isBoosted ? 'text-yellow-400' : 'text-gray-400'
 
   return (
     <Tooltip content={tooltipContent} position="bottom" disabled={isDragging}>
@@ -98,7 +109,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
         <span className="text-xs bg-red-700 text-white px-1 rounded">全</span>
       )}
       {damageText && (
-        <span className="text-base text-gray-400 flex-shrink-0">{damageText}</span>
+        <span className={`text-base ${damageColor} flex-shrink-0`}>{damageText}</span>
       )}
       {usesText && (
         <span className="text-base text-gray-400 flex-shrink-0">{usesText}</span>

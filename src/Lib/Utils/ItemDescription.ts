@@ -17,6 +17,7 @@ export interface DamageContext {
   includeConditionalRelics?: boolean
   party?: ExplorerState[]
   brokenWeaponCount?: number
+  explorerIndex?: number
 }
 
 /** DamageContextからDamagePredictOptionsへ変換 */
@@ -26,6 +27,7 @@ function toPredictOptions(context: DamageContext): DamagePredictOptions {
     includeConditionalRelics: context.includeConditionalRelics,
     party: context.party,
     brokenWeaponCount: context.brokenWeaponCount,
+    explorerIndex: context.explorerIndex,
   }
 }
 

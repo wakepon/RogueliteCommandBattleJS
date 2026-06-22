@@ -7,6 +7,7 @@ import { isWeapon, isSpell } from '../Core/CommandValidator'
 import {
   getVulnerabilityPowerBoost,
   getBrokenWeaponStrBonus,
+  getPositionStatBonus,
 } from '../Core/RelicProcessor'
 
 /** ダメージ予測範囲 */
@@ -54,6 +55,11 @@ export interface DamagePredictOptions {
   hasPrecision?: boolean  // 精密バフでブレ幅→0
   brokenWeaponCount?: number  // 努力の証: 壊れた武器の累計本数
   party?: ExplorerState[]
+  explorerIndex?: number  // パーティ内の位置（ポジションボーナス用）
+  commandSlots?: CommandSlot[]  // 行動順スロット（followUp計算用）
+  currentCommandIndex?: number  // 現在のスロットインデックス（followUp計算用）
+  targetCurrentHp?: number  // 対象敵の現在HP（targetHpConditional用）
+  targetMaxHp?: number  // 対象敵の最大HP（targetHpConditional用）
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -61,6 +67,26 @@ function calculateBuffMultiplier(explorer: ExplorerState, stat: 'str' | 'int'): 
   const statBuffs = explorer.battleBuffs.filter(buff => buff.type === stat)
   const totalValue = statBuffs.reduce((sum, buff) => sum + buff.value, 0)
   return 1.0 + (totalValue * 0.1)
+}
+
+/** 同ターンの先行スロットで味方が攻撃した回数をカウント */
+function countAllyAttacksThisTurn(commandSlots?: CommandSlot[], currentCommandIndex?: number): number {
+  if (!commandSlots || currentCommandIndex === undefined || currentCommandIndex <= 0) return 0
+  let count = 0
+  for (let i = 0; i < currentCommandIndex; i++) {
+    const slot = commandSlots[i]
+    if (slot.command && slot.targetId) {
+      const cmd = slot.command
+      if ('commandCategory' in cmd) {
+        const cat = (cmd as { commandCategory: string }).commandCategory
+        const targetType = (cmd as { targetType: string }).targetType
+        if ((cat === 'weapon' || cat === 'spell') && targetType.startsWith('enemy')) {
+          count++
+        }
+      }
+    }
+  }
+  return count
 }
 
 /** 武器ダメージ予測 */
@@ -93,7 +119,14 @@ export function predictWeaponDamage(
     brokenBonus = Math.floor(brokenWeaponCount * strPerWeapon)
   }
 
-  const effectiveStat = baseStat + brokenBonus
+  // ポジションボーナス
+  let positionBonus = 0
+  if (options.explorerIndex !== undefined && options.party) {
+    const posBonus = getPositionStatBonus(relics, options.explorerIndex, options.party.length)
+    positionBonus = scaleStat === 'str' ? posBonus.strBonus : posBonus.intBonus
+  }
+
+  const effectiveStat = baseStat + brokenBonus + positionBonus
 
   // 条件付きPowerボーナス（スケーリング型）
   let conditionalPowerBonus = 0
@@ -103,11 +136,17 @@ export function predictWeaponDamage(
       conditionalPowerBonus += Math.floor(lostHpRatio * weapon.effect.coefficient)
     }
     if (weapon.effect?.type === 'targetHpConditional') {
-      // 予測では最大効果を想定（敵HP0%→係数そのまま）
-      conditionalPowerBonus += weapon.effect.coefficient
+      if (options.targetCurrentHp !== undefined && options.targetMaxHp) {
+        const lostHpRatio = 1 - options.targetCurrentHp / options.targetMaxHp
+        conditionalPowerBonus += Math.floor(lostHpRatio * weapon.effect.coefficient)
+      }
     }
     if (weapon.effect?.type === 'levelScale') {
       conditionalPowerBonus += explorer.level
+    }
+    if (weapon.effect?.type === 'followUp') {
+      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
+      conditionalPowerBonus += allyAttacks * weapon.effect.coefficient
     }
   }
 
@@ -159,6 +198,7 @@ export function predictWeaponDamage(
   const max = Math.max(0, base + weapon.variance + shieldBashBonus)
 
   const isBoosted = brokenBonus > 0
+    || positionBonus > 0
     || buffMultiplier > 1.0
     || conditionalPowerBonus > 0
     || weaponPowerBonusValue > 0
@@ -183,19 +223,33 @@ export function predictSpellDamage(
 
   const { relics = [], includeConditionalRelics = false, hasPrecision = false } = options
 
-  const effectiveInt = explorer.int
+  // ポジションボーナス
+  let positionBonus = 0
+  if (options.explorerIndex !== undefined && options.party) {
+    const posBonus = getPositionStatBonus(relics, options.explorerIndex, options.party.length)
+    positionBonus = posBonus.intBonus
+  }
+
+  const effectiveInt = explorer.int + positionBonus
   const buffMultiplier = calculateBuffMultiplier(explorer, 'int')
 
   // 条件付きPowerボーナス（スケーリング型）
   let conditionalPowerBonus = 0
   if (includeConditionalRelics && spell.effect) {
     if (spell.effect.type === 'targetHpConditional') {
-      // 予測では最大効果を想定（敵HP0%→係数そのまま）
-      conditionalPowerBonus += spell.effect.coefficient
+      if (options.targetCurrentHp !== undefined && options.targetMaxHp) {
+        const lostHpRatio = 1 - options.targetCurrentHp / options.targetMaxHp
+        conditionalPowerBonus += Math.floor(lostHpRatio * spell.effect.coefficient)
+      }
     }
     if (spell.effect.type === 'lowMpConditional') {
-      const usedMpRatio = 1 - explorer.mp / explorer.maxMp
+      const mpAfterCast = Math.max(0, explorer.mp - ('mpCost' in spell ? spell.mpCost : 0))
+      const usedMpRatio = 1 - mpAfterCast / explorer.maxMp
       conditionalPowerBonus += Math.floor(usedMpRatio * spell.effect.coefficient)
+    }
+    if (spell.effect.type === 'followUp') {
+      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
+      conditionalPowerBonus += allyAttacks * spell.effect.coefficient
     }
   }
 
@@ -229,7 +283,8 @@ export function predictSpellDamage(
   const min = isPrecise ? Math.max(0, base + spell.variance) : Math.max(0, base - spell.variance)
   const max = Math.max(0, base + spell.variance)
 
-  const isBoosted = buffMultiplier > 1.0
+  const isBoosted = positionBonus > 0
+    || buffMultiplier > 1.0
     || (comboBuff !== undefined && comboBuff.value > 0)
     || conditionalPowerBonus > 0
 
@@ -321,16 +376,27 @@ function detectActiveMultipliers(
     multipliers.push({ relicName: '連携の紋章', multiplier: 0 })
   }
 
-  // 条件付きPower（武器: 自HP参照スケーリング）
-  if (isWeapon(command) && 'effect' in command && command.effect?.type === 'selfHpConditional') {
-    const lostHpRatio = 1 - explorer.hp / explorer.maxHp
-    const bonusPower = Math.floor(lostHpRatio * command.effect.coefficient)
-    if (bonusPower > 0) {
+  // 条件付きPower（武器）
+  if (isWeapon(command) && 'effect' in command) {
+    if (command.effect?.type === 'selfHpConditional') {
+      const lostHpRatio = 1 - explorer.hp / explorer.maxHp
+      const bonusPower = Math.floor(lostHpRatio * command.effect.coefficient)
+      if (bonusPower > 0) {
+        multipliers.push({ relicName: command.name, multiplier: 0 })
+      }
+    }
+    if (command.effect?.type === 'targetHpConditional') {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect?.type === 'levelScale') {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect?.type === 'followUp') {
       multipliers.push({ relicName: command.name, multiplier: 0 })
     }
   }
 
-  // 条件付きPower（魔法: 敵HP参照 / 消費MP参照）
+  // 条件付きPower（魔法）
   if (isSpell(command) && command.effect) {
     if (command.effect.type === 'targetHpConditional') {
       multipliers.push({ relicName: command.name, multiplier: 0 })
@@ -341,6 +407,9 @@ function detectActiveMultipliers(
       if (bonusPower > 0) {
         multipliers.push({ relicName: command.name, multiplier: 0 })
       }
+    }
+    if (command.effect.type === 'followUp') {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
     }
   }
 
@@ -360,12 +429,16 @@ export function calculateDetailedDamagePreview(
   party: ExplorerState[],
   options: DamagePredictOptions = {},
   tentative?: TentativeCommand | null,
-  aliveEnemyCount?: number
+  aliveEnemyCount?: number,
+  targetHasShield?: boolean,
+  targetCurrentHp?: number,
+  targetMaxHp?: number
 ): DetailedDamagePreview {
   let totalMin = 0
   let totalMax = 0
   let anyBoosted = false
   const segments: CommandDamageSegment[] = []
+  let shieldConsumed = false
 
   const allSlots: CommandSlot[] = [...commandSlots]
   if (tentative) {
@@ -387,7 +460,9 @@ export function calculateDetailedDamagePreview(
     if (!explorer) continue
 
     const precisionFromOrder = willReceivePrecision(allSlots, slot.explorerId, i)
-    const slotOptions = { ...options, hasPrecision: precisionFromOrder, party }
+    const rawIdx = party.findIndex(e => e.id === slot.explorerId)
+    const explorerIndex = rawIdx >= 0 ? rawIdx : undefined
+    const slotOptions = { ...options, hasPrecision: precisionFromOrder, party, explorerIndex, commandSlots: allSlots, currentCommandIndex: i, targetCurrentHp, targetMaxHp }
 
     const targetsThisEnemy = slot.targetId === targetEnemyId
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
@@ -410,12 +485,26 @@ export function calculateDetailedDamagePreview(
     if (range && isEnemyRandom && isWeapon(slot.command)) {
       const hits = ('hits' in slot.command && slot.command.hits) ? slot.command.hits : 3
       const multipleEnemies = (aliveEnemyCount ?? 1) > 1
-      range = multipleEnemies
-        ? { min: 0, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
-        : { min: range.min * hits, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
+      // シールドはランダムヒットの最初の1発のみ軽減
+      if (targetHasShield && !shieldConsumed && !multipleEnemies) {
+        const shieldedMin = Math.floor(range.min * 0.5)
+        const shieldedMax = Math.floor(range.max * 0.5)
+        range = { min: shieldedMin + range.min * (hits - 1), max: shieldedMax + range.max * (hits - 1), isBoosted: range.isBoosted, isWeakened: range.isWeakened }
+        shieldConsumed = true
+      } else {
+        range = multipleEnemies
+          ? { min: 0, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
+          : { min: range.min * hits, max: range.max * hits, isBoosted: range.isBoosted, isWeakened: range.isWeakened }
+      }
     }
 
     if (range) {
+      // 敵シールド: 最初のセグメントのダメージを50%軽減（非ランダムヒット）
+      if (targetHasShield && !shieldConsumed) {
+        range = { ...range, min: Math.floor(range.min * 0.5), max: Math.floor(range.max * 0.5) }
+        shieldConsumed = true
+      }
+
       totalMin += range.min
       totalMax += range.max
       if (range.isBoosted) anyBoosted = true
