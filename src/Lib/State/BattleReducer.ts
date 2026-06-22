@@ -1,7 +1,6 @@
 import { BattleState, BattleCommand, CommandSlot, EnemyIntent, DamagePopup, PlayerDamagePopup, LevelUpPopup, ExpPopup, RelicBattleState, DamageContributor } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isSpell, isWeapon, LevelUpInfo } from '../Core'
-import { GrowthChoice } from '../Types/GrowthType'
 
 /** バトルアクション型 */
 export type BattleAction =
@@ -46,9 +45,6 @@ export type BattleAction =
   // 状態更新
   | { type: 'UPDATE_RELIC_STATE'; relicState: Partial<RelicBattleState> }
   | { type: 'UPDATE_ENEMIES'; enemies: BattleState['enemies'] }
-  // 成長方向選択
-  | { type: 'ADD_GROWTH_CHOICE'; choice: GrowthChoice }
-  | { type: 'REMOVE_GROWTH_CHOICE'; explorerId: string }
   // 後方互換
   | { type: 'NEXT_ACTOR' }
 
@@ -412,30 +408,6 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       return {
         ...state,
         enemies: action.enemies,
-      }
-    }
-
-    // ===== 成長方向選択 =====
-
-    case 'ADD_GROWTH_CHOICE': {
-      return {
-        ...state,
-        pendingGrowthChoices: [...state.pendingGrowthChoices, action.choice],
-      }
-    }
-
-    case 'REMOVE_GROWTH_CHOICE': {
-      // 同キャラが複数回レベルアップした場合に備え、最初の1件のみ除去
-      const removeIdx = state.pendingGrowthChoices.findIndex(
-        c => c.explorerId === action.explorerId
-      )
-      if (removeIdx < 0) return state
-      return {
-        ...state,
-        pendingGrowthChoices: [
-          ...state.pendingGrowthChoices.slice(0, removeIdx),
-          ...state.pendingGrowthChoices.slice(removeIdx + 1),
-        ],
       }
     }
 

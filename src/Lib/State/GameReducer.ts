@@ -5,10 +5,8 @@ import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
 import { SpellData, SpellInstance } from '../Types/Spell'
 import { RelicData } from '../Types/Relic'
 import { PotionData } from '../Types/Potion'
-import { GrowthTypeName } from '../Types/GrowthType'
 import { createBattleState, applyBloodPact, createActionQueue } from './BattleStateFactory'
 import { battleReducer, BattleAction, createPlayerDamagePopup } from './BattleReducer'
-import { applyGrowthType, applyLevelUpRecovery } from '../Core/GrowthTypeCalculator'
 import {
   createStoreState,
   rerollStore,
@@ -84,7 +82,6 @@ export type GameAction =
   | { type: 'ADVANCE_FROM_MAP' }
   | { type: 'REORDER_PARTY'; fromIndex: number; toIndex: number }
   | { type: 'USE_POTION_INSTANT'; potionId: string; targetId: string }
-  | { type: 'SUBMIT_GROWTH_CHOICE'; explorerId: string; growthType: GrowthTypeName }
   | { type: 'OPEN_POTION_SHOP' }
   | { type: 'BUY_AND_USE_POTION'; shopSlotIndex: number; targetId: string }
   | { type: 'BUY_AND_STORE_POTION'; shopSlotIndex: number }
@@ -961,43 +958,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           party: adjustedParty,
           battleStartSnapshot: { party: adjustedParty },
         },
-      }
-    }
-
-    case 'SUBMIT_GROWTH_CHOICE': {
-      if (!state.battleState || !state.run) return state
-
-      const { explorerId, growthType } = action
-      const explorer = state.run.party.find(e => e.id === explorerId)
-      if (!explorer) return state
-
-      // キューに保存された選択肢から取得（モーダルに表示された値と一致を保証）
-      const pendingChoice = state.battleState.pendingGrowthChoices.find(
-        c => c.explorerId === explorerId
-      )
-      if (!pendingChoice) return state
-      const selectedOption = pendingChoice.options.find(o => o.type === growthType)
-      if (!selectedOption) return state
-
-      // ステータス成長を適用
-      let updatedExplorer = applyGrowthType(explorer, selectedOption)
-      // HP/MP回復を適用
-      updatedExplorer = applyLevelUpRecovery(updatedExplorer)
-
-      const updatedParty = state.run.party.map(e =>
-        e.id === explorerId ? updatedExplorer : e
-      )
-
-      // BattleReducerでpendingGrowthChoicesから除去
-      const newBattleState = battleReducer(state.battleState, {
-        type: 'REMOVE_GROWTH_CHOICE',
-        explorerId,
-      })
-
-      return {
-        ...state,
-        run: { ...state.run, party: updatedParty },
-        battleState: newBattleState,
       }
     }
 

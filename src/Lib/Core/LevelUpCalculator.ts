@@ -1,5 +1,6 @@
 import { ExplorerState, CharacterClass } from '../Types/Explorer'
 import { getTuningValue } from '../Tuning/TuningStore'
+import { getBalancedGrowth, applyGrowthType, applyLevelUpRecovery } from './GrowthTypeCalculator'
 
 /** レベルアップ時の情報 */
 export interface LevelUpInfo {
@@ -10,7 +11,6 @@ export interface LevelUpInfo {
   mpRecovered: number
   characterName: string
   characterClass: CharacterClass
-  needsGrowthChoice: boolean
   statsGained: {
     maxHp: number
     maxMp: number
@@ -49,8 +49,8 @@ function canLevelUp(explorer: ExplorerState): boolean {
  * レベルアップを1回適用
  * - level +1
  * - exp から必要分を消費
- * - ステータス成長とHP/MP回復は行わない（GrowthTypeCalculatorで選択後に適用）
- * - needsGrowthChoice: true を返す
+ * - バランス型の成長を自動適用
+ * - HP/MP回復を適用
  */
 function applyLevelUp(explorer: ExplorerState): {
   updatedExplorer: ExplorerState
@@ -60,11 +60,17 @@ function applyLevelUp(explorer: ExplorerState): {
   const previousLevel = explorer.level
   const newLevel = previousLevel + 1
 
-  const updatedExplorer: ExplorerState = {
+  let updatedExplorer: ExplorerState = {
     ...explorer,
     level: newLevel,
     exp: explorer.exp - requiredExp,
   }
+
+  const growth = getBalancedGrowth(explorer.characterClass)
+  updatedExplorer = applyGrowthType(updatedExplorer, growth)
+
+  const beforeRecovery = updatedExplorer
+  updatedExplorer = applyLevelUpRecovery(updatedExplorer)
 
   const levelUpInfo: LevelUpInfo = {
     explorerId: explorer.id,
@@ -72,14 +78,13 @@ function applyLevelUp(explorer: ExplorerState): {
     newLevel,
     characterName: explorer.name,
     characterClass: explorer.characterClass,
-    needsGrowthChoice: true,
-    hpRecovered: 0,
-    mpRecovered: 0,
+    hpRecovered: updatedExplorer.hp - beforeRecovery.hp,
+    mpRecovered: updatedExplorer.mp - beforeRecovery.mp,
     statsGained: {
-      maxHp: 0,
-      maxMp: 0,
-      str: 0,
-      int: 0,
+      maxHp: growth.stats.maxHp,
+      maxMp: growth.stats.maxMp,
+      str: growth.stats.str,
+      int: growth.stats.int,
     },
   }
 

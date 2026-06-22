@@ -6,8 +6,6 @@ import { BattleCommand, BattleState, ExpPopup, PlayerDamagePopup, DamagePopup } 
 import type { DamageContributor } from '../Core/DamageCalculator'
 import { SpellInstance } from '../Types/Spell'
 import { RelicInstance } from '../Types/Relic'
-import { GrowthChoice } from '../Types/GrowthType'
-import { selectGrowthOptions } from '../Core/GrowthTypeCalculator'
 import { battleReducer, BattleAction, createPlayerDamagePopup, createExpPopup, createDamagePopup } from './BattleReducer'
 import {
   applyDefenseReduction,
@@ -345,32 +343,6 @@ function addLevelUpPopupsToBattle(
   return result
 }
 
-/** レベルアップ時の成長選択をバトルステートにキュー */
-function addGrowthChoicesToBattle(
-  battleState: BattleState,
-  levelUps: LevelUpInfo[],
-  relics: RelicInstance[],
-  seed: number,
-): BattleState {
-  const choices = levelUps
-    .filter(lu => lu.needsGrowthChoice)
-    .map((lu, index) => {
-      const options = selectGrowthOptions(lu.characterClass, relics, seed + lu.newLevel * 1000 + index)
-      const choice: GrowthChoice = {
-        options,
-        explorerId: lu.explorerId,
-        explorerName: lu.characterName,
-        characterClass: lu.characterClass,
-      }
-      return choice
-    })
-
-  let result = battleState
-  for (const choice of choices) {
-    result = battleReducer(result, { type: 'ADD_GROWTH_CHOICE', choice })
-  }
-  return result
-}
 
 /** 攻撃コマンド（武器/魔法）を実行 */
 function executeAttackCommand(
@@ -708,7 +680,6 @@ function executeAttackCommand(
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
-      newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
       updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }
@@ -842,7 +813,6 @@ function executeSpellAllAttack(
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
-      newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
       updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }
@@ -1028,7 +998,6 @@ function executeEnemyAllAttack(
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
-      newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
       updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }
@@ -1234,7 +1203,6 @@ function executeEnemyRandomAttack(
 
     if (newLevelUps.length > 0) {
       newBattleState = addLevelUpPopupsToBattle(newBattleState, newLevelUps)
-      newBattleState = addGrowthChoicesToBattle(newBattleState, newLevelUps, relics, updatedRun.seed + updatedRun.currentStage * 1000 + newBattleState.turn * 100)
       // 闘気の腕輪: レベルアップしたキャラにSTR/INT永続加算
       updatedRun = applyLevelUpStatBoost(updatedRun, newLevelUps, relics)
     }

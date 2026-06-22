@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
 import { useGame } from './UseGame'
 import { PotionInstance } from '../Lib/Types/Potion'
-import { GrowthTypeName, GrowthChoice } from '../Lib/Types/GrowthType'
 import { BattleAction } from '../Lib/State/BattleReducer'
 import { getAvailableCommands, selectEnemyAction, processPartyTurnEnd, calculateTargetRates, selectTargetByRate } from '../Lib/Core'
 import { isWeapon } from '../Lib/Core/CommandValidator'
@@ -38,10 +37,6 @@ export interface UseBattleResult {
   levelUpPopups: LevelUpPopup[]
   expPopups: ExpPopup[]
   potions: PotionInstance[]
-
-  // 成長方向選択
-  pendingGrowthChoices: GrowthChoice[]
-  submitGrowthChoice: (explorerId: string, growthType: GrowthTypeName) => void
 
   // コマンド選択アクション
   selectCommand: (command: BattleCommand) => void
@@ -261,10 +256,6 @@ export function useBattle(): UseBattleResult | null {
     dispatchBattle({ type: 'REMOVE_EXP_POPUP', popupId })
   }, [dispatchBattle])
 
-  // 成長方向選択
-  const submitGrowthChoice = useCallback((explorerId: string, growthType: GrowthTypeName) => {
-    dispatch({ type: 'SUBMIT_GROWTH_CHOICE', explorerId, growthType })
-  }, [dispatch])
 
   if (!battleState || !run) return null
 
@@ -309,8 +300,6 @@ export function useBattle(): UseBattleResult | null {
     currentCommandIndex: battleState.currentCommandIndex,
     isPlayerTurn,
 
-    pendingGrowthChoices: battleState.pendingGrowthChoices,
-
     damagePopups: battleState.damagePopups,
     playerDamagePopups: battleState.playerDamagePopups,
     levelUpPopups: battleState.levelUpPopups,
@@ -332,8 +321,6 @@ export function useBattle(): UseBattleResult | null {
     advanceEnemyAction,
     processTurnEnd,
     startNewTurn,
-
-    submitGrowthChoice,
 
     removePopup,
     removePlayerPopup,

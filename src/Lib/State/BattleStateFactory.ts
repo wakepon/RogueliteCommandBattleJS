@@ -233,7 +233,5 @@ export function createBattleState(
     enemyHpMultiplier: hpMult,
     enemyDamageMultiplier: damageMult,
 
-    // 成長方向選択キュー
-    pendingGrowthChoices: [],
   }
 }

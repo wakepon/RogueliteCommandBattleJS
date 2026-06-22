@@ -4,7 +4,6 @@ import { SpellInstance } from './Spell'
 import { PotionInstance } from './Potion'
 import { LevelUpInfo } from '../Core/LevelUpCalculator'
 import { EnemyActionResult } from '../Core/EnemyAI'
-import { GrowthChoice } from './GrowthType'
 
 /** バトルコマンド型（武器・魔法・ポーション） */
 export type BattleCommand = ExplorerWeapon | SpellInstance | PotionInstance
@@ -129,9 +128,6 @@ export interface BattleState {
   // 階層倍率（第二階層以降で使用）
   enemyHpMultiplier: number
   enemyDamageMultiplier: number
-
-  // レベルアップ時の成長方向選択キュー
-  pendingGrowthChoices: GrowthChoice[]
 
   // ゲームオーバー状態（敗北時にオーバーレイを表示する）
   isGameOver?: boolean

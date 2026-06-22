@@ -1,5 +1,3 @@
-import { CharacterClass } from './Explorer'
-
 /** 成長タイプ名 */
 export type GrowthTypeName = 'attack' | 'hp' | 'mp' | 'balance' | 'allBonus'
 
@@ -19,10 +17,3 @@ export interface GrowthTypeOption {
   weight: number
 }
 
-/** レベルアップ時の成長方向選択（2択） */
-export interface GrowthChoice {
-  options: [GrowthTypeOption, GrowthTypeOption]
-  explorerId: string
-  explorerName: string
-  characterClass: CharacterClass
-}
