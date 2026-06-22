@@ -105,10 +105,10 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '吸血', value: `${weapon.effect.value}HP`, color: 'text-green-300' })
       }
       if (weapon.effect.type === 'selfHpConditional') {
-        lines.push({ label: '条件', value: `自HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
+        lines.push({ label: '効果', value: `失HP×${weapon.effect.coefficient}P加算`, color: 'text-orange-300' })
       }
       if (weapon.effect.type === 'targetHpConditional') {
-        lines.push({ label: '条件', value: `敵HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でP+${weapon.effect.bonusPower}`, color: 'text-orange-300' })
+        lines.push({ label: '効果', value: `敵失HP×${weapon.effect.coefficient}P加算`, color: 'text-orange-300' })
       }
       if (weapon.effect.type === 'shield') {
         lines.push({ label: '効果', value: `シールド${weapon.effect.value}付与`, color: 'text-cyan-300' })
@@ -117,7 +117,7 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '効果', value: `最大HP${Math.floor(weapon.effect.rate * 100)}%ダメージ`, color: 'text-orange-300' })
       }
       if (weapon.effect.type === 'followUp') {
-        lines.push({ label: '効果', value: `味方攻撃済みでP+${weapon.effect.bonusPower}`, color: 'text-yellow-300' })
+        lines.push({ label: '効果', value: `先行攻撃数×${weapon.effect.coefficient}P加算`, color: 'text-yellow-300' })
       }
       if (weapon.effect.type === 'levelScale') {
         lines.push({ label: '効果', value: 'Lv分Power加算', color: 'text-green-300' })
@@ -218,13 +218,13 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '効果', value: '現在MP全量→ダメージ', color: 'text-purple-300' })
       }
       if (spell.effect.type === 'followUp') {
-        lines.push({ label: '効果', value: `味方攻撃済みでP+${spell.effect.bonusPower}`, color: 'text-yellow-300' })
+        lines.push({ label: '効果', value: `先行攻撃数×${spell.effect.coefficient}P加算`, color: 'text-yellow-300' })
       }
       if (spell.effect.type === 'targetHpConditional') {
-        lines.push({ label: '条件', value: `敵HP${Math.floor(spell.effect.hpThreshold * 100)}%以下でP+${spell.effect.bonusPower}`, color: 'text-orange-300' })
+        lines.push({ label: '効果', value: `敵失HP×${spell.effect.coefficient}P加算`, color: 'text-orange-300' })
       }
       if (spell.effect.type === 'lowMpConditional') {
-        lines.push({ label: '条件', value: `MP${Math.floor(spell.effect.mpThreshold * 100)}%以下でP+${spell.effect.bonusPower}`, color: 'text-purple-300' })
+        lines.push({ label: '効果', value: `消費MP×${spell.effect.coefficient}P加算`, color: 'text-purple-300' })
       }
       if (spell.effect.type === 'thorns') {
         lines.push({ label: '効果', value: `棘${spell.effect.value}付与`, color: 'text-green-300' })

@@ -95,18 +95,19 @@ export function predictWeaponDamage(
 
   const effectiveStat = baseStat + brokenBonus
 
-  // 条件付きPowerボーナス
+  // 条件付きPowerボーナス（スケーリング型）
   let conditionalPowerBonus = 0
   if (includeConditionalRelics && 'effect' in weapon) {
     if (weapon.effect?.type === 'selfHpConditional') {
-      const hpRatio = explorer.hp / explorer.maxHp
-      if (hpRatio <= weapon.effect.hpThreshold) {
-        conditionalPowerBonus += weapon.effect.bonusPower
-      }
+      const lostHpRatio = 1 - explorer.hp / explorer.maxHp
+      conditionalPowerBonus += Math.floor(lostHpRatio * weapon.effect.coefficient)
     }
     if (weapon.effect?.type === 'targetHpConditional') {
-      // 予測では最大効果を想定
-      conditionalPowerBonus += weapon.effect.bonusPower
+      // 予測では最大効果を想定（敵HP0%→係数そのまま）
+      conditionalPowerBonus += weapon.effect.coefficient
+    }
+    if (weapon.effect?.type === 'levelScale') {
+      conditionalPowerBonus += explorer.level
     }
   }
 
@@ -185,7 +186,21 @@ export function predictSpellDamage(
   const effectiveInt = explorer.int
   const buffMultiplier = calculateBuffMultiplier(explorer, 'int')
 
-  let baseDamage = effectiveInt * spell.power * buffMultiplier
+  // 条件付きPowerボーナス（スケーリング型）
+  let conditionalPowerBonus = 0
+  if (includeConditionalRelics && spell.effect) {
+    if (spell.effect.type === 'targetHpConditional') {
+      // 予測では最大効果を想定（敵HP0%→係数そのまま）
+      conditionalPowerBonus += spell.effect.coefficient
+    }
+    if (spell.effect.type === 'lowMpConditional') {
+      const usedMpRatio = 1 - explorer.mp / explorer.maxMp
+      conditionalPowerBonus += Math.floor(usedMpRatio * spell.effect.coefficient)
+    }
+  }
+
+  const effectivePower = spell.power + conditionalPowerBonus
+  let baseDamage = effectiveInt * effectivePower * buffMultiplier
 
   // 連携の紋章バフ
   const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
@@ -216,6 +231,7 @@ export function predictSpellDamage(
 
   const isBoosted = buffMultiplier > 1.0
     || (comboBuff !== undefined && comboBuff.value > 0)
+    || conditionalPowerBonus > 0
 
   const isWeakened = spellWeakness !== undefined
 
@@ -305,11 +321,26 @@ function detectActiveMultipliers(
     multipliers.push({ relicName: '連携の紋章', multiplier: 0 })
   }
 
-  // 条件付きPower（自HP条件）
+  // 条件付きPower（武器: 自HP参照スケーリング）
   if (isWeapon(command) && 'effect' in command && command.effect?.type === 'selfHpConditional') {
-    const hpRatio = explorer.hp / explorer.maxHp
-    if (hpRatio <= command.effect.hpThreshold) {
+    const lostHpRatio = 1 - explorer.hp / explorer.maxHp
+    const bonusPower = Math.floor(lostHpRatio * command.effect.coefficient)
+    if (bonusPower > 0) {
       multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+  }
+
+  // 条件付きPower（魔法: 敵HP参照 / 消費MP参照）
+  if (isSpell(command) && command.effect) {
+    if (command.effect.type === 'targetHpConditional') {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect.type === 'lowMpConditional') {
+      const usedMpRatio = 1 - explorer.mp / explorer.maxMp
+      const bonusPower = Math.floor(usedMpRatio * command.effect.coefficient)
+      if (bonusPower > 0) {
+        multipliers.push({ relicName: command.name, multiplier: 0 })
+      }
     }
   }
 

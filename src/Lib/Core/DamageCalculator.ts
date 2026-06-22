@@ -43,9 +43,10 @@ function calculateBuffMultiplier(buffs: Buff[], stat: 'str' | 'int'): number {
   return 1.0 + (totalValue * getTuningValue('buff_multiplier_per_point', 0.1))
 }
 
-/** 同ターンの先行スロットで味方が攻撃済みかどうか判定 */
-function hasAllyAttackedThisTurn(commandSlots?: CommandSlot[], currentCommandIndex?: number): boolean {
-  if (!commandSlots || currentCommandIndex === undefined || currentCommandIndex <= 0) return false
+/** 同ターンの先行スロットで味方が攻撃した回数をカウント */
+function countAllyAttacksThisTurn(commandSlots?: CommandSlot[], currentCommandIndex?: number): number {
+  if (!commandSlots || currentCommandIndex === undefined || currentCommandIndex <= 0) return 0
+  let count = 0
   for (let i = 0; i < currentCommandIndex; i++) {
     const slot = commandSlots[i]
     if (slot.command && slot.targetId) {
@@ -54,12 +55,12 @@ function hasAllyAttackedThisTurn(commandSlots?: CommandSlot[], currentCommandInd
         const cat = (cmd as { commandCategory: string }).commandCategory
         const targetType = (cmd as { targetType: string }).targetType
         if ((cat === 'weapon' || cat === 'spell') && targetType.startsWith('enemy')) {
-          return true
+          count++
         }
       }
     }
   }
-  return false
+  return count
 }
 
 /**
@@ -114,29 +115,36 @@ export function calculateWeaponDamage(
   // 条件付きPowerボーナス計算
   let conditionalPowerBonus = 0
 
-  // 自身HP条件 (怒りの大剣)
+  // 自身HP参照 (怒りの大剣): 失ったHP割合×係数
   if ('effect' in weapon && weapon.effect?.type === 'selfHpConditional') {
-    const hpRatio = attacker.hp / attacker.maxHp
-    if (hpRatio <= weapon.effect.hpThreshold) {
-      conditionalPowerBonus += weapon.effect.bonusPower
-      contributors.push({ name: weapon.name, label: `+${weapon.effect.bonusPower}` })
+    const lostHpRatio = 1 - attacker.hp / attacker.maxHp
+    const bonusPower = Math.floor(lostHpRatio * weapon.effect.coefficient)
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
     }
   }
 
-  // ターゲットHP条件 (処刑の大剣)
+  // ターゲットHP参照 (処刑の大剣): 敵が失ったHP割合×係数
   if ('effect' in weapon && weapon.effect?.type === 'targetHpConditional') {
-    const hpRatio = target.currentHp / target.hp
-    if (hpRatio <= weapon.effect.hpThreshold) {
-      conditionalPowerBonus += weapon.effect.bonusPower
-      contributors.push({ name: weapon.name, label: `+${weapon.effect.bonusPower}` })
+    const lostHpRatio = 1 - target.currentHp / target.hp
+    const bonusPower = Math.floor(lostHpRatio * weapon.effect.coefficient)
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
     }
   }
 
-  // 追撃条件 (追撃のナイフ)
+  // 追撃回数参照 (追撃のナイフ): 先行攻撃回数×係数
   if ('effect' in weapon && weapon.effect?.type === 'followUp') {
-    if (hasAllyAttackedThisTurn(commandSlots, currentCommandIndex)) {
-      conditionalPowerBonus += weapon.effect.bonusPower
-      contributors.push({ name: weapon.name, label: `+${weapon.effect.bonusPower}` })
+    const allyAttacks = countAllyAttacksThisTurn(commandSlots, currentCommandIndex)
+    const bonusPower = allyAttacks * weapon.effect.coefficient
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
     }
   }
 
@@ -144,7 +152,8 @@ export function calculateWeaponDamage(
   if ('effect' in weapon && weapon.effect?.type === 'levelScale') {
     const levelBonus = attacker.level
     conditionalPowerBonus += levelBonus
-    contributors.push({ name: weapon.name, label: `Lv+${levelBonus}` })
+    const dmgContribution = Math.floor(effectiveStat * levelBonus * buffMultiplier)
+    contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
   }
 
   // 武器強化バフ
@@ -258,29 +267,36 @@ export function calculateSpellDamage(
   // 条件付きPowerボーナス計算
   let conditionalPowerBonus = 0
 
-  // ターゲットHP条件 (処刑の雷)
+  // ターゲットHP参照 (処刑の雷): 敵が失ったHP割合×係数
   if (spell.effect?.type === 'targetHpConditional') {
-    const hpRatio = target.currentHp / target.hp
-    if (hpRatio <= spell.effect.hpThreshold) {
-      conditionalPowerBonus += spell.effect.bonusPower
-      contributors.push({ name: spell.name, label: `+${spell.effect.bonusPower}` })
+    const lostHpRatio = 1 - target.currentHp / target.hp
+    const bonusPower = Math.floor(lostHpRatio * spell.effect.coefficient)
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)
+      contributors.push({ name: spell.name, label: `ダメージ+${dmgContribution}` })
     }
   }
 
-  // 追撃条件 (追撃の炎)
+  // 追撃回数参照 (追撃の炎): 先行攻撃回数×係数
   if (spell.effect?.type === 'followUp') {
-    if (hasAllyAttackedThisTurn(commandSlots, currentCommandIndex)) {
-      conditionalPowerBonus += spell.effect.bonusPower
-      contributors.push({ name: spell.name, label: `+${spell.effect.bonusPower}` })
+    const allyAttacks = countAllyAttacksThisTurn(commandSlots, currentCommandIndex)
+    const bonusPower = allyAttacks * spell.effect.coefficient
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)
+      contributors.push({ name: spell.name, label: `ダメージ+${dmgContribution}` })
     }
   }
 
-  // 低MP条件 (渇きの火)
+  // 消費MP参照 (渇きの火): 消費済みMP割合×係数
   if (spell.effect?.type === 'lowMpConditional') {
-    const mpRatio = attacker.mp / attacker.maxMp
-    if (mpRatio <= spell.effect.mpThreshold) {
-      conditionalPowerBonus += spell.effect.bonusPower
-      contributors.push({ name: spell.name, label: `+${spell.effect.bonusPower}` })
+    const usedMpRatio = 1 - attacker.mp / attacker.maxMp
+    const bonusPower = Math.floor(usedMpRatio * spell.effect.coefficient)
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)
+      contributors.push({ name: spell.name, label: `ダメージ+${dmgContribution}` })
     }
   }
 

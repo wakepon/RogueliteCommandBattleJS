@@ -99,10 +99,10 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 吸血: ${weapon.effect.value}`
       }
       if (weapon.effect.type === 'selfHpConditional') {
-        desc += ` | 自HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`
+        desc += ` | 失HP×${weapon.effect.coefficient}Power加算`
       }
       if (weapon.effect.type === 'targetHpConditional') {
-        desc += ` | 敵HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`
+        desc += ` | 敵失HP×${weapon.effect.coefficient}Power加算`
       }
       if (weapon.effect.type === 'shield') {
         desc += ` | シールド${weapon.effect.value}付与`
@@ -111,7 +111,7 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 最大HP${Math.floor(weapon.effect.rate * 100)}%のダメージ`
       }
       if (weapon.effect.type === 'followUp') {
-        desc += ` | 味方攻撃済みでPower+${weapon.effect.bonusPower}`
+        desc += ` | 先行攻撃数×${weapon.effect.coefficient}Power加算`
       }
       if (weapon.effect.type === 'levelScale') {
         desc += ' | Lv分Power加算'
@@ -252,15 +252,15 @@ export function getItemSpecialEffect(item: ItemType): string {
       if (weapon.effect.type === 'lifesteal') {
         parts.push(`ダメージを与えたときHP+${weapon.effect.value}回復`)
       } else if (weapon.effect.type === 'selfHpConditional') {
-        parts.push(`自HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`)
+        parts.push(`失ったHP割合×${weapon.effect.coefficient}をPower加算`)
       } else if (weapon.effect.type === 'targetHpConditional') {
-        parts.push(`敵HP${Math.floor(weapon.effect.hpThreshold * 100)}%以下でPower+${weapon.effect.bonusPower}`)
+        parts.push(`敵が失ったHP割合×${weapon.effect.coefficient}をPower加算`)
       } else if (weapon.effect.type === 'shield') {
         parts.push(`シールド${weapon.effect.value}付与`)
       } else if (weapon.effect.type === 'hpPercentDamage') {
         parts.push(`最大HP${Math.floor(weapon.effect.rate * 100)}%のダメージ`)
       } else if (weapon.effect.type === 'followUp') {
-        parts.push(`味方攻撃済みでPower+${weapon.effect.bonusPower}`)
+        parts.push(`先行攻撃回数×${weapon.effect.coefficient}をPower加算`)
       } else if (weapon.effect.type === 'levelScale') {
         parts.push('Lv分Power加算')
       } else if (weapon.effect.type === 'combatStrGain') {
@@ -322,6 +322,12 @@ export function getItemSpecialEffect(item: ItemType): string {
         return '現在MP全量をダメージに変換'
       case 'thorns':
         return `棘${spell.effect.value}付与（バトル中蓄積、被弾時反撃）`
+      case 'followUp':
+        return `先行攻撃回数×${spell.effect.coefficient}をPower加算`
+      case 'targetHpConditional':
+        return `敵が失ったHP割合×${spell.effect.coefficient}をPower加算`
+      case 'lowMpConditional':
+        return `消費済みMP割合×${spell.effect.coefficient}をPower加算`
       default:
         return ''
     }
@@ -391,10 +397,10 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ` 吸血:${command.effect.value}`
       }
       if (command.effect.type === 'selfHpConditional') {
-        desc += ` 自HP${Math.floor(command.effect.hpThreshold * 100)}%以下P+${command.effect.bonusPower}`
+        desc += ` 失HP×${command.effect.coefficient}P加算`
       }
       if (command.effect.type === 'targetHpConditional') {
-        desc += ` 敵HP${Math.floor(command.effect.hpThreshold * 100)}%以下P+${command.effect.bonusPower}`
+        desc += ` 敵失HP×${command.effect.coefficient}P加算`
       }
       if (command.effect.type === 'selfVulnerability') {
         desc += ` ${command.effect.duration}T被ダメ×${command.effect.multiplier}`

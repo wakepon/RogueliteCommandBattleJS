@@ -8,7 +8,7 @@
     "id": "followup_knife", "name": "追撃のナイフ", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "knife",
     "targetType": "enemySingle", "power": 3, "variance": 3, "maxUses": 5,
-    "effect": { "type": "followUp", "bonusPower": 4 }
+    "effect": { "type": "followUp", "coefficient": 2 }
   },
   "growth_knife": {
     "id": "growth_knife", "name": "成長のナイフ", "rarity": "Uncommon", "price": 7,
@@ -43,13 +43,13 @@
     "id": "rage_greatsword", "name": "怒りの大剣", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "greatsword",
     "targetType": "enemySingle", "power": 3, "variance": 4, "maxUses": 4,
-    "effect": { "type": "selfHpConditional", "hpThreshold": 0.5, "bonusPower": 5 }
+    "effect": { "type": "selfHpConditional", "coefficient": 10 }
   },
   "execution_greatsword": {
     "id": "execution_greatsword", "name": "処刑の大剣", "rarity": "Uncommon", "price": 8,
     "commandCategory": "weapon", "category": "greatsword",
     "targetType": "enemySingle", "power": 3, "variance": 5, "maxUses": 3,
-    "effect": { "type": "targetHpConditional", "hpThreshold": 0.3, "bonusPower": 5 }
+    "effect": { "type": "targetHpConditional", "coefficient": 8 }
   },
   "training_staff": {
     "id": "training_staff", "name": "稽古の杖", "rarity": "Uncommon", "price": 8,

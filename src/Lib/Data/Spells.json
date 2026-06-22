@@ -51,19 +51,19 @@
     "id": "thirst_fire", "name": "渇きの火", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "enemySingle",
     "mpCost": 4, "power": 3, "variance": 4,
-    "effect": { "type": "lowMpConditional", "mpThreshold": 0.25, "bonusPower": 5 }
+    "effect": { "type": "lowMpConditional", "coefficient": 8 }
   },
   "followup_flame": {
     "id": "followup_flame", "name": "追撃の炎", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "enemySingle",
     "mpCost": 5, "power": 3, "variance": 3,
-    "effect": { "type": "followUp", "bonusPower": 4 }
+    "effect": { "type": "followUp", "coefficient": 2 }
   },
   "execution_thunder": {
     "id": "execution_thunder", "name": "処刑の雷", "rarity": "Uncommon", "price": 8,
     "commandCategory": "spell", "targetType": "enemySingle",
     "mpCost": 6, "power": 3, "variance": 4,
-    "effect": { "type": "targetHpConditional", "hpThreshold": 0.3, "bonusPower": 5 }
+    "effect": { "type": "targetHpConditional", "coefficient": 8 }
   },
   "training_fire": {
     "id": "training_fire", "name": "お手本ファイア", "rarity": "Uncommon", "price": 7,

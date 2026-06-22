@@ -14,11 +14,11 @@ export type WeaponEffect =
   | { type: 'shieldBash' }  // 盾殴り: 攻撃者のシールド値をダメージに加算し、シールドを消費
   | { type: 'selfVulnerability'; multiplier: number; duration: number }  // 後隙の: 使用後被ダメ倍率デバフ
   | { type: 'killBonusExpToAll'; expAmount: number }  // 稽古の: トドメ時全員EXP付与
-  | { type: 'followUp'; bonusPower: number }  // 追撃のナイフ: 味方が同ターン攻撃済みなら+bonusPower
+  | { type: 'followUp'; coefficient: number }  // 追撃のナイフ: 先行攻撃回数×coefficientをPower加算
   | { type: 'levelScale'; basePower: number }  // 成長のナイフ: Power = basePower + level
   | { type: 'combatStrGain'; value: number }  // 鍛錬のナイフ: 使用後STR+value(戦闘中永続)
-  | { type: 'targetHpConditional'; hpThreshold: number; bonusPower: number }  // 処刑の大剣: 対象HP≤threshold%で+bonusPower
-  | { type: 'selfHpConditional'; hpThreshold: number; bonusPower: number }  // 怒りの大剣: 自身HP≤threshold%で+bonusPower
+  | { type: 'targetHpConditional'; coefficient: number }  // 処刑の大剣: 敵が失ったHP割合×coefficientをPower加算
+  | { type: 'selfHpConditional'; coefficient: number }  // 怒りの大剣: 失ったHP割合×coefficientをPower加算
   | { type: 'lifestealPercent'; rate: number }  // 吸血の杖: ダメージのrate%をHP回復
   | { type: 'manaSteal'; rate: number }  // 吸魔の杖: ダメージのrate%をMP回復
   | { type: 'thornsShield'; shieldValue: number; thornsDuration: number }  // 棘の盾: シールド+反撃1T

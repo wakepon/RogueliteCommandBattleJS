@@ -16,9 +16,9 @@ export type SpellEffect =
   | { type: 'mpPercentShield'; rate: number }  // 魔力の盾: 最大MP×rate のシールド付与
   | { type: 'mpAllDamage' }                    // 魔力放出: 現在MP全消費→MPぶんのダメージ
   | { type: 'thorns'; value: number }           // 棘付与: 味方に棘バフ付与（バトル中持続、蓄積、被弾時に反撃）
-  | { type: 'followUp'; bonusPower: number }  // 追撃の炎: 味方が同ターン攻撃済みなら+bonusPower
-  | { type: 'targetHpConditional'; hpThreshold: number; bonusPower: number }  // 処刑の雷: 対象HP≤threshold%で+bonusPower
-  | { type: 'lowMpConditional'; mpThreshold: number; bonusPower: number }  // 渇きの火: MP≤threshold%で+bonusPower
+  | { type: 'followUp'; coefficient: number }  // 追撃の炎: 先行攻撃回数×coefficientをPower加算
+  | { type: 'targetHpConditional'; coefficient: number }  // 処刑の雷: 敵が失ったHP割合×coefficientをPower加算
+  | { type: 'lowMpConditional'; coefficient: number }  // 渇きの火: 消費済みMP割合×coefficientをPower加算
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {
