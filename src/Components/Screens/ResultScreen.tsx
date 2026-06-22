@@ -13,7 +13,7 @@ const MEMBER_LEVEL_UPDATE_TO_MAX_MS = 1000
 const MEMBER_MAX_TO_DONE_MS = 500
 
 export function ResultScreen() {
-  const { state, openRecovery } = useGame()
+  const { state, openPotionShop } = useGame()
   const { resultState } = state
 
   // 敗北時は BattleScreen のオーバーレイで処理するため、ここには勝利時のみ到達する
@@ -117,8 +117,8 @@ export function ResultScreen() {
       )}
 
       <div className="flex flex-col gap-4">
-        <Button variant="primary" size="lg" onClick={openRecovery}>
-          回復メニューへ
+        <Button variant="primary" size="lg" onClick={openPotionShop}>
+          ポーションショップへ
         </Button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useCallback, useEffect, useState, useRef, ReactNode } from 'react'
-import { GameState, RecoveryMenuId, createInitialGameState } from '../Lib/Types/Game'
+import { GameState, createInitialGameState } from '../Lib/Types/Game'
 import { gameReducer, GameAction } from '../Lib/State/GameReducer'
 import { ExplorerWeapon, WeaponData } from '../Lib/Types/Weapon'
 import { SpellData, SpellInstance } from '../Lib/Types/Spell'
@@ -48,10 +48,11 @@ interface GameContextType {
   toggleRepairWeapon: (weaponId: string) => void
   confirmRepair: (explorerId: string) => void
   closeEvent: () => void
-  // 回復メニュー関連アクション
-  openRecovery: () => void
-  executeRecoveryAction: (menuId: RecoveryMenuId, targetId?: string) => void
-  closeRecovery: () => void
+  // ポーションショップ関連アクション
+  openPotionShop: () => void
+  buyAndUsePotion: (shopSlotIndex: number, targetId: string) => void
+  buyAndStorePotion: (shopSlotIndex: number) => void
+  closePotionShop: () => void
   // マップ関連アクション
   advanceFromMap: () => void
 }
@@ -139,11 +140,13 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'TOGGLE_REPAIR_WEAPON', weaponId }), [])
   const confirmRepair = useCallback((explorerId: string) => dispatch({ type: 'CONFIRM_REPAIR', explorerId }), [])
   const closeEvent = useCallback(() => dispatch({ type: 'CLOSE_EVENT' }), [])
-  // 回復メニュー関連アクション
-  const openRecovery = useCallback(() => dispatch({ type: 'OPEN_RECOVERY' }), [])
-  const executeRecoveryAction = useCallback((menuId: RecoveryMenuId, targetId?: string) =>
-    dispatch({ type: 'EXECUTE_RECOVERY', menuId, targetId }), [])
-  const closeRecovery = useCallback(() => dispatch({ type: 'CLOSE_RECOVERY' }), [])
+  // ポーションショップ関連アクション
+  const openPotionShop = useCallback(() => dispatch({ type: 'OPEN_POTION_SHOP' }), [])
+  const buyAndUsePotion = useCallback((shopSlotIndex: number, targetId: string) =>
+    dispatch({ type: 'BUY_AND_USE_POTION', shopSlotIndex, targetId }), [])
+  const buyAndStorePotion = useCallback((shopSlotIndex: number) =>
+    dispatch({ type: 'BUY_AND_STORE_POTION', shopSlotIndex }), [])
+  const closePotionShop = useCallback(() => dispatch({ type: 'CLOSE_POTION_SHOP' }), [])
   // マップ関連アクション
   const advanceFromMap = useCallback(() => dispatch({ type: 'ADVANCE_FROM_MAP' }), [])
 
@@ -208,9 +211,10 @@ export function GameProvider({ children }: GameProviderProps) {
       toggleRepairWeapon,
       confirmRepair,
       closeEvent,
-      openRecovery,
-      executeRecoveryAction,
-      closeRecovery,
+      openPotionShop,
+      buyAndUsePotion,
+      buyAndStorePotion,
+      closePotionShop,
       advanceFromMap,
     }}>
       {children}

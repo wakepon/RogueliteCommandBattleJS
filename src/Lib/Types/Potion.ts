@@ -13,6 +13,11 @@ export type PotionEffect =
   | { type: 'statBoost'; strValue: number; intValue: number }  // 興奮: STR+N, INT+N（1ターン）
   | { type: 'damageReduction'; rate: number }  // 防御: 被ダメ×rate軽減（1ターン）
   | { type: 'aoeConvert' }  // 全体化: 次の1回の単体攻撃を全体化
+  // 永続ステータス強化（種系）
+  | { type: 'boostStr'; value: number }     // STR永続+N
+  | { type: 'boostInt'; value: number }     // INT永続+N
+  | { type: 'boostMaxHp'; value: number }   // maxHP永続+N
+  | { type: 'boostMaxMp'; value: number }   // maxMP永続+N
 
 /** ポーションデータ */
 export interface PotionData extends IItem, IPurchasable, ICommandable, ITargetable, ISingleUse {

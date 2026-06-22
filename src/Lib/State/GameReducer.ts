@@ -1,4 +1,4 @@
-import { GameState, ResultState, EventState, MapState, StoreState, RecoveryMenuId, createInitialGameState } from '../Types/Game'
+import { GameState, ResultState, EventState, MapState, StoreState, createInitialGameState } from '../Types/Game'
 import { RunState, createInitialRun } from '../Types/Run'
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance, WeaponData } from '../Types/Weapon'
@@ -32,7 +32,8 @@ import {
   processTurnEndAction,
 } from './BattleActionProcessor'
 import { calculateMemberDiffs } from '../Core/BattleResultDiff'
-import { executeRecovery, canExecuteRecovery, createRecoveryState } from '../Core/RecoveryLogic'
+import { createPotionShopState, canBuyShopPotion, applyPotionToMember, canUseImmediately, canStorePotion, canUseOnMember, createPotionInstance } from '../Core/PotionShopLogic'
+import { canBuyPotion } from '../Core/StoreLogic'
 
 /** ショップスロットのアイテムを更新するヘルパー */
 function updateShopSlotItem(storeState: StoreState, slotIndex: number, newItem: unknown): StoreState {
@@ -84,9 +85,10 @@ export type GameAction =
   | { type: 'REORDER_PARTY'; fromIndex: number; toIndex: number }
   | { type: 'USE_POTION_INSTANT'; potionId: string; targetId: string }
   | { type: 'SUBMIT_GROWTH_CHOICE'; explorerId: string; growthType: GrowthTypeName }
-  | { type: 'OPEN_RECOVERY' }
-  | { type: 'EXECUTE_RECOVERY'; menuId: RecoveryMenuId; targetId?: string }
-  | { type: 'CLOSE_RECOVERY' }
+  | { type: 'OPEN_POTION_SHOP' }
+  | { type: 'BUY_AND_USE_POTION'; shopSlotIndex: number; targetId: string }
+  | { type: 'BUY_AND_STORE_POTION'; shopSlotIndex: number }
+  | { type: 'CLOSE_POTION_SHOP' }
 
 /** 次のステージへ進みマップ画面に遷移する共通ヘルパー */
 function advanceToMapPhase(state: GameState, run: RunState): GameState {
@@ -602,36 +604,68 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return advanceToMapPhase(state, state.run)
     }
 
-    case 'OPEN_RECOVERY': {
+    case 'OPEN_POTION_SHOP': {
       if (!state.run) return state
-      const recoveryState = createRecoveryState()
-      return { ...state, phase: 'recovery', recoveryState }
+      const potionShopState = createPotionShopState(state.run.seed + state.run.currentStage + 777)
+      return { ...state, phase: 'recovery', potionShopState }
     }
 
-    case 'EXECUTE_RECOVERY': {
-      if (!state.run || !state.recoveryState) return state
-      const { menuId, targetId } = action
-      const useCount = state.recoveryState.useCounts[menuId]
-      if (!canExecuteRecovery(menuId, useCount, state.run, targetId)) return state
-      const updatedRun = executeRecovery(menuId, useCount, state.run, targetId)
-      const updatedRecoveryState = {
-        ...state.recoveryState,
-        useCounts: {
-          ...state.recoveryState.useCounts,
-          [menuId]: useCount + 1,
-        },
+    case 'BUY_AND_USE_POTION': {
+      if (!state.run || !state.potionShopState) return state
+      const run = state.run
+      const { shopSlotIndex, targetId } = action
+      const slot = state.potionShopState.shopSlots[shopSlotIndex]
+      if (!slot) return state
+      if (!canBuyShopPotion(slot.stock, slot.potion.price, run.gold)) return state
+      if (!canUseImmediately(slot.potion.effect)) return state
+      const target = run.party.find(m => m.id === targetId)
+      if (!target || !canUseOnMember(slot.potion.effect, target)) return state
+      const updatedParty = run.party.map(m =>
+        m.id === targetId ? applyPotionToMember(slot.potion, m, run.relics) : m
+      )
+      const updatedRun = { ...run, party: updatedParty, gold: run.gold - slot.potion.price }
+      const updatedShopSlots = state.potionShopState.shopSlots.map((s, i) =>
+        i === shopSlotIndex ? { ...s, stock: s.stock - 1 } : s
+      )
+      return {
+        ...state,
+        run: updatedRun,
+        potionShopState: { ...state.potionShopState, shopSlots: updatedShopSlots },
       }
-      return { ...state, run: updatedRun, recoveryState: updatedRecoveryState }
     }
 
-    case 'CLOSE_RECOVERY': {
+    case 'BUY_AND_STORE_POTION': {
+      if (!state.run || !state.potionShopState) return state
+      const { shopSlotIndex } = action
+      const slot = state.potionShopState.shopSlots[shopSlotIndex]
+      if (!slot) return state
+      if (!canBuyShopPotion(slot.stock, slot.potion.price, state.run.gold)) return state
+      if (!canStorePotion(slot.potion.effect)) return state
+      if (!canBuyPotion(state.run.potions, state.run.relics)) return state
+      const newPotion = createPotionInstance(slot.potion)
+      const updatedRun = {
+        ...state.run,
+        potions: [...state.run.potions, newPotion],
+        gold: state.run.gold - slot.potion.price,
+      }
+      const updatedShopSlots = state.potionShopState.shopSlots.map((s, i) =>
+        i === shopSlotIndex ? { ...s, stock: s.stock - 1 } : s
+      )
+      return {
+        ...state,
+        run: updatedRun,
+        potionShopState: { ...state.potionShopState, shopSlots: updatedShopSlots },
+      }
+    }
+
+    case 'CLOSE_POTION_SHOP': {
       if (!state.run) return state
       const storeState = createStoreState(state.run.seed + state.run.currentStage, state.run.currentStage)
       const mapState: MapState = {
         nodes: generateMapNodes(state.run.seed),
         currentStage: state.run.currentStage,
       }
-      return { ...state, phase: 'store', storeState, resultState: null, recoveryState: null, mapState }
+      return { ...state, phase: 'store', storeState, resultState: null, potionShopState: null, mapState }
     }
 
     case 'OPEN_EVENT': {
@@ -837,6 +871,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...w, currentUses: newUses } as typeof w
           }),
         }
+      } else if (effect.type === 'boostStr') {
+        updatedTarget = { ...updatedTarget, str: updatedTarget.str + effect.value }
+      } else if (effect.type === 'boostInt') {
+        updatedTarget = { ...updatedTarget, int: updatedTarget.int + effect.value }
+      } else if (effect.type === 'boostMaxHp') {
+        updatedTarget = { ...updatedTarget, maxHp: updatedTarget.maxHp + effect.value, hp: updatedTarget.hp + effect.value }
+      } else if (effect.type === 'boostMaxMp') {
+        updatedTarget = { ...updatedTarget, maxMp: updatedTarget.maxMp + effect.value, mp: updatedTarget.mp + effect.value }
       } else if (effect.type === 'taunt' || effect.type === 'statBoost' || effect.type === 'damageReduction' || effect.type === 'aoeConvert') {
         // バフ付与ポーション共通: 持続ターン計算
         const buffDuration = effect.type === 'aoeConvert'

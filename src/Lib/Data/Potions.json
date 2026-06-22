@@ -61,5 +61,41 @@
     "commandCategory": "potion",
     "targetType": "allySingle",
     "effect": { "type": "aoeConvert" }
+  },
+  "str_seed": {
+    "id": "str_seed",
+    "name": "力の種",
+    "rarity": "Uncommon",
+    "price": 5,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "boostStr", "value": 2 }
+  },
+  "int_seed": {
+    "id": "int_seed",
+    "name": "知恵の種",
+    "rarity": "Uncommon",
+    "price": 5,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "boostInt", "value": 2 }
+  },
+  "maxhp_seed": {
+    "id": "maxhp_seed",
+    "name": "生命の種",
+    "rarity": "Uncommon",
+    "price": 5,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "boostMaxHp", "value": 7 }
+  },
+  "maxmp_seed": {
+    "id": "maxmp_seed",
+    "name": "精神の種",
+    "rarity": "Uncommon",
+    "price": 5,
+    "commandCategory": "potion",
+    "targetType": "allySingle",
+    "effect": { "type": "boostMaxMp", "value": 3 }
   }
 }
