@@ -9,7 +9,7 @@ interface BuffIconProps {
 const BUFF_DISPLAY: Record<string, { label: string; color: string; title: (b: Buff) => string }> = {
   charge: { label: '力', color: 'bg-red-600', title: b => `力溜め: 次攻撃×${b.value}` },
   shield: { label: '盾', color: 'bg-blue-500', title: b => b.value <= 1 ? 'シールド: 被ダメージ50%軽減' : `シールド: ${b.value}` },
-  thorns: { label: '棘', color: 'bg-orange-600', title: b => `棘: ${b.value}（被弾時反撃）` },
+  thorns: { label: '棘', color: 'bg-orange-600', title: b => `棘: ${b.value}スタック（被弾時${b.value * 50}%反射）` },
   taunt: { label: '挑', color: 'bg-red-500', title: () => '挑発: 被弾率100%' },
   damageReduction: { label: '防', color: 'bg-sky-600', title: b => `被ダメ軽減: ${Math.round(b.value * 100)}%` },
   aoeConvert: { label: '全', color: 'bg-purple-500', title: () => '全体化: 次の攻撃を全体化' },

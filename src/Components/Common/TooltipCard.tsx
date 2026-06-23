@@ -132,7 +132,7 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '効果', value: `ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`, color: 'text-blue-300' })
       }
       if (weapon.effect.type === 'thornsShield') {
-        lines.push({ label: '効果', value: `シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornsDuration}T`, color: 'text-cyan-300' })
+        lines.push({ label: '効果', value: `シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornStacks}スタック`, color: 'text-cyan-300' })
       }
       if (weapon.effect.type === 'aoe') {
         lines.push({ label: '効果', value: '全体攻撃', color: 'text-red-300' })
@@ -227,7 +227,7 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '効果', value: `消費MP×${spell.effect.coefficient}P加算`, color: 'text-purple-300' })
       }
       if (spell.effect.type === 'thorns') {
-        lines.push({ label: '効果', value: `棘${spell.effect.value}付与`, color: 'text-green-300' })
+        lines.push({ label: '効果', value: `棘${spell.effect.value}スタック付与`, color: 'text-green-300' })
       }
     }
     if ('hpCost' in spell && (spell as SpellData).hpCost) {

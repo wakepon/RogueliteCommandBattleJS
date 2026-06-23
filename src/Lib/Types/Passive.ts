@@ -21,7 +21,7 @@ export type PassiveEffectType =
   | { type: 'regenPerTurn'; value: number }  // 再生のコケ: 毎ターンHP回復
   | { type: 'weaponDurabilitySave'; chance: number }  // 武器お手入れ用油: 耐久消費をchance%で回避
   | { type: 'battleEndBonusExp'; expValue: number }  // 修羅の証: 戦闘後全員+EXP
-  | { type: 'thornsDurationBonus'; value: number }  // 棘の書: 反撃持続+Nターン
+  | { type: 'thornsStackBonus'; value: number }  // 棘の書: 棘スタック追加+N
   | { type: 'potionEffectMultiplier'; multiplier: number }  // 錬金術の触媒: ポーション効果倍化
   | { type: 'potionSlotBonus'; value: number }  // 薬師の鞄: ポーション所持上限+N
 

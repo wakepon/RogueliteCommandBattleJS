@@ -79,7 +79,7 @@
     "id": "thorns_shield", "name": "棘の盾", "rarity": "Rare", "price": 10,
     "commandCategory": "weapon", "category": "shield",
     "targetType": "allySingle", "power": 0, "variance": 0, "maxUses": 4,
-    "effect": { "type": "thornsShield", "shieldValue": 15, "thornsDuration": 1 }
+    "effect": { "type": "thornsShield", "shieldValue": 15, "thornStacks": 3 }
   },
   "whirlwind_sword": {
     "id": "whirlwind_sword", "name": "旋風剣", "rarity": "Rare", "price": 10,

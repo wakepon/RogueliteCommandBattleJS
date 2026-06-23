@@ -69,7 +69,7 @@
   },
   "thorns_tome": {
     "id": "thorns_tome", "name": "棘の書", "rarity": "Rare", "price": 10,
-    "passiveEffect": { "type": "thornsDurationBonus", "value": 1 }
+    "passiveEffect": { "type": "thornsStackBonus", "value": 1 }
   },
   "alchemy_catalyst": {
     "id": "alchemy_catalyst", "name": "錬金術の触媒", "rarity": "Common", "price": 5,

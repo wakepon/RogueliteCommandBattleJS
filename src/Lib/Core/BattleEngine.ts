@@ -51,7 +51,9 @@ function processTurnEnd(
   const updatedDebuffs = decrementVulnerabilityDuration(debuffsAfterWeakness)
 
   // バフのターン減少処理
-  const updatedBuffs = decrementBuffDurations(explorer.battleBuffs)
+  const buffsAfterDecrement = decrementBuffDurations(explorer.battleBuffs)
+  // 棘スタックリセット: ターン終了時に棘バフを除去
+  const updatedBuffs = buffsAfterDecrement.filter(b => b.type !== 'thorns')
 
   // HPを減少（毒ダメージ適用）、最低0
   const newHp = Math.max(0, explorer.hp - poisonDamage)

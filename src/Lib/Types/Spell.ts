@@ -15,7 +15,7 @@ export type SpellEffect =
   | { type: 'targetRateUp'; value: number }   // 祈り: 被ターゲット率UP
   | { type: 'mpPercentShield'; rate: number }  // 魔力の盾: 最大MP×rate のシールド付与
   | { type: 'mpAllDamage' }                    // 魔力放出: 現在MP全消費→MPぶんのダメージ
-  | { type: 'thorns'; value: number }           // 棘付与: 味方に棘バフ付与（バトル中持続、蓄積、被弾時に反撃）
+  | { type: 'thorns'; value: number }           // 棘付与: 味方に棘スタック付与（ターン終了リセット、蓄積可、被弾時反射）
   | { type: 'followUp'; coefficient: number }  // 追撃の炎: 先行攻撃回数×coefficientをPower加算
   | { type: 'targetHpConditional'; coefficient: number }  // 処刑の雷: 敵が失ったHP割合×coefficientをPower加算
   | { type: 'lowMpConditional'; coefficient: number }  // 渇きの火: 消費済みMP割合×coefficientをPower加算

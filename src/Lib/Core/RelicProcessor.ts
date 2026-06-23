@@ -164,10 +164,10 @@ export function getBattleEndBonusExp(relics: RelicInstance[]): { expValue: numbe
   return null
 }
 
-/** 棘の書: 反撃効果の持続ターンボーナス */
-export function getThornsDurationBonus(relics: RelicInstance[]): number {
+/** 棘の書: 棘スタック追加ボーナス */
+export function getThornsStackBonus(relics: RelicInstance[]): number {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'thornsDurationBonus') return r.passiveEffect.value
+    if (r.passiveEffect.type === 'thornsStackBonus') return r.passiveEffect.value
   }
   return 0
 }

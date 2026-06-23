@@ -72,8 +72,8 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
       return `武器使用時、${Math.floor(effect.chance * 100)}%の確率で耐久値を消費しない`
     case 'battleEndBonusExp':
       return `戦闘後に全員経験値+${effect.expValue}`
-    case 'thornsDurationBonus':
-      return `棘バフ持続+${effect.value}ターン`
+    case 'thornsStackBonus':
+      return `棘スタック+${effect.value}`
     case 'potionEffectMultiplier':
       return `ポーション効果${effect.multiplier}倍`
     case 'potionSlotBonus':
@@ -128,7 +128,7 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`
       }
       if (weapon.effect.type === 'thornsShield') {
-        desc += ` | シールド${weapon.effect.shieldValue}+棘付与`
+        desc += ` | シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornStacks}スタック`
       }
       if (weapon.effect.type === 'aoe') {
         desc += ' | 全体攻撃'
@@ -195,7 +195,7 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       } else if (spell.effect.type === 'mpAllDamage') {
         desc += ' | 現在MP全量をダメージに変換'
       } else if (spell.effect.type === 'thorns') {
-        desc += ` | 棘${spell.effect.value}付与（バトル中蓄積、被弾時に反撃）`
+        desc += ` | 棘${spell.effect.value}スタック付与（被弾時反射、ターン終了リセット）`
       }
     }
     if (spell.hpCost) {
@@ -272,7 +272,7 @@ export function getItemSpecialEffect(item: ItemType): string {
       } else if (weapon.effect.type === 'manaSteal') {
         parts.push(`ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`)
       } else if (weapon.effect.type === 'thornsShield') {
-        parts.push(`シールド${weapon.effect.shieldValue}+棘付与`)
+        parts.push(`シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornStacks}スタック`)
       } else if (weapon.effect.type === 'aoe') {
         parts.push('全体攻撃')
       } else if (weapon.effect.type === 'currentHpDamage') {
@@ -323,7 +323,7 @@ export function getItemSpecialEffect(item: ItemType): string {
       case 'mpAllDamage':
         return '現在MP全量をダメージに変換'
       case 'thorns':
-        return `棘${spell.effect.value}付与（バトル中蓄積、被弾時反撃）`
+        return `棘${spell.effect.value}スタック付与（被弾時反射、ターン終了リセット）`
       case 'followUp':
         return `先行攻撃回数×${spell.effect.coefficient}をPower加算`
       case 'targetHpConditional':
@@ -460,7 +460,7 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       } else if (command.effect.type === 'mpAllDamage') {
         desc += ' 現在MP→ダメージ'
       } else if (command.effect.type === 'thorns') {
-        desc += ` 棘${command.effect.value}付与`
+        desc += ` 棘${command.effect.value}スタック`
       }
     }
     if ('hpCost' in command && command.hpCost) {

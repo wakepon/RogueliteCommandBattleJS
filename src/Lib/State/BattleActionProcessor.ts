@@ -32,7 +32,7 @@ import {
   getDamageTakenToMpValue,
   getLevelUpStatBoost,
   hasDeathProtection,
-  getThornsDurationBonus,
+  getThornsStackBonus,
   getComboAttackBonus,
   getHpCostPowerBoost,
   getKillMpRecover,
@@ -1348,9 +1348,9 @@ function executeAllySpellCommand(
     }
   }
 
-  // 棘付与: 対象にthornsバフを付与（バトル中持続、蓄積可能）
+  // 棘スタック付与（蓄積可能）
   if (selectedCommand.effect?.type === 'thorns') {
-    const thornsValue = selectedCommand.effect.value
+    const thornsValue = selectedCommand.effect.value + getThornsStackBonus(state.run.relics)
     const existingThorns = updatedTarget.battleBuffs.find(b => b.type === 'thorns')
     if (existingThorns) {
       // 蓄積: 既存の棘バフに加算
@@ -1527,20 +1527,19 @@ function executeAllyAllWeaponCommand(
         value: selectedCommand.effect.shieldValue,
         duration: 1,
       }
-      // 棘バフ（バトル中持続、蓄積可能）
+      // 棘スタック付与（蓄積可能）
       const existingThorns = member.battleBuffs.find(b => b.type === 'thorns')
-      const thornsValue = selectedCommand.effect.shieldValue
+      const thornsStacks = selectedCommand.effect.thornStacks + getThornsStackBonus(state.run.relics)
       let memberBuffs = [...member.battleBuffs, shieldBuff]
       if (existingThorns) {
         memberBuffs = memberBuffs.map(b =>
-          b.type === 'thorns' ? { ...b, value: b.value + thornsValue } : b
+          b.type === 'thorns' ? { ...b, value: b.value + thornsStacks } : b
         )
       } else {
-        const thornsDurationBonus = getThornsDurationBonus(state.run.relics)
         const thornsBuff: Buff = {
           type: 'thorns',
-          value: thornsValue,
-          duration: selectedCommand.effect!.thornsDuration + thornsDurationBonus,
+          value: thornsStacks,
+          duration: 'battle',
         }
         memberBuffs.push(thornsBuff)
       }
@@ -1750,6 +1749,7 @@ export function processEnemyAction(
   }
 
   // ダメージ処理
+  const preDamageByMemberId = new Map<string, number>()
   let newRun = state.run
   if (battleAction.randomTargetHits && battleAction.randomTargetHits.length > 0) {
     // ランダムターゲット: 各hitを対象ごとに独立処理（poison/weakness等のデバフは未対応）
@@ -1768,6 +1768,8 @@ export function processEnemyAction(
 
       // vulnerabilityデバフによるダメージ倍化
       const amplifiedDamage = applyVulnerabilityMultiplier(member.battleDebuffs, perHitDamage)
+      const existing = preDamageByMemberId.get(hit.targetExplorerId) ?? 0
+      preDamageByMemberId.set(hit.targetExplorerId, existing + amplifiedDamage)
       const { reducedDamage, updatedBuffs } = processShieldDamageReduction(member.battleBuffs, amplifiedDamage)
       const dmgToMpValue = getDamageTakenToMpValue(relics)
       const mpRecovery = dmgToMpValue
@@ -1801,6 +1803,7 @@ export function processEnemyAction(
     for (const member of aliveMembers) {
       // vulnerabilityデバフによるダメージ倍化
       const amplifiedDamage = applyVulnerabilityMultiplier(member.battleDebuffs, actualDamage)
+      preDamageByMemberId.set(member.id, amplifiedDamage)
       const { reducedDamage: memberDamage, updatedBuffs: memberBuffs } = processShieldDamageReduction(member.battleBuffs, amplifiedDamage)
       // 苦痛のリング: 被ダメ→MP固定回復
       const dmgToMpValue = getDamageTakenToMpValue(relics)
@@ -1829,6 +1832,7 @@ export function processEnemyAction(
 
     // vulnerabilityデバフによるダメージ倍化
     const amplifiedDamage = applyVulnerabilityMultiplier(battleAction.explorer.battleDebuffs, actualDamage)
+    preDamageByMemberId.set(battleAction.targetExplorerId, amplifiedDamage)
 
     // シールドバフによるダメージ軽減
     const { reducedDamage: shieldedDamage, updatedBuffs: shieldedBuffs } = processShieldDamageReduction(battleAction.explorer.battleBuffs, amplifiedDamage)
@@ -1991,9 +1995,8 @@ export function processEnemyAction(
     }
   }
 
-  // 棘バフによる反撃: 被弾したメンバーのthornsバフ値 × 50% のダメージを敵に与える
+  // 棘反射: 被ダメージ（シールド前） × (スタック × 50%) を攻撃元に反射、スタック-1
   if (actualDamage > 0) {
-    // AoE: 攻撃前に生存していたメンバーのみ（致死後hp=0も含む）
     const hitMembers = battleAction.isAoe
       ? newRun.party.filter(m => {
           const wasAlive = state.run!.party.find(p => p.id === m.id)
@@ -2004,9 +2007,29 @@ export function processEnemyAction(
     let totalBuffThornsDmg = 0
     for (const member of hitMembers) {
       const thornsBuff = member.battleBuffs.find(b => b.type === 'thorns')
-      if (thornsBuff) {
-        const thornsBaseRate = getTuningValue('thorns_base_rate', 0.5)
-        totalBuffThornsDmg += Math.floor(thornsBuff.value * thornsBaseRate)
+      if (thornsBuff && thornsBuff.value > 0) {
+        const preDamage = preDamageByMemberId.get(member.id) ?? 0
+        const thornsStackRate = getTuningValue('thorns_base_rate', 0.5)
+        totalBuffThornsDmg += Math.floor(preDamage * (thornsBuff.value * thornsStackRate))
+      }
+    }
+
+    // 被弾メンバーの棘スタックを1減少
+    for (const member of hitMembers) {
+      const currentMember = newRun.party.find(m => m.id === member.id)
+      if (!currentMember) continue
+      const thornsBuff = currentMember.battleBuffs.find(b => b.type === 'thorns')
+      if (thornsBuff && thornsBuff.value > 0) {
+        const newValue = thornsBuff.value - 1
+        const updatedBuffs = newValue <= 0
+          ? currentMember.battleBuffs.filter(b => b.type !== 'thorns')
+          : currentMember.battleBuffs.map(b =>
+              b.type === 'thorns' ? { ...b, value: newValue } : b
+            )
+        newRun = updatePartyMember(newRun, {
+          ...currentMember,
+          battleBuffs: updatedBuffs,
+        })
       }
     }
 

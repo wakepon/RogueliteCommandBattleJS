@@ -145,6 +145,14 @@ function CharacterPanel({
                   被↑{(member.battleDebuffs.find(d => d.type === 'vulnerability') as { duration: number }).duration}
                 </span>
               )}
+              {(() => {
+                const thornsBuff = member.battleBuffs.find(b => b.type === 'thorns')
+                return thornsBuff && (
+                  <span className="text-orange-400 text-xs font-bold bg-orange-900/50 px-1 rounded shrink-0">
+                    棘{thornsBuff.value}
+                  </span>
+                )
+              })()}
             </div>
             <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
           </div>

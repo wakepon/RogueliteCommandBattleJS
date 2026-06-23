@@ -21,7 +21,7 @@ export type WeaponEffect =
   | { type: 'selfHpConditional'; coefficient: number }  // 怒りの大剣: 失ったHP割合×coefficientをPower加算
   | { type: 'lifestealPercent'; rate: number }  // 吸血の杖: ダメージのrate%をHP回復
   | { type: 'manaSteal'; rate: number }  // 吸魔の杖: ダメージのrate%をMP回復
-  | { type: 'thornsShield'; shieldValue: number; thornsDuration: number }  // 棘の盾: シールド+反撃1T
+  | { type: 'thornsShield'; shieldValue: number; thornStacks: number }  // 棘の盾: シールド+棘スタック付与
   | { type: 'aoe' }  // 旋風剣: 全体攻撃
 
 /** 武器データ（マスター） */
