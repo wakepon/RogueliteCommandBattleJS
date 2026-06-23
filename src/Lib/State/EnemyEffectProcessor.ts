@@ -133,7 +133,7 @@ export function applyShieldToEnemySelf(battleState: BattleState, enemyId: string
   const updatedEnemies = battleState.enemies.map(enemy => {
     if (enemy.instanceId === enemyId) {
       const filteredBuffs = enemy.battleBuffs.filter(b => b.type !== 'shield')
-      const shieldBuff: Buff = { type: 'shield', value: 1, duration: 1 }
+      const shieldBuff: Buff = { type: 'shield', value: 1, duration: 2 }
       return { ...enemy, battleBuffs: [...filteredBuffs, shieldBuff] }
     }
     return enemy
@@ -152,7 +152,7 @@ export function applyShieldToEnemyAlly(battleState: BattleState, _value: number)
   const updatedEnemies = battleState.enemies.map(enemy => {
     if (enemy.instanceId === mostInjured.instanceId) {
       const filteredBuffs = enemy.battleBuffs.filter(b => b.type !== 'shield')
-      const shieldBuff: Buff = { type: 'shield', value: 1, duration: 1 }
+      const shieldBuff: Buff = { type: 'shield', value: 1, duration: 2 }
       return { ...enemy, battleBuffs: [...filteredBuffs, shieldBuff] }
     }
     return enemy
