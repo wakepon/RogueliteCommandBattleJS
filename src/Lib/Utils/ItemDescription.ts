@@ -203,6 +203,9 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ' | 前ターンに受けたダメージが多いほど火力アップ'
       }
     }
+    if (spell.variance >= 10) {
+      desc += ' | ダメージのブレが大きい'
+    }
     if (spell.hpCost) {
       desc += ` | HP${spell.hpCost}消費`
     }
