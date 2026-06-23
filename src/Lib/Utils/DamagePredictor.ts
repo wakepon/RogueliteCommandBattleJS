@@ -8,6 +8,7 @@ import {
   getVulnerabilityPowerBoost,
   getBrokenWeaponStrBonus,
   getPositionStatBonus,
+  getComboAttackBonus,
 } from '../Core/RelicProcessor'
 
 /** ダメージ予測範囲 */
@@ -60,6 +61,7 @@ export interface DamagePredictOptions {
   currentCommandIndex?: number  // 現在のスロットインデックス（followUp計算用）
   targetCurrentHp?: number  // 対象敵の現在HP（targetHpConditional用）
   targetMaxHp?: number  // 対象敵の最大HP（targetHpConditional用）
+  comboBonus?: number  // 連携の紋章: コマンドフェーズで算出したPowerボーナス
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -75,15 +77,12 @@ function countAllyAttacksThisTurn(commandSlots?: CommandSlot[], currentCommandIn
   let count = 0
   for (let i = 0; i < currentCommandIndex; i++) {
     const slot = commandSlots[i]
-    if (slot.command && slot.targetId) {
-      const cmd = slot.command
-      if ('commandCategory' in cmd) {
-        const cat = (cmd as { commandCategory: string }).commandCategory
-        const targetType = (cmd as { targetType: string }).targetType
-        if ((cat === 'weapon' || cat === 'spell') && targetType.startsWith('enemy')) {
-          count++
-        }
-      }
+    if (!slot.command || !slot.targetId) continue
+    const cmd = slot.command
+    if ((isWeapon(cmd) || isSpell(cmd))
+      && cmd.targetType !== 'allySingle'
+      && cmd.targetType !== 'allyAll') {
+      count++
     }
   }
   return count
@@ -155,14 +154,13 @@ export function predictWeaponDamage(
     .filter(b => b.type === 'weaponPowerBonus')
     .reduce((sum, b) => sum + b.value, 0)
 
-  // 連携の紋章バフ
+  // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
   const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  const comboPowerBonus = comboBuff ? comboBuff.value : 0
+  const comboPowerBonus = options.comboBonus ?? (comboBuff ? comboBuff.value : 0)
 
   const effectivePower = weapon.power + conditionalPowerBonus + weaponPowerBonusValue
   let baseDamage = effectiveStat * effectivePower * buffMultiplier
 
-  // 連携の紋章バフ
   if (comboPowerBonus > 0) {
     baseDamage += effectiveStat * comboPowerBonus * buffMultiplier
   }
@@ -256,10 +254,11 @@ export function predictSpellDamage(
   const effectivePower = spell.power + conditionalPowerBonus
   let baseDamage = effectiveInt * effectivePower * buffMultiplier
 
-  // 連携の紋章バフ
+  // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
   const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  if (comboBuff) {
-    baseDamage += effectiveInt * comboBuff.value * buffMultiplier
+  const comboPowerBonus = options.comboBonus ?? (comboBuff ? comboBuff.value : 0)
+  if (comboPowerBonus > 0) {
+    baseDamage += effectiveInt * comboPowerBonus * buffMultiplier
   }
 
   // 逆境の鎧
@@ -285,7 +284,7 @@ export function predictSpellDamage(
 
   const isBoosted = positionBonus > 0
     || buffMultiplier > 1.0
-    || (comboBuff !== undefined && comboBuff.value > 0)
+    || comboPowerBonus > 0
     || conditionalPowerBonus > 0
 
   const isWeakened = spellWeakness !== undefined
@@ -319,6 +318,37 @@ function willReceivePrecision(
   return false
 }
 
+/** コマンドスロットから連携の紋章の条件を判定し、ボーナス値を返す */
+export function getComboConditionBonus(
+  commandSlots: CommandSlot[],
+  relics: RelicInstance[],
+  tentative?: TentativeCommand | null
+): number {
+  const combo = getComboAttackBonus(relics)
+  if (!combo) return 0
+
+  const slots = tentative
+    ? commandSlots.map(s =>
+        s.explorerId === tentative.explorerId
+          ? { ...s, command: tentative.command, targetId: tentative.targetEnemyId }
+          : s
+      )
+    : commandSlots
+
+  const attackerIds = new Set<string>()
+  for (const slot of slots) {
+    if (!slot.command || !slot.targetId) continue
+    const cmd = slot.command
+    if ((isWeapon(cmd) || isSpell(cmd))
+      && cmd.targetType !== 'allySingle'
+      && cmd.targetType !== 'allyAll') {
+      attackerIds.add(slot.explorerId)
+    }
+  }
+
+  return attackerIds.size >= combo.requiredCount ? combo.powerBonus : 0
+}
+
 /** 仮想コマンド情報（ドラッグ中のプレビュー用） */
 export interface TentativeCommand {
   command: BattleCommand
@@ -331,7 +361,8 @@ function detectActiveMultipliers(
   relics: RelicInstance[],
   explorer: ExplorerState,
   command: BattleCommand,
-  includeConditionalRelics: boolean
+  includeConditionalRelics: boolean,
+  comboBonus?: number
 ): MultiplierEffect[] {
   if (!includeConditionalRelics) return []
 
@@ -370,9 +401,9 @@ function detectActiveMultipliers(
     }
   }
 
-  // 連携の紋章バフ
+  // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
   const comboPowerBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  if (comboPowerBuff) {
+  if ((comboBonus && comboBonus > 0) || comboPowerBuff) {
     multipliers.push({ relicName: '連携の紋章', multiplier: 0 })
   }
 
@@ -452,6 +483,9 @@ export function calculateDetailedDamagePreview(
     }
   }
 
+  // 連携の紋章: コマンドフェーズで条件判定
+  const comboBonus = getComboConditionBonus(allSlots, options.relics || [], tentative)
+
   for (let i = 0; i < allSlots.length; i++) {
     const slot = allSlots[i]
     if (!slot.command) continue
@@ -462,7 +496,7 @@ export function calculateDetailedDamagePreview(
     const precisionFromOrder = willReceivePrecision(allSlots, slot.explorerId, i)
     const rawIdx = party.findIndex(e => e.id === slot.explorerId)
     const explorerIndex = rawIdx >= 0 ? rawIdx : undefined
-    const slotOptions = { ...options, hasPrecision: precisionFromOrder, party, explorerIndex, commandSlots: allSlots, currentCommandIndex: i, targetCurrentHp, targetMaxHp }
+    const slotOptions = { ...options, hasPrecision: precisionFromOrder, party, explorerIndex, commandSlots: allSlots, currentCommandIndex: i, targetCurrentHp, targetMaxHp, comboBonus }
 
     const targetsThisEnemy = slot.targetId === targetEnemyId
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
@@ -513,7 +547,8 @@ export function calculateDetailedDamagePreview(
         options.relics || [],
         explorer,
         slot.command,
-        options.includeConditionalRelics || false
+        options.includeConditionalRelics || false,
+        comboBonus
       )
 
       segments.push({

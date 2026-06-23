@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isFrontMember } from '../../Lib/Core'
-import { calculateDetailedDamagePreview, TentativeCommand } from '../../Lib/Utils/DamagePredictor'
+import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
@@ -260,6 +260,7 @@ function LeftPanel({
   party,
   currentStage,
   seed,
+  commandSlots,
 }: {
   potions: { id: string; name: string; commandCategory: 'potion' }[]
   relics: RelicInstance[]
@@ -267,7 +268,9 @@ function LeftPanel({
   party: ExplorerState[]
   currentStage: number
   seed: number
+  commandSlots: CommandSlot[]
 }) {
+  const comboActive = isCommandPhase && getComboConditionBonus(commandSlots, relics) > 0
   return (
     <div className="h-full flex flex-col gap-2 overflow-y-auto">
       {/* ステージ番号（2倍）*/}
@@ -290,7 +293,7 @@ function LeftPanel({
           <div className="space-y-0.5">
             {relics.map((relic) => (
               <Tooltip key={relic.id} content={<TooltipCard item={relic} attackImpacts={calculateRelicAttackImpacts(relic, party, relics.filter(r => r.id !== relic.id))} />} position="top">
-                <div className="text-xl text-gray-200 truncate">
+                <div className={`text-xl truncate ${comboActive && relic.passiveEffect.type === 'comboAttackBonus' ? 'text-yellow-300' : 'text-gray-200'}`}>
                   {relic.name}
                 </div>
               </Tooltip>
@@ -752,6 +755,7 @@ export function BattleScreen() {
             party={party}
             currentStage={run.currentStage}
             seed={run.seed}
+            commandSlots={commandSlots}
           />
         </div>
 
