@@ -156,6 +156,16 @@ export function calculateWeaponDamage(
     contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
   }
 
+  // 復讐ダメージ (復讐の大剣)
+  if ('effect' in weapon && weapon.effect?.type === 'revengeDamage') {
+    const bonusPower = Math.floor(attacker.damageTakenLastTurn * weapon.effect.coefficient)
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
   // 武器強化バフ
   const weaponPowerBonusValue = attacker.battleBuffs
     .filter(b => b.type === 'weaponPowerBonus')
@@ -293,6 +303,16 @@ export function calculateSpellDamage(
   if (spell.effect?.type === 'lowMpConditional') {
     const usedMpRatio = 1 - attacker.mp / attacker.maxMp
     const bonusPower = Math.floor(usedMpRatio * spell.effect.coefficient)
+    if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)
+      contributors.push({ name: spell.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
+  // 復讐ダメージ (復讐の氷弾)
+  if (spell.effect?.type === 'revengeDamage') {
+    const bonusPower = Math.floor(attacker.damageTakenLastTurn * spell.effect.coefficient)
     if (bonusPower > 0) {
       conditionalPowerBonus += bonusPower
       const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)

@@ -19,6 +19,7 @@ export type WeaponEffect =
   | { type: 'combatStrGain'; value: number }  // 鍛錬のナイフ: 使用後STR+value(戦闘中永続)
   | { type: 'targetHpConditional'; coefficient: number }  // 処刑の大剣: 敵が失ったHP割合×coefficientをPower加算
   | { type: 'selfHpConditional'; coefficient: number }  // 怒りの大剣: 失ったHP割合×coefficientをPower加算
+  | { type: 'revengeDamage'; coefficient: number }  // 復讐の大剣: 前ターン被ダメ×coefficientをPower加算
   | { type: 'lifestealPercent'; rate: number }  // 吸血の杖: ダメージのrate%をHP回復
   | { type: 'manaSteal'; rate: number }  // 吸魔の杖: ダメージのrate%をMP回復
   | { type: 'thornsShield'; shieldValue: number; thornStacks: number }  // 棘の盾: シールド+棘スタック付与

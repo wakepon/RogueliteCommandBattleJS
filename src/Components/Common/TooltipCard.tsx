@@ -149,6 +149,9 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (weapon.effect.type === 'shieldBash') {
         lines.push({ label: '効果', value: 'シールド加算→消費', color: 'text-cyan-300' })
       }
+      if (weapon.effect.type === 'revengeDamage') {
+        lines.push({ label: '効果', value: `前ターン被ダメ×${weapon.effect.coefficient}P加算`, color: 'text-orange-300' })
+      }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       lines.push({ label: 'HP消費', value: `${weapon.hpCost}/回`, color: 'text-red-400' })
@@ -228,6 +231,9 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       }
       if (spell.effect.type === 'thorns') {
         lines.push({ label: '効果', value: `棘${spell.effect.value}スタック付与`, color: 'text-green-300' })
+      }
+      if (spell.effect.type === 'revengeDamage') {
+        lines.push({ label: '効果', value: `前ターン被ダメ×${spell.effect.coefficient}P加算`, color: 'text-orange-300' })
       }
     }
     if ('hpCost' in spell && (spell as SpellData).hpCost) {

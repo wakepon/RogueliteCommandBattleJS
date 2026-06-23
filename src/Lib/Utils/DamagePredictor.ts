@@ -147,6 +147,9 @@ export function predictWeaponDamage(
       const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
       conditionalPowerBonus += allyAttacks * weapon.effect.coefficient
     }
+    if (weapon.effect?.type === 'revengeDamage') {
+      conditionalPowerBonus += Math.floor(explorer.damageTakenLastTurn * weapon.effect.coefficient)
+    }
   }
 
   // weaponPowerBonus バフ: 武器強化による一時的なPower加算
@@ -248,6 +251,9 @@ export function predictSpellDamage(
     if (spell.effect.type === 'followUp') {
       const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
       conditionalPowerBonus += allyAttacks * spell.effect.coefficient
+    }
+    if (spell.effect.type === 'revengeDamage') {
+      conditionalPowerBonus += Math.floor(explorer.damageTakenLastTurn * spell.effect.coefficient)
     }
   }
 
@@ -425,6 +431,9 @@ function detectActiveMultipliers(
     if (command.effect?.type === 'followUp') {
       multipliers.push({ relicName: command.name, multiplier: 0 })
     }
+    if (command.effect?.type === 'revengeDamage' && explorer.damageTakenLastTurn > 0) {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
   }
 
   // 条件付きPower（魔法）
@@ -440,6 +449,9 @@ function detectActiveMultipliers(
       }
     }
     if (command.effect.type === 'followUp') {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect.type === 'revengeDamage' && explorer.damageTakenLastTurn > 0) {
       multipliers.push({ relicName: command.name, multiplier: 0 })
     }
   }

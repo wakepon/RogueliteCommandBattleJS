@@ -65,6 +65,12 @@
     "mpCost": 6, "power": 3, "variance": 4,
     "effect": { "type": "targetHpConditional", "coefficient": 8 }
   },
+  "revenge_ice": {
+    "id": "revenge_ice", "name": "復讐の氷弾", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "spell", "targetType": "enemySingle",
+    "mpCost": 5, "power": 2, "variance": 4,
+    "effect": { "type": "revengeDamage", "coefficient": 0.25 }
+  },
   "training_fire": {
     "id": "training_fire", "name": "お手本ファイア", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "enemySingle",

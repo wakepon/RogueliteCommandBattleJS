@@ -145,6 +145,9 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       if (weapon.effect.type === 'killBonusExpToAll') {
         desc += ` | トドメ時に全員へ+${weapon.effect.expAmount}EXP`
       }
+      if (weapon.effect.type === 'revengeDamage') {
+        desc += ' | 前ターンに受けたダメージが多いほど火力アップ'
+      }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
       desc += ` | HP${weapon.hpCost}消費`
@@ -196,6 +199,8 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ' | 現在MP全量をダメージに変換'
       } else if (spell.effect.type === 'thorns') {
         desc += ` | 棘${spell.effect.value}スタック付与（被弾時反射、ターン終了リセット）`
+      } else if (spell.effect.type === 'revengeDamage') {
+        desc += ' | 前ターンに受けたダメージが多いほど火力アップ'
       }
     }
     if (spell.hpCost) {
@@ -283,6 +288,8 @@ export function getItemSpecialEffect(item: ItemType): string {
         parts.push(`使用後${weapon.effect.duration}T被ダメ×${weapon.effect.multiplier}`)
       } else if (weapon.effect.type === 'killBonusExpToAll') {
         parts.push(`トドメ時に全員へ+${weapon.effect.expAmount}EXP`)
+      } else if (weapon.effect.type === 'revengeDamage') {
+        parts.push('前ターンに受けたダメージが多いほど火力アップ')
       }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
@@ -330,6 +337,8 @@ export function getItemSpecialEffect(item: ItemType): string {
         return `敵が失ったHP割合×${spell.effect.coefficient}をPower加算`
       case 'lowMpConditional':
         return `消費済みMP割合×${spell.effect.coefficient}をPower加算`
+      case 'revengeDamage':
+        return '前ターンに受けたダメージが多いほど火力アップ'
       default:
         return ''
     }
@@ -410,6 +419,9 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       if (command.effect.type === 'killBonusExpToAll') {
         desc += ` 全員+${command.effect.expAmount}EXP`
       }
+      if (command.effect.type === 'revengeDamage') {
+        desc += ' 前ターン被ダメ→火力UP'
+      }
     }
     if ('hpCost' in command && command.hpCost) {
       desc += ` HP${command.hpCost}消費`
@@ -461,6 +473,8 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ' 現在MP→ダメージ'
       } else if (command.effect.type === 'thorns') {
         desc += ` 棘${command.effect.value}スタック`
+      } else if (command.effect.type === 'revengeDamage') {
+        desc += ' 前ターン被ダメ→火力UP'
       }
     }
     if ('hpCost' in command && command.hpCost) {

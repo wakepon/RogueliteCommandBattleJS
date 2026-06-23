@@ -81,6 +81,12 @@
     "targetType": "allySingle", "power": 0, "variance": 0, "maxUses": 4,
     "effect": { "type": "thornsShield", "shieldValue": 15, "thornStacks": 3 }
   },
+  "revenge_greatsword": {
+    "id": "revenge_greatsword", "name": "復讐の大剣", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "weapon", "category": "greatsword",
+    "targetType": "enemySingle", "power": 2, "variance": 4, "maxUses": 4,
+    "effect": { "type": "revengeDamage", "coefficient": 0.25 }
+  },
   "whirlwind_sword": {
     "id": "whirlwind_sword", "name": "旋風剣", "rarity": "Rare", "price": 10,
     "commandCategory": "weapon", "category": "other",

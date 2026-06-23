@@ -26,6 +26,8 @@ function createMockExplorer(overrides: Partial<ExplorerState> = {}): ExplorerSta
     spells: [],
     battleBuffs: [],
     battleDebuffs: [],
+    damageTakenThisTurn: 0,
+    damageTakenLastTurn: 0,
     ...overrides,
   }
 }

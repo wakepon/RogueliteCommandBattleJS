@@ -63,6 +63,8 @@ function processTurnEnd(
     hp: newHp,
     battleBuffs: updatedBuffs,
     battleDebuffs: updatedDebuffs,
+    damageTakenLastTurn: explorer.damageTakenThisTurn,
+    damageTakenThisTurn: 0,
   }
 
   return {

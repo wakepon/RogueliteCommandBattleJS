@@ -45,6 +45,8 @@ export interface ExplorerState {
   spells: SpellInstance[]
   battleBuffs: Buff[]
   battleDebuffs: Debuff[]
+  damageTakenThisTurn: number
+  damageTakenLastTurn: number
 }
 
 // 武器インスタンスを生成（マスターデータから、Tuningオーバーライド付き）
@@ -157,6 +159,8 @@ function createExplorerByClass(characterClass: CharacterClass, index: number): E
     spells: template.spells(),
     battleBuffs: [],
     battleDebuffs: [],
+    damageTakenThisTurn: 0,
+    damageTakenLastTurn: 0,
   }
 }
 

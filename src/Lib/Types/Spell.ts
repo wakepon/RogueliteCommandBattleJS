@@ -19,6 +19,7 @@ export type SpellEffect =
   | { type: 'followUp'; coefficient: number }  // 追撃の炎: 先行攻撃回数×coefficientをPower加算
   | { type: 'targetHpConditional'; coefficient: number }  // 処刑の雷: 敵が失ったHP割合×coefficientをPower加算
   | { type: 'lowMpConditional'; coefficient: number }  // 渇きの火: 消費済みMP割合×coefficientをPower加算
+  | { type: 'revengeDamage'; coefficient: number }  // 復讐の氷弾: 前ターン被ダメ×coefficientをPower加算
 
 /** 魔法データ */
 export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {

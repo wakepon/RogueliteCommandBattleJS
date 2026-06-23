@@ -262,10 +262,16 @@ function consumeCommandCost(
       return w
     })
 
-    // hpCost消費（呪いの槍など）- HP最低1を保証
+    // hpCost消費（呪いの槍など）- HP最低1を保証、自傷ダメージを復讐用に記録
     let updatedExplorer: ExplorerState = { ...explorer, weapons: updatedWeapons }
     if (isWeaponInstance(command) && command.hpCost !== undefined) {
-      updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - command.hpCost) }
+      const newHp = Math.max(1, updatedExplorer.hp - command.hpCost)
+      const actualHpLoss = updatedExplorer.hp - newHp
+      updatedExplorer = {
+        ...updatedExplorer,
+        hp: newHp,
+        damageTakenThisTurn: updatedExplorer.damageTakenThisTurn + actualHpLoss,
+      }
     }
 
     return updatedExplorer
@@ -283,9 +289,15 @@ function consumeCommandCost(
       }
     }
     let updatedExplorer: ExplorerState = { ...explorer, mp: Math.max(0, explorer.mp - mpToConsume) }
-    // hpCost消費（反動魔法など）- HP最低1を保証
+    // hpCost消費（反動魔法など）- HP最低1を保証、自傷ダメージを復讐用に記録
     if (command.hpCost !== undefined && command.hpCost > 0) {
-      updatedExplorer = { ...updatedExplorer, hp: Math.max(1, updatedExplorer.hp - command.hpCost) }
+      const newHp = Math.max(1, updatedExplorer.hp - command.hpCost)
+      const actualHpLoss = updatedExplorer.hp - newHp
+      updatedExplorer = {
+        ...updatedExplorer,
+        hp: newHp,
+        damageTakenThisTurn: updatedExplorer.damageTakenThisTurn + actualHpLoss,
+      }
     }
     return updatedExplorer
   }
@@ -524,9 +536,14 @@ function executeAttackCommand(
     }
   }
 
-  // 捨て身の一撃: HPを1にする
+  // 捨て身の一撃: HPを1にする（自傷ダメージを復讐用に記録）
   if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'currentHpDamage') {
-    finalExplorer = { ...finalExplorer, hp: 1 }
+    const selfDamage = finalExplorer.hp - 1
+    finalExplorer = {
+      ...finalExplorer,
+      hp: 1,
+      damageTakenThisTurn: finalExplorer.damageTakenThisTurn + selfDamage,
+    }
   }
 
   // 武器の lifestealPercent 効果: ダメージの rate% をHP回復
@@ -1779,6 +1796,7 @@ export function processEnemyAction(
         hp: Math.max(0, member.hp - reducedDamage),
         mp: Math.min(member.mp + mpRecovery, member.maxMp),
         battleBuffs: updatedBuffs,
+        damageTakenThisTurn: member.damageTakenThisTurn + amplifiedDamage,
       }
       newRun = updatePartyMember(newRun, updatedMember)
       if (reducedDamage > 0) {
@@ -1812,6 +1830,7 @@ export function processEnemyAction(
         ...member,
         hp: Math.max(0, member.hp - memberDamage),
         mp: Math.min(member.mp + mpRecovery, member.maxMp),
+        damageTakenThisTurn: member.damageTakenThisTurn + amplifiedDamage,
         battleBuffs: memberBuffs,
       }
       newRun = updatePartyMember(newRun, updatedMember)
@@ -1857,6 +1876,7 @@ export function processEnemyAction(
       hp: Math.max(0, battleAction.explorer.hp - shieldedDamage),
       mp: Math.min(battleAction.explorer.mp + mpRecovery, battleAction.explorer.maxMp),
       battleBuffs: shieldedBuffs,
+      damageTakenThisTurn: battleAction.explorer.damageTakenThisTurn + amplifiedDamage,
     }
 
     // 毒付与: プレイヤーのbattleDebuffsにpoisonを加算
