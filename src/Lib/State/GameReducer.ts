@@ -246,7 +246,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'OPEN_STORE': {
       if (!state.run) return state
-      const storeState = createStoreState(state.run.seed + state.run.currentStage, state.run.currentStage)
+      const ownedRelicIds = state.run.relics.map(r => r.id)
+      const storeState = createStoreState(state.run.seed + state.run.currentStage, state.run.currentStage, ownedRelicIds)
       const mapState: MapState = {
         nodes: generateMapNodes(state.run.seed),
         currentStage: state.run.currentStage,
@@ -588,7 +589,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.run || !state.storeState) return state
 
       const newSeed = state.run.seed + state.run.currentStage + Date.now()
-      const newStoreState = rerollStore(state.storeState, newSeed)
+      const rerollExcludeIds = state.run.relics.map(r => r.id)
+      const newStoreState = rerollStore(state.storeState, newSeed, rerollExcludeIds)
 
       return {
         ...state,

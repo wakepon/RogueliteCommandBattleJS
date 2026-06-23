@@ -103,8 +103,8 @@ function generateSpellItems(seed: number, count: number, rareRate: number = 0, f
 }
 
 /** カテゴリ別アイテム生成: レリック */
-function generateRelicItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): RelicData[] {
-  const allRelics = Object.values(relicsData)
+function generateRelicItems(seed: number, count: number, rareRate: number = 0, floor: number = 1, excludeIds: string[] = []): RelicData[] {
+  const allRelics = Object.values(relicsData).filter(r => !excludeIds.includes(r.id))
   const filtered = applyFloorFilter(allRelics, floor, count)
   return pickWithRarity(filtered, count, seed + 100, rareRate)
 }
@@ -116,22 +116,21 @@ function generatePotionItems(seed: number, count: number, _rareRate: number = 0)
 }
 
 /** カテゴリに応じたShopSlot配列を生成 */
-function generateSlotsForCategory(category: StoreCategory, seed: number, count: number, rareRate: number = 0, floor: number = 1): ShopSlot[] {
+function generateSlotsForCategory(category: StoreCategory, seed: number, count: number, rareRate: number = 0, floor: number = 1, excludeRelicIds: string[] = []): ShopSlot[] {
   switch (category) {
     case 'weapon':
       return generateWeaponItems(seed, count, rareRate, floor).map(item => ({ category: 'weapon' as const, item }))
     case 'spell':
       return generateSpellItems(seed, count, rareRate, floor).map(item => ({ category: 'spell' as const, item }))
     case 'relic':
-      return generateRelicItems(seed, count, rareRate, floor).map(item => ({ category: 'relic' as const, item }))
+      return generateRelicItems(seed, count, rareRate, floor, excludeRelicIds).map(item => ({ category: 'relic' as const, item }))
     case 'potion':
-      // ポーションは階層制限なし（全階層共通）
       return generatePotionItems(seed, count, rareRate).map(item => ({ category: 'potion' as const, item }))
   }
 }
 
 /** 5枠の報酬スロットを生成 */
-function generateRewardSlots(seed: number, rareRate: number, floor: number): ShopSlot[] {
+function generateRewardSlots(seed: number, rareRate: number, floor: number, excludeRelicIds: string[] = []): ShopSlot[] {
   const weaponSlot = generateSlotsForCategory('weapon', seed, 1, rareRate, floor)
   const spellSlot = generateSlotsForCategory('spell', seed + 10, 1, rareRate, floor)
 
@@ -139,21 +138,21 @@ function generateRewardSlots(seed: number, rareRate: number, floor: number): Sho
   const randomCategory: StoreCategory = seededRandom(seed + 20) < 0.5 ? 'weapon' : 'spell'
   const randomSlot = generateSlotsForCategory(randomCategory, seed + 30, 1, rareRate, floor)
 
-  const relicSlot = generateSlotsForCategory('relic', seed + 40, 1, rareRate, floor)
+  const relicSlot = generateSlotsForCategory('relic', seed + 40, 1, rareRate, floor, excludeRelicIds)
   const potionSlot = generateSlotsForCategory('potion', seed + 50, 1, rareRate, floor)
 
   return [...weaponSlot, ...spellSlot, ...randomSlot, ...relicSlot, ...potionSlot]
 }
 
 /** ストア状態を生成（5枠から2つ選択） */
-export function createStoreState(seed: number, stage: number = 1): StoreState {
+export function createStoreState(seed: number, stage: number = 1, excludeRelicIds: string[] = []): StoreState {
   const floor = getFloor(stage)
   const rareRate = floor === 3 ? getTuningValue('floor_3_rare_rate', 0.7)
                  : floor === 2 ? getTuningValue('floor_2_rare_rate', 0.5)
                  : 0
 
   return {
-    slots: generateRewardSlots(seed, rareRate, floor),
+    slots: generateRewardSlots(seed, rareRate, floor, excludeRelicIds),
     maxSelections: MAX_SELECTIONS,
     rerollCount: 0,
     rareRate,
@@ -162,10 +161,10 @@ export function createStoreState(seed: number, stage: number = 1): StoreState {
 }
 
 /** 報酬スロットのリロール */
-export function rerollStore(storeState: StoreState, seed: number): StoreState {
+export function rerollStore(storeState: StoreState, seed: number, excludeRelicIds: string[] = []): StoreState {
   return {
     ...storeState,
-    slots: generateRewardSlots(seed, storeState.rareRate, storeState.floor),
+    slots: generateRewardSlots(seed, storeState.rareRate, storeState.floor, excludeRelicIds),
     rerollCount: storeState.rerollCount + 1,
   }
 }
