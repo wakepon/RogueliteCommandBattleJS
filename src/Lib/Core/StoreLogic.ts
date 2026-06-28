@@ -109,9 +109,12 @@ function generateRelicItems(seed: number, count: number, rareRate: number = 0, f
   return pickWithRarity(filtered, count, seed + 100, rareRate)
 }
 
-/** カテゴリ別アイテム生成: ポーション（Rareなし） */
+/** 種系ポーション（永続ステータス上昇）の効果タイプ。通常報酬には出さず、ポーションショップ専用とする */
+const SEED_POTION_EFFECTS = ['boostStr', 'boostInt', 'boostMaxHp', 'boostMaxMp']
+
+/** カテゴリ別アイテム生成: ポーション（Rareなし。種系は通常報酬から除外） */
 function generatePotionItems(seed: number, count: number, _rareRate: number = 0): PotionData[] {
-  const allPotions = Object.values(potionsData)
+  const allPotions = Object.values(potionsData).filter(p => !SEED_POTION_EFFECTS.includes(p.effect.type))
   return pickRandom(allPotions, count, seed + 200)
 }
 
