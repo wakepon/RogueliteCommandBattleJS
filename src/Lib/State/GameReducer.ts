@@ -945,7 +945,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       // 血の契約: 戦闘開始時にHP削減+STRバフをRunState.partyにも反映
-      const adjustedParty = applyBloodPact(state.run.party, state.run.relics)
+      // 復讐系（前ターン被ダメ参照）が前の戦闘の値を持ち越さないよう、被ダメ記録を初期化
+      const adjustedParty = applyBloodPact(state.run.party, state.run.relics).map(m => ({
+        ...m,
+        damageTakenThisTurn: 0,
+        damageTakenLastTurn: 0,
+      }))
       const battleState = createBattleState(
         state.run.currentStage, adjustedParty, state.run.seed, state.run.relics
       )
