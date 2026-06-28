@@ -244,11 +244,17 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (spell.effect.type === 'mpPercentShield') {
         lines.push({ label: '効果', value: `最大MP${Math.floor(spell.effect.rate * 100)}%シールド`, color: 'text-cyan-300' })
       }
+      if (spell.effect.type === 'scalingShieldInt') {
+        lines.push({ label: '効果', value: `シールド(${spell.effect.base}+INT×${spell.effect.intMultiplier})付与`, color: 'text-cyan-300' })
+      }
       if (spell.effect.type === 'mpAllDamage') {
         lines.push({ label: '効果', value: '現在MP全量→ダメージ', color: 'text-purple-300' })
       }
       if (spell.effect.type === 'followUp') {
         lines.push({ label: '効果', value: `先行攻撃数×${spell.effect.coefficient}P加算`, color: 'text-yellow-300' })
+      }
+      if (spell.effect.type === 'allyFollowUpBonus') {
+        lines.push({ label: '効果', value: `先行味方${spell.effect.requiredCount}回攻撃でPower+${spell.effect.powerBonus}`, color: 'text-yellow-300' })
       }
       if (spell.effect.type === 'targetHpConditional') {
         lines.push({ label: '効果', value: `敵失HP×${spell.effect.coefficient}P加算`, color: 'text-orange-300' })
@@ -261,6 +267,24 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       }
       if (spell.effect.type === 'revengeDamage') {
         lines.push({ label: '効果', value: `前ターン被ダメ×${spell.effect.coefficient}P加算`, color: 'text-orange-300' })
+      }
+      if (spell.effect.type === 'revengeFlat') {
+        lines.push({ label: '効果', value: `前ターン被ダメ時Power+${spell.effect.powerBonus}`, color: 'text-orange-300' })
+      }
+      if (spell.effect.type === 'recoilSelfDamage') {
+        lines.push({ label: 'デメリット', value: `与ダメの${Math.floor(spell.effect.rate * 100)}%を自傷`, color: 'text-red-400' })
+      }
+      if (spell.effect.type === 'recoilMpDrain') {
+        lines.push({ label: 'デメリット', value: `与ダメの${Math.floor(spell.effect.rate * 100)}%MP減少`, color: 'text-red-400' })
+      }
+      if (spell.effect.type === 'repairLastWeapon') {
+        lines.push({ label: '効果', value: `最後に使った武器の耐久+${spell.effect.value}回復`, color: 'text-green-300' })
+      }
+      if (spell.effect.type === 'healMp') {
+        lines.push({ label: '効果', value: `MP +${spell.effect.value}回復`, color: 'text-blue-300' })
+      }
+      if (spell.effect.type === 'revive') {
+        lines.push({ label: '効果', value: `戦闘不能の味方をHP${spell.effect.hp}で復活`, color: 'text-green-300' })
       }
     }
     if ('hpCost' in spell && (spell as SpellData).hpCost) {

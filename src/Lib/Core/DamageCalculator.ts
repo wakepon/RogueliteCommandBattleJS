@@ -356,10 +356,31 @@ export function calculateSpellDamage(
     }
   }
 
-  // 復讐ダメージ (復讐の氷弾)
+  // 復讐ダメージ (旧仕様・スケーリング型: 互換のため残置)
   if (spell.effect?.type === 'revengeDamage') {
     const bonusPower = Math.floor(attacker.damageTakenLastTurn * spell.effect.coefficient)
     if (bonusPower > 0) {
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)
+      contributors.push({ name: spell.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
+  // 復讐(フラット型) (復讐の氷弾): 前ターンにダメージを受けていたらPower+powerBonus
+  if (spell.effect?.type === 'revengeFlat') {
+    if (attacker.damageTakenLastTurn > 0) {
+      const bonusPower = spell.effect.powerBonus
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)
+      contributors.push({ name: spell.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
+  // 先行味方攻撃しきい値 (追撃の炎): requiredCount回以上でPower+powerBonus
+  if (spell.effect?.type === 'allyFollowUpBonus') {
+    const allyAttacks = countAllyAttacksThisTurn(commandSlots, currentCommandIndex)
+    if (allyAttacks >= spell.effect.requiredCount) {
+      const bonusPower = spell.effect.powerBonus
       conditionalPowerBonus += bonusPower
       const dmgContribution = Math.floor(effectiveInt * bonusPower * buffMultiplier)
       contributors.push({ name: spell.name, label: `ダメージ+${dmgContribution}` })

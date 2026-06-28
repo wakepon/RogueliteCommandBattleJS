@@ -5,7 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
-import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isFrontMember } from '../../Lib/Core'
+import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isFrontMember, targetsDownedAlly } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
@@ -60,6 +60,7 @@ function CharacterPanel({
   selectedTargetId,
   draggingAllyTarget,
   draggingEnemyTarget,
+  reviveMode,
   onAllyClick,
   commandSlot,
   allEnemies,
@@ -83,6 +84,7 @@ function CharacterPanel({
   selectedTargetId: string | null
   draggingAllyTarget: boolean
   draggingEnemyTarget: boolean
+  reviveMode: boolean
   onAllyClick: () => void
   commandSlot: CommandSlot | null
   allEnemies: { instanceId: string; name: string }[]
@@ -243,8 +245,8 @@ function CharacterPanel({
           </div>
         )}
 
-        {/* 味方ターゲットハイライト */}
-        {((isSelectingTarget && selectedTargetId === member.id) || draggingAllyTarget) && !isDead && (
+        {/* 味方ターゲットハイライト（蘇生時は戦闘不能側を有効対象とする） */}
+        {((isSelectingTarget && selectedTargetId === member.id) || draggingAllyTarget) && (reviveMode ? isDead : !isDead) && (
           <div className="absolute inset-0 ring-2 ring-lime-400 rounded pointer-events-none" />
         )}
       </div>
@@ -695,6 +697,18 @@ export function BattleScreen() {
       targetId = overId.replace('ally-', '')
     }
 
+    // allySingleの妥当性チェック: 蘇生は戦闘不能のみ、それ以外は生存者のみ対象
+    if (targetId && command.targetType === 'allySingle') {
+      const member = party.find(m => m.id === targetId)
+      if (member) {
+        const valid = targetsDownedAlly(command) ? member.hp <= 0 : member.hp > 0
+        if (!valid) {
+          cancelCommand()
+          return
+        }
+      }
+    }
+
     if (targetId) {
       // ポーションは即時発動（行動消費なし）
       if (command.commandCategory === 'potion') {
@@ -835,11 +849,17 @@ export function BattleScreen() {
             isCommandPhase={isCommandPhase}
             draggingAllyTarget={draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'}
             draggingPanel={draggingPanel}
+            reviveMode={Boolean((draggingCommand && targetsDownedAlly(draggingCommand)) || (isSelectingTarget && selectedCommand && targetsDownedAlly(selectedCommand)))}
             acting={acting}
             selectedTargetId={selectedTargetId}
             isSelectingAlly={isSelectingTarget && (selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll')}
             onAllyClick={(memberId) => {
               if (isSelectingTarget && (selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll')) {
+                if (selectedCommand.targetType === 'allySingle') {
+                  const m = party.find(p => p.id === memberId)
+                  const valid = m && (targetsDownedAlly(selectedCommand) ? m.hp <= 0 : m.hp > 0)
+                  if (!valid) return
+                }
                 selectTarget(memberId)
                 setTimeout(() => executeCommand(), 0)
               }
@@ -881,8 +901,13 @@ export function BattleScreen() {
                       selectedTargetId={selectedTargetId}
                       draggingAllyTarget={draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll'}
                       draggingEnemyTarget={draggingCommand !== null && (draggingCommand.targetType === 'enemySingle' || draggingCommand.targetType === 'enemyAll' || draggingCommand.targetType === 'enemyRandom')}
+                      reviveMode={Boolean((draggingCommand && targetsDownedAlly(draggingCommand)) || (isSelectingTarget && selectedCommand && targetsDownedAlly(selectedCommand)))}
                       onAllyClick={() => {
                         if (isSelectingTarget && (selectedCommand?.targetType === 'allySingle' || selectedCommand?.targetType === 'allyAll')) {
+                          if (selectedCommand.targetType === 'allySingle') {
+                            const valid = targetsDownedAlly(selectedCommand) ? member.hp <= 0 : member.hp > 0
+                            if (!valid) return
+                          }
                           selectTarget(member.id)
                           setTimeout(() => executeCommand(), 0)
                         }
@@ -923,7 +948,7 @@ export function BattleScreen() {
 
         {isSelectingTarget && selectedCommand && !draggingCommand && (
           <TargetSelector enemies={enemies} selectedTargetId={selectedTargetId} targetType={selectedCommand.targetType}
-            columns={2} party={party} onSelectTarget={selectTarget} onConfirm={executeCommand} onCancel={cancelCommand} />
+            columns={2} party={party} command={selectedCommand} onSelectTarget={selectTarget} onConfirm={executeCommand} onCancel={cancelCommand} />
         )}
 
         {!expAnimating && levelUpPopups.map(popup => (

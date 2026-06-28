@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { EnemyInstance } from '../../Lib/Types/Enemy'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { TargetType } from '../../Lib/Types/Command'
+import { BattleCommand } from '../../Lib/Types/Battle'
+import { targetsDownedAlly } from '../../Lib/Core/CommandValidator'
 
 interface TargetSelectorProps {
   enemies: EnemyInstance[]
@@ -9,6 +11,8 @@ interface TargetSelectorProps {
   targetType: TargetType
   columns?: number
   party?: ExplorerState[]
+  /** 対象選択中のコマンド（蘇生など戦闘不能対象の判定に使用） */
+  command?: BattleCommand | null
   onSelectTarget: (targetId: string) => void
   onConfirm: () => void
   onCancel: () => void
@@ -25,12 +29,15 @@ export function TargetSelector({
   targetType,
   columns = 2,
   party,
+  command,
   onSelectTarget,
   onConfirm,
   onCancel,
 }: TargetSelectorProps) {
   // 味方対象（allySingle/allyAll）の場合は味方をターゲット候補にする
   const isAllyTarget = targetType === 'allySingle' || targetType === 'allyAll'
+  // 蘇生など: 戦闘不能の味方を対象にする
+  const downedAllyTarget = command ? targetsDownedAlly(command) : false
 
   // 選択可能な敵のリスト（メモ化）
   const selectableEnemies = useMemo(
@@ -41,10 +48,11 @@ export function TargetSelector({
   // ターゲットタイプに応じた選択候補リスト（味方 or 敵）
   const selectableTargets = useMemo(() => {
     if (isAllyTarget && party) {
-      return party.filter(m => m.hp > 0).map(m => ({ id: m.id }))
+      const aliveCheck = downedAllyTarget ? (m: ExplorerState) => m.hp <= 0 : (m: ExplorerState) => m.hp > 0
+      return party.filter(aliveCheck).map(m => ({ id: m.id }))
     }
     return selectableEnemies.map(e => ({ id: e.instanceId }))
-  }, [isAllyTarget, party, selectableEnemies])
+  }, [isAllyTarget, downedAllyTarget, party, selectableEnemies])
 
   // カーソル位置（選択可能なターゲットのインデックス）
   const [cursorIndex, setCursorIndex] = useState(0)

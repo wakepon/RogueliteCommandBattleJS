@@ -263,7 +263,13 @@ function consumeCommandCost(
     })
 
     // hpCost消費（呪いの槍など）- HP最低1を保証、自傷ダメージを復讐用に記録
-    let updatedExplorer: ExplorerState = { ...explorer, weapons: updatedWeapons }
+    // 戦場の鍛冶用に「最後に使用した武器」のインデックスを記録（耐久のある武器のみ。パンチ等の無限武器は無視）
+    const recordLastUsed = targetIndex >= 0 && command.maxUses !== null
+    let updatedExplorer: ExplorerState = {
+      ...explorer,
+      weapons: updatedWeapons,
+      lastUsedWeaponIndex: recordLastUsed ? targetIndex : explorer.lastUsedWeaponIndex,
+    }
     if (isWeaponInstance(command) && command.hpCost !== undefined) {
       const newHp = Math.max(1, updatedExplorer.hp - command.hpCost)
       const actualHpLoss = updatedExplorer.hp - newHp
@@ -450,7 +456,9 @@ function executeAttackCommand(
       calculatedDamage = battleAction.explorer.mp
       contributors.push({ name: '魔力放出', label: `現在MP${battleAction.explorer.mp}→${calculatedDamage}` })
     } else {
-      const hasSpellHpCost = selectedCommand.hpCost !== undefined && selectedCommand.hpCost > 0
+      // 反動フレイムの自傷も「HP消費」とみなし修羅の血脈の対象にする
+      const hasSpellHpCost = (selectedCommand.hpCost !== undefined && selectedCommand.hpCost > 0)
+        || selectedCommand.effect?.type === 'recoilSelfDamage'
       const spellHpCostBoost = getHpCostPowerBoost(relics)
       const result = calculateSpellDamage(battleAction.explorer, selectedCommand, targetEnemy, {
         relics,
@@ -589,6 +597,40 @@ function executeAttackCommand(
     finalExplorer = {
       ...finalExplorer,
       battleBuffs: [...finalExplorer.battleBuffs, { type: 'strNextTurn', value: selectedCommand.effect.value, duration: 'battle' }],
+    }
+  }
+
+  // 反動フレイム: 与えたダメージ×rate の自傷（最低HP1保証、復讐用に記録）
+  if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'recoilSelfDamage') {
+    const recoil = Math.floor(calculatedDamage * selectedCommand.effect.rate)
+    if (recoil > 0) {
+      const newHp = Math.max(1, finalExplorer.hp - recoil)
+      const actualLoss = finalExplorer.hp - newHp
+      finalExplorer = {
+        ...finalExplorer,
+        hp: newHp,
+        damageTakenThisTurn: finalExplorer.damageTakenThisTurn + actualLoss,
+      }
+      if (actualLoss > 0) {
+        newBattleState = {
+          ...newBattleState,
+          playerDamagePopups: [
+            ...newBattleState.playerDamagePopups,
+            createPlayerDamagePopup(actualLoss, finalExplorer.id, '反動'),
+          ],
+        }
+      }
+    }
+  }
+
+  // 渇きの火: 与えたダメージ×rate のMP減少
+  if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'recoilMpDrain') {
+    const mpLoss = Math.floor(calculatedDamage * selectedCommand.effect.rate)
+    if (mpLoss > 0) {
+      finalExplorer = {
+        ...finalExplorer,
+        mp: Math.max(0, finalExplorer.mp - mpLoss),
+      }
     }
   }
 
@@ -1433,6 +1475,58 @@ function executeAllySpellCommand(
         if ('noRepair' in w && (w as WeaponInstance).noRepair) return w
         return { ...w, currentUses: Math.min(w.currentUses + repairValue, w.maxUses) } as typeof w
       }),
+    }
+  }
+
+  // 魔力の盾(新): シールド(base + 術者INT×intMultiplier)付与
+  if (selectedCommand.effect?.type === 'scalingShieldInt') {
+    const shieldValue = selectedCommand.effect.base + explorerAfterCost.int * selectedCommand.effect.intMultiplier
+    if (shieldValue > 0) {
+      const shieldBuff: Buff = { type: 'shield', value: shieldValue, duration: 1 }
+      updatedTarget = {
+        ...updatedTarget,
+        battleBuffs: [...updatedTarget.battleBuffs, shieldBuff],
+      }
+    }
+  }
+
+  // 戦場の鍛冶(新): 対象が最後に使用した武器の耐久のみ回復
+  if (selectedCommand.effect?.type === 'repairLastWeapon') {
+    const repairValue = selectedCommand.effect.value
+    const idx = updatedTarget.lastUsedWeaponIndex
+    if (idx !== undefined && idx >= 0 && idx < updatedTarget.weapons.length) {
+      updatedTarget = {
+        ...updatedTarget,
+        weapons: updatedTarget.weapons.map((w, i) => {
+          if (i !== idx) return w
+          if (w.currentUses === null || w.maxUses === null) return w
+          if ('noRepair' in w && (w as WeaponInstance).noRepair) return w
+          return { ...w, currentUses: Math.min(w.currentUses + repairValue, w.maxUses) } as typeof w
+        }),
+      }
+    }
+  }
+
+  // MPチャージ: 対象のMPを回復
+  if (selectedCommand.effect?.type === 'healMp') {
+    const healedMp = Math.min(updatedTarget.mp + selectedCommand.effect.value, updatedTarget.maxMp)
+    updatedTarget = { ...updatedTarget, mp: healedMp }
+  }
+
+  // 蘇生呪文: 戦闘不能の対象をHP=hpで復活（毒も解除して即再死亡を防ぐ）
+  if (selectedCommand.effect?.type === 'revive' && updatedTarget.hp <= 0) {
+    const reviveHp = Math.min(selectedCommand.effect.hp, updatedTarget.maxHp)
+    updatedTarget = {
+      ...updatedTarget,
+      hp: reviveHp,
+      battleDebuffs: updatedTarget.battleDebuffs.filter(d => d.type !== 'poison'),
+    }
+    newBattleState = {
+      ...newBattleState,
+      playerDamagePopups: [
+        ...newBattleState.playerDamagePopups,
+        createPlayerDamagePopup(-reviveHp, updatedTarget.id, '蘇生'),
+      ],
     }
   }
 

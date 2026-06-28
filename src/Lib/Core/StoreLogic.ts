@@ -95,9 +95,9 @@ function generateWeaponItems(seed: number, count: number, rareRate: number = 0, 
 
 /** カテゴリ別アイテム生成: 魔法（slotFree魔法・基本魔法=MP0かつ割合消費なしを除外） */
 function generateSpellItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): SpellData[] {
-  const allSpells = Object.values(spellsData).filter(s =>
-    !s.slotFree && (s.mpCost > 0 || (s.mpCostRate !== undefined && s.mpCostRate > 0))
-  )
+  // slotFree（魔力弾・祈り等の初期無料魔法）以外を販売対象とする
+  // ※ 渇きの火のようにMP消費0でも特殊効果を持つ魔法を除外しないこと
+  const allSpells = Object.values(spellsData).filter(s => !s.slotFree)
   const filtered = applyFloorFilter(allSpells, floor, count)
   return pickWithRarity(filtered, count, seed + 50, rareRate)
 }

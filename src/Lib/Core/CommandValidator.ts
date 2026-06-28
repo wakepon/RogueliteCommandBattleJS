@@ -33,6 +33,14 @@ export function isPotion(command: BattleCommand): command is PotionInstance {
 }
 
 /**
+ * コマンドが「戦闘不能の味方」を対象に取るか判定する（蘇生呪文など）
+ * - true の場合、ターゲット候補は hp<=0 の味方に限定される
+ */
+export function targetsDownedAlly(command: BattleCommand): boolean {
+  return isSpell(command) && command.effect?.type === 'revive'
+}
+
+/**
  * 武器が使用可能かどうかを判定する
  *
  * 判定条件:

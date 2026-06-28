@@ -60,7 +60,7 @@ export function AvatarVisual({
         ${isDead ? 'bg-gray-800 border-gray-600 opacity-40' : 'bg-gray-700 border-gray-400'}
         ${isFront && !isDead ? 'ring-2 ring-orange-400/60' : ''}
         ${isSelected ? 'ring-2 ring-lime-400' : ''}
-        ${isDropTarget && !isDead ? 'ring-2 ring-yellow-300/70' : ''}
+        ${isDropTarget ? 'ring-2 ring-yellow-300/70' : ''}
         ${actingClass}`}
     >
       <span className="leading-none select-none">{icon}</span>
@@ -76,6 +76,8 @@ interface PartyAvatarsProps {
   isCommandPhase: boolean
   draggingAllyTarget: boolean
   draggingPanel: boolean
+  /** 蘇生など戦闘不能の味方を対象にするモード（有効対象が反転する） */
+  reviveMode?: boolean
   /** 現在行動中のメンバーIDとアニメ種別 */
   acting: { explorerId: string; type: AvatarActingType } | null
   /** ターゲットとして選択中の味方ID（クリックフロー用ハイライト） */
@@ -92,6 +94,7 @@ interface SortableAvatarProps {
   isCommandPhase: boolean
   draggingAllyTarget: boolean
   draggingPanel: boolean
+  reviveMode: boolean
   acting: { explorerId: string; type: AvatarActingType } | null
   selectedTargetId: string | null
   isSelectingAlly: boolean
@@ -106,6 +109,7 @@ function SortableAvatar({
   isCommandPhase,
   draggingAllyTarget,
   draggingPanel,
+  reviveMode,
   acting,
   selectedTargetId,
   isSelectingAlly,
@@ -124,6 +128,7 @@ function SortableAvatar({
   })
 
   const isDead = member.hp <= 0
+  const isValidAllyTarget = reviveMode ? isDead : !isDead
   const isActing = acting?.explorerId === member.id
   const isSelected = isSelectingAlly && selectedTargetId === member.id
 
@@ -170,14 +175,14 @@ function SortableAvatar({
             disabled={!onAllyClick || !isSelectingAlly}
             {...listeners}
             {...attributes}
-            className={`block ${onAllyClick && isSelectingAlly && !isDead ? 'cursor-pointer hover:brightness-125' : isCommandPhase ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+            className={`block ${onAllyClick && isSelectingAlly && isValidAllyTarget ? 'cursor-pointer hover:brightness-125' : isCommandPhase ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
             aria-label={member.name}
           >
             <AvatarVisual
               member={member}
               party={party}
               isSelected={isSelected}
-              isDropTarget={draggingAllyTarget}
+              isDropTarget={draggingAllyTarget && isValidAllyTarget}
               actingType={isActing ? acting!.type : null}
             />
           </button>
@@ -199,6 +204,7 @@ export function PartyAvatars({
   isCommandPhase,
   draggingAllyTarget,
   draggingPanel,
+  reviveMode = false,
   acting,
   selectedTargetId,
   isSelectingAlly,
@@ -226,6 +232,7 @@ export function PartyAvatars({
             isCommandPhase={isCommandPhase}
             draggingAllyTarget={draggingAllyTarget}
             draggingPanel={draggingPanel}
+            reviveMode={reviveMode}
             acting={acting}
             selectedTargetId={selectedTargetId}
             isSelectingAlly={isSelectingAlly}

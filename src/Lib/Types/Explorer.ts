@@ -47,6 +47,7 @@ export interface ExplorerState {
   battleDebuffs: Debuff[]
   damageTakenThisTurn: number
   damageTakenLastTurn: number
+  lastUsedWeaponIndex?: number  // 戦場の鍛冶: 最後に使用した武器のweapons配列インデックス（未使用時undefined）
 }
 
 // 武器インスタンスを生成（マスターデータから、Tuningオーバーライド付き）

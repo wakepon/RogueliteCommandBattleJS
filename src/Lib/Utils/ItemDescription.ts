@@ -227,12 +227,28 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 被ターゲット率UP(${spell.effect.value}%)`
       } else if (spell.effect.type === 'mpPercentShield') {
         desc += ` | 最大MP${Math.floor(spell.effect.rate * 100)}%のシールド付与`
+      } else if (spell.effect.type === 'scalingShieldInt') {
+        desc += ` | シールド(${spell.effect.base}+INT×${spell.effect.intMultiplier})付与`
       } else if (spell.effect.type === 'mpAllDamage') {
         desc += ' | 現在MP全量をダメージに変換'
       } else if (spell.effect.type === 'thorns') {
         desc += ` | 棘${spell.effect.value}スタック付与（被弾時反射、ターン終了リセット）`
       } else if (spell.effect.type === 'revengeDamage') {
         desc += ' | 前ターンに受けたダメージが多いほど火力アップ'
+      } else if (spell.effect.type === 'revengeFlat') {
+        desc += ` | 前ターン被ダメ時Power+${spell.effect.powerBonus}`
+      } else if (spell.effect.type === 'allyFollowUpBonus') {
+        desc += ` | このターン先に味方が${spell.effect.requiredCount}回攻撃でPower+${spell.effect.powerBonus}`
+      } else if (spell.effect.type === 'recoilSelfDamage') {
+        desc += ` | 使用後、与ダメの${Math.floor(spell.effect.rate * 100)}%を自傷`
+      } else if (spell.effect.type === 'recoilMpDrain') {
+        desc += ` | 使用後、与ダメの${Math.floor(spell.effect.rate * 100)}%MP減少`
+      } else if (spell.effect.type === 'repairLastWeapon') {
+        desc += ` | 最後に使った武器の耐久+${spell.effect.value}回復`
+      } else if (spell.effect.type === 'healMp') {
+        desc += ` | MP+${spell.effect.value}回復`
+      } else if (spell.effect.type === 'revive') {
+        desc += ` | 戦闘不能の味方をHP${spell.effect.hp}で復活`
       }
     }
     if (spell.variance >= 10) {
@@ -385,18 +401,34 @@ export function getItemSpecialEffect(item: ItemType): string {
         return `被ターゲット率UP(${spell.effect.value}%)`
       case 'mpPercentShield':
         return `最大MP${Math.floor(spell.effect.rate * 100)}%のシールド付与`
+      case 'scalingShieldInt':
+        return `シールド(${spell.effect.base}+INT×${spell.effect.intMultiplier})付与`
       case 'mpAllDamage':
         return '現在MP全量をダメージに変換'
       case 'thorns':
         return `棘${spell.effect.value}スタック付与（被弾時反射、ターン終了リセット）`
       case 'followUp':
         return `先行攻撃回数×${spell.effect.coefficient}をPower加算`
+      case 'allyFollowUpBonus':
+        return `先に味方が${spell.effect.requiredCount}回攻撃でPower+${spell.effect.powerBonus}`
       case 'targetHpConditional':
         return `敵が失ったHP割合×${spell.effect.coefficient}をPower加算`
       case 'lowMpConditional':
         return `消費済みMP割合×${spell.effect.coefficient}をPower加算`
       case 'revengeDamage':
         return '前ターンに受けたダメージが多いほど火力アップ'
+      case 'revengeFlat':
+        return `前ターン被ダメ時Power+${spell.effect.powerBonus}`
+      case 'recoilSelfDamage':
+        return `使用後、与ダメの${Math.floor(spell.effect.rate * 100)}%を自傷`
+      case 'recoilMpDrain':
+        return `使用後、与ダメの${Math.floor(spell.effect.rate * 100)}%MP減少`
+      case 'repairLastWeapon':
+        return `最後に使った武器の耐久+${spell.effect.value}回復`
+      case 'healMp':
+        return `MP+${spell.effect.value}回復`
+      case 'revive':
+        return `戦闘不能の味方をHP${spell.effect.hp}で復活`
       default:
         return ''
     }
@@ -553,12 +585,28 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ` 被弾率+${command.effect.value}%`
       } else if (command.effect.type === 'mpPercentShield') {
         desc += ` 最大MP${Math.floor(command.effect.rate * 100)}%シールド`
+      } else if (command.effect.type === 'scalingShieldInt') {
+        desc += ` シールド(${command.effect.base}+INT×${command.effect.intMultiplier})`
       } else if (command.effect.type === 'mpAllDamage') {
         desc += ' 現在MP→ダメージ'
       } else if (command.effect.type === 'thorns') {
         desc += ` 棘${command.effect.value}スタック`
       } else if (command.effect.type === 'revengeDamage') {
         desc += ' 前ターン被ダメ→火力UP'
+      } else if (command.effect.type === 'revengeFlat') {
+        desc += ` 前ターン被ダメ時P+${command.effect.powerBonus}`
+      } else if (command.effect.type === 'allyFollowUpBonus') {
+        desc += ` 先行味方${command.effect.requiredCount}回でP+${command.effect.powerBonus}`
+      } else if (command.effect.type === 'recoilSelfDamage') {
+        desc += ` 反動${Math.floor(command.effect.rate * 100)}%`
+      } else if (command.effect.type === 'recoilMpDrain') {
+        desc += ` MP反動${Math.floor(command.effect.rate * 100)}%`
+      } else if (command.effect.type === 'repairLastWeapon') {
+        desc += ` 最後の武器耐久+${command.effect.value}`
+      } else if (command.effect.type === 'healMp') {
+        desc += ` MP+${command.effect.value}回復`
+      } else if (command.effect.type === 'revive') {
+        desc += ` 戦闘不能をHP${command.effect.hp}で復活`
       }
     }
     if ('hpCost' in command && command.hpCost) {

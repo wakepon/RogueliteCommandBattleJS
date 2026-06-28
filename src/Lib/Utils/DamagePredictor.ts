@@ -273,6 +273,13 @@ export function predictSpellDamage(
     if (spell.effect.type === 'revengeDamage') {
       conditionalPowerBonus += Math.floor(explorer.damageTakenLastTurn * spell.effect.coefficient)
     }
+    if (spell.effect.type === 'revengeFlat') {
+      if (explorer.damageTakenLastTurn > 0) conditionalPowerBonus += spell.effect.powerBonus
+    }
+    if (spell.effect.type === 'allyFollowUpBonus') {
+      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
+      if (allyAttacks >= spell.effect.requiredCount) conditionalPowerBonus += spell.effect.powerBonus
+    }
   }
 
   const effectivePower = spell.power + conditionalPowerBonus
@@ -485,7 +492,13 @@ function detectActiveMultipliers(
     if (command.effect.type === 'followUp') {
       multipliers.push({ relicName: command.name, multiplier: 0 })
     }
+    if (command.effect.type === 'allyFollowUpBonus') {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
     if (command.effect.type === 'revengeDamage' && explorer.damageTakenLastTurn > 0) {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect.type === 'revengeFlat' && explorer.damageTakenLastTurn > 0) {
       multipliers.push({ relicName: command.name, multiplier: 0 })
     }
   }
