@@ -39,9 +39,9 @@
     "effect": { "type": "recoilSelfDamage", "rate": 0.25 }
   },
   "thirst_fire": {
-    "id": "thirst_fire", "name": "渇きの火", "rarity": "Uncommon", "price": 7,
+    "id": "thirst_fire", "name": "渇きの大火", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 0, "power": 8, "variance": 10,
+    "mpCost": 1, "power": 8, "variance": 10,
     "effect": { "type": "recoilMpDrain", "rate": 0.25 }
   },
   "followup_flame": {
