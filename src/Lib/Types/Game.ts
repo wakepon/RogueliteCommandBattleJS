@@ -134,8 +134,8 @@ export interface StoreState {
   slots: ShopSlot[]        // 5枠（武器1/魔法1/ランダム1/レリック1/ポーション1）
   maxSelections: number    // 選択可能数（2）
   rerollCount: number      // リロール回数（将来の回数制限用）
-  rareRate: number         // 第二階層以降のRare出現率
-  floor: number            // 階層（レアリティフィルタに使用）
+  commonRate: number       // Common出現率（残りはUncommon+Rareから均等抽選）。階層で変動
+  floor: number            // 階層（ステージから算出）
 }
 
 // ゲーム全体の状態

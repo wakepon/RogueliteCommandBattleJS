@@ -97,10 +97,11 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   { key: 'phoenix_ember_increment', label: '努力の証 蓄積倍率', category: 'battle', defaultValue: 0.25, control: { type: 'number', min: 0.05, max: 1.0, step: 0.05 } },
 
   // === 階層倍率 ===
+  { key: 'floor_1_common_rate', label: 'F1 報酬Common率', category: 'floor', defaultValue: 0.75, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
   { key: 'floor_2_hp_multiplier', label: 'F2 敵HP倍率', category: 'floor', defaultValue: 1.5, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
   { key: 'floor_2_damage_multiplier', label: 'F2 敵攻撃力倍率', category: 'floor', defaultValue: 1.8, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
-  { key: 'floor_2_rare_rate', label: 'F2 ショップRare率', category: 'floor', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
+  { key: 'floor_2_common_rate', label: 'F2 報酬Common率', category: 'floor', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
   { key: 'floor_3_hp_multiplier', label: 'F3 敵HP倍率', category: 'floor', defaultValue: 3.0, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
   { key: 'floor_3_damage_multiplier', label: 'F3 敵攻撃力倍率', category: 'floor', defaultValue: 2.5, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
-  { key: 'floor_3_rare_rate', label: 'F3 ショップRare率', category: 'floor', defaultValue: 0.7, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
+  { key: 'floor_3_common_rate', label: 'F3 報酬Common率', category: 'floor', defaultValue: 0.4, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
 ]

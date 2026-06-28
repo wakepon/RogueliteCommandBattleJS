@@ -47,10 +47,11 @@
   "max_potion_count": 2,
   "rest_heal_percent": 0.5,
   "phoenix_ember_increment": 0.25,
+  "floor_1_common_rate": 0.75,
   "floor_2_hp_multiplier": 1.5,
   "floor_2_damage_multiplier": 1.8,
-  "floor_2_rare_rate": 0.5,
+  "floor_2_common_rate": 0.5,
   "floor_3_hp_multiplier": 3.0,
   "floor_3_damage_multiplier": 2.5,
-  "floor_3_rare_rate": 0.7
+  "floor_3_common_rate": 0.4
 }

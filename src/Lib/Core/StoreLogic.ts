@@ -41,24 +41,26 @@ function pickRandom<T>(array: T[], count: number, seed: number): T[] {
   return shuffled.slice(0, Math.min(count, shuffled.length))
 }
 
-/** レアリティ加重ピック: rareRate > 0 なら各スロットでRareを優先的に選出 */
-function pickWithRarity<T extends { rarity: string }>(
+/**
+ * レアリティ加重ピック: 各スロットで commonRate の確率でCommonを選出し、
+ * 残り（1 - commonRate）はUncommon+Rareの全アイテムから均等抽選する。
+ * 階層によるレアリティ制限は行わず、全レアリティが候補に含まれる。
+ */
+function pickWithCommonRate<T extends { rarity: string }>(
   items: T[],
   count: number,
   seed: number,
-  rareRate: number
+  commonRate: number
 ): T[] {
-  if (rareRate <= 0) return pickRandom(items, count, seed)
-
-  const rarePool = items.filter(i => i.rarity === 'Rare')
-  const otherPool = items.filter(i => i.rarity !== 'Rare')
+  const commonPool = items.filter(i => i.rarity === 'Common')
+  const higherPool = items.filter(i => i.rarity !== 'Common')  // Uncommon + Rare
 
   const result: T[] = []
   for (let i = 0; i < count; i++) {
-    const useRare = seededRandom(seed + i * 100) < rareRate && rarePool.length > 0
+    const useCommon = seededRandom(seed + i * 100) < commonRate && commonPool.length > 0
     // フォールバック: 選ばれたプールが空なら、もう一方のプールを使用
-    const primaryPool = useRare ? rarePool : otherPool
-    const pool = primaryPool.length > 0 ? primaryPool : (useRare ? otherPool : rarePool)
+    const primaryPool = useCommon ? commonPool : higherPool
+    const pool = primaryPool.length > 0 ? primaryPool : (useCommon ? higherPool : commonPool)
     if (pool.length === 0) continue
     const picked = pickRandom(pool, 1, seed + i * 200)
     if (picked.length > 0) result.push(picked[0])
@@ -66,99 +68,81 @@ function pickWithRarity<T extends { rarity: string }>(
   return result
 }
 
-/** 階層に応じたレアリティフィルタ */
-function filterByFloorRarity<T extends { rarity: string }>(items: T[], floor: number): T[] {
-  if (floor <= 1) {
-    return items.filter(i => i.rarity === 'Common' || i.rarity === 'Uncommon')
-  } else if (floor === 2) {
-    return items.filter(i => i.rarity === 'Uncommon' || i.rarity === 'Rare')
-  }
-  // 第3階層以降: Rare（+将来のEpic）のみ
-  return items.filter(i => i.rarity === 'Rare')
-}
-
-/** フィルタ後の候補不足時にフォールバック */
-function applyFloorFilter<T extends { rarity: string }>(items: T[], floor: number, minCount: number): T[] {
-  const filtered = filterByFloorRarity(items, floor)
-  if (filtered.length < minCount) {
-    return items
-  }
-  return filtered
-}
-
 /** カテゴリ別アイテム生成: 武器（耐久∞を除外） */
-function generateWeaponItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): WeaponData[] {
+function generateWeaponItems(seed: number, count: number, commonRate: number = 0): WeaponData[] {
   const allWeapons = Object.values(weaponsData).filter(w => w.maxUses !== null)
-  const filtered = applyFloorFilter(allWeapons, floor, count)
-  return pickWithRarity(filtered, count, seed, rareRate)
+  return pickWithCommonRate(allWeapons, count, seed, commonRate)
 }
 
-/** カテゴリ別アイテム生成: 魔法（slotFree魔法・基本魔法=MP0かつ割合消費なしを除外） */
-function generateSpellItems(seed: number, count: number, rareRate: number = 0, floor: number = 1): SpellData[] {
+/** カテゴリ別アイテム生成: 魔法（slotFree魔法を除外） */
+function generateSpellItems(seed: number, count: number, commonRate: number = 0): SpellData[] {
   // slotFree（魔力弾・祈り等の初期無料魔法）以外を販売対象とする
   // ※ 渇きの火のようにMP消費0でも特殊効果を持つ魔法を除外しないこと
   const allSpells = Object.values(spellsData).filter(s => !s.slotFree)
-  const filtered = applyFloorFilter(allSpells, floor, count)
-  return pickWithRarity(filtered, count, seed + 50, rareRate)
+  return pickWithCommonRate(allSpells, count, seed + 50, commonRate)
 }
 
 /** カテゴリ別アイテム生成: レリック */
-function generateRelicItems(seed: number, count: number, rareRate: number = 0, floor: number = 1, excludeIds: string[] = []): RelicData[] {
+function generateRelicItems(seed: number, count: number, commonRate: number = 0, excludeIds: string[] = []): RelicData[] {
   const allRelics = Object.values(relicsData).filter(r => !excludeIds.includes(r.id))
-  const filtered = applyFloorFilter(allRelics, floor, count)
-  return pickWithRarity(filtered, count, seed + 100, rareRate)
+  return pickWithCommonRate(allRelics, count, seed + 100, commonRate)
 }
 
 /** 種系ポーション（永続ステータス上昇）の効果タイプ。通常報酬には出さず、ポーションショップ専用とする */
 const SEED_POTION_EFFECTS = ['boostStr', 'boostInt', 'boostMaxHp', 'boostMaxMp']
 
-/** カテゴリ別アイテム生成: ポーション（Rareなし。種系は通常報酬から除外） */
-function generatePotionItems(seed: number, count: number, _rareRate: number = 0): PotionData[] {
+/** カテゴリ別アイテム生成: ポーション（種系は通常報酬から除外。Common率に従って抽選） */
+function generatePotionItems(seed: number, count: number, commonRate: number = 0): PotionData[] {
   const allPotions = Object.values(potionsData).filter(p => !SEED_POTION_EFFECTS.includes(p.effect.type))
-  return pickRandom(allPotions, count, seed + 200)
+  return pickWithCommonRate(allPotions, count, seed + 200, commonRate)
 }
 
 /** カテゴリに応じたShopSlot配列を生成 */
-function generateSlotsForCategory(category: StoreCategory, seed: number, count: number, rareRate: number = 0, floor: number = 1, excludeRelicIds: string[] = []): ShopSlot[] {
+function generateSlotsForCategory(category: StoreCategory, seed: number, count: number, commonRate: number = 0, excludeRelicIds: string[] = []): ShopSlot[] {
   switch (category) {
     case 'weapon':
-      return generateWeaponItems(seed, count, rareRate, floor).map(item => ({ category: 'weapon' as const, item }))
+      return generateWeaponItems(seed, count, commonRate).map(item => ({ category: 'weapon' as const, item }))
     case 'spell':
-      return generateSpellItems(seed, count, rareRate, floor).map(item => ({ category: 'spell' as const, item }))
+      return generateSpellItems(seed, count, commonRate).map(item => ({ category: 'spell' as const, item }))
     case 'relic':
-      return generateRelicItems(seed, count, rareRate, floor, excludeRelicIds).map(item => ({ category: 'relic' as const, item }))
+      return generateRelicItems(seed, count, commonRate, excludeRelicIds).map(item => ({ category: 'relic' as const, item }))
     case 'potion':
-      return generatePotionItems(seed, count, rareRate).map(item => ({ category: 'potion' as const, item }))
+      return generatePotionItems(seed, count, commonRate).map(item => ({ category: 'potion' as const, item }))
   }
 }
 
 /** 5枠の報酬スロットを生成 */
-function generateRewardSlots(seed: number, rareRate: number, floor: number, excludeRelicIds: string[] = []): ShopSlot[] {
-  const weaponSlot = generateSlotsForCategory('weapon', seed, 1, rareRate, floor)
-  const spellSlot = generateSlotsForCategory('spell', seed + 10, 1, rareRate, floor)
+function generateRewardSlots(seed: number, commonRate: number, excludeRelicIds: string[] = []): ShopSlot[] {
+  const weaponSlot = generateSlotsForCategory('weapon', seed, 1, commonRate)
+  const spellSlot = generateSlotsForCategory('spell', seed + 10, 1, commonRate)
 
   // 3枠目: 武器か魔法をランダムで決定
   const randomCategory: StoreCategory = seededRandom(seed + 20) < 0.5 ? 'weapon' : 'spell'
-  const randomSlot = generateSlotsForCategory(randomCategory, seed + 30, 1, rareRate, floor)
+  const randomSlot = generateSlotsForCategory(randomCategory, seed + 30, 1, commonRate)
 
-  const relicSlot = generateSlotsForCategory('relic', seed + 40, 1, rareRate, floor, excludeRelicIds)
-  const potionSlot = generateSlotsForCategory('potion', seed + 50, 1, rareRate, floor)
+  const relicSlot = generateSlotsForCategory('relic', seed + 40, 1, commonRate, excludeRelicIds)
+  const potionSlot = generateSlotsForCategory('potion', seed + 50, 1, commonRate)
 
   return [...weaponSlot, ...spellSlot, ...randomSlot, ...relicSlot, ...potionSlot]
+}
+
+/** 階層ごとのCommon出現率（残りはUncommon+Rareから均等抽選） */
+function getCommonRateForFloor(floor: number): number {
+  return floor === 3 ? getTuningValue('floor_3_common_rate', 0.4)
+       : floor === 2 ? getTuningValue('floor_2_common_rate', 0.5)
+       : getTuningValue('floor_1_common_rate', 0.75)
 }
 
 /** ストア状態を生成（5枠から2つ選択） */
 export function createStoreState(seed: number, stage: number = 1, excludeRelicIds: string[] = []): StoreState {
   const floor = getFloor(stage)
-  const rareRate = floor === 3 ? getTuningValue('floor_3_rare_rate', 0.7)
-                 : floor === 2 ? getTuningValue('floor_2_rare_rate', 0.5)
-                 : 0
+  const commonRate = getCommonRateForFloor(floor)
 
   return {
-    slots: generateRewardSlots(seed, rareRate, floor, excludeRelicIds),
+    slots: generateRewardSlots(seed, commonRate, excludeRelicIds),
     maxSelections: MAX_SELECTIONS,
     rerollCount: 0,
-    rareRate,
+    commonRate,
     floor,
   }
 }
@@ -167,7 +151,7 @@ export function createStoreState(seed: number, stage: number = 1, excludeRelicId
 export function rerollStore(storeState: StoreState, seed: number, excludeRelicIds: string[] = []): StoreState {
   return {
     ...storeState,
-    slots: generateRewardSlots(seed, storeState.rareRate, storeState.floor, excludeRelicIds),
+    slots: generateRewardSlots(seed, storeState.commonRate, excludeRelicIds),
     rerollCount: storeState.rerollCount + 1,
   }
 }

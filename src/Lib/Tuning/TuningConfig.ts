@@ -67,15 +67,18 @@ export interface TuningConfig {
   // 棘バフ
   readonly thorns_base_rate: number
 
+  // 報酬のCommon出現率（残りはUncommon+Rareから均等抽選）
+  readonly floor_1_common_rate: number
+
   // 第二階層
   readonly floor_2_hp_multiplier: number
   readonly floor_2_damage_multiplier: number
-  readonly floor_2_rare_rate: number
+  readonly floor_2_common_rate: number
 
   // 第三階層
   readonly floor_3_hp_multiplier: number
   readonly floor_3_damage_multiplier: number
-  readonly floor_3_rare_rate: number
+  readonly floor_3_common_rate: number
 }
 
 /** BroadcastChannelメッセージ型 */
