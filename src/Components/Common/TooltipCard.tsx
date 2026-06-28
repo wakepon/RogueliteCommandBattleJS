@@ -217,7 +217,11 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
     }
     if (spell.effect) {
       if (spell.effect.type === 'heal') {
-        lines.push({ label: '回復', value: `HP +${spell.effect.value}`, color: 'text-green-300' })
+        lines.push({
+          label: '回復',
+          value: spell.targetType === 'allyAll' ? `味方全体 HP +${spell.effect.value}` : `HP +${spell.effect.value}`,
+          color: 'text-green-300',
+        })
       }
       if (spell.effect.type === 'buff') {
         if (spell.effect.stat === 'precision') {

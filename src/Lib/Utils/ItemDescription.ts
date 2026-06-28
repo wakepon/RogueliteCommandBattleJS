@@ -212,7 +212,9 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
     }
     if (spell.effect) {
       if (spell.effect.type === 'heal') {
-        desc += ` | 回復: ${spell.effect.value}`
+        desc += spell.targetType === 'allyAll'
+          ? ` | 味方全体のHP+${spell.effect.value}回復`
+          : ` | 回復: ${spell.effect.value}`
       } else if (spell.effect.type === 'buff') {
         desc += spell.effect.stat === 'precision' ? ' | 攻撃時のダメージブレを0にする' : ` | STR +${spell.effect.value}`
       } else if (spell.effect.type === 'shield') {
@@ -386,7 +388,9 @@ export function getItemSpecialEffect(item: ItemType): string {
     }
     switch (spell.effect.type) {
       case 'heal':
-        return `HP+${spell.effect.value}回復`
+        return spell.targetType === 'allyAll'
+          ? `味方全体のHP+${spell.effect.value}回復`
+          : `HP+${spell.effect.value}回復`
       case 'buff':
         return spell.effect.stat === 'precision' ? '攻撃時のダメージブレを0にする' : `STR+${spell.effect.value}`
       case 'shield':

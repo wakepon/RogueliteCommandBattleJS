@@ -108,6 +108,9 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
       {command.targetType === 'enemyAll' && (
         <span className="text-xs bg-red-700 text-white px-1 rounded">全</span>
       )}
+      {command.targetType === 'allyAll' && (
+        <span className="text-xs bg-green-700 text-white px-1 rounded">全</span>
+      )}
       {damageText && (
         <span className={`text-base ${damageColor} flex-shrink-0`}>{damageText}</span>
       )}
