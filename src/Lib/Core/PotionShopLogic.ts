@@ -30,9 +30,29 @@ function pickRandom<T>(array: T[], count: number, seed: number): T[] {
 const SHOP_POTION_COUNT = 5
 const INITIAL_STOCK = 5
 
-/** ポーションショップ状態を生成 */
+/** 種系ポーション（永続ステータス上昇）の効果タイプ */
+const SEED_POTION_EFFECTS = ['boostStr', 'boostInt', 'boostMaxHp', 'boostMaxMp']
+/** ポーションショップに確実に出現させる種系ポーションの種類数 */
+const GUARANTEED_SEED_COUNT = 2
+
+function isSeedPotion(potion: PotionData): boolean {
+  return SEED_POTION_EFFECTS.includes(potion.effect.type)
+}
+
+/** ポーションショップ状態を生成（種系ポーションが必ず2種類出現する） */
 export function createPotionShopState(seed: number): PotionShopState {
-  const selected = pickRandom(allPotions, SHOP_POTION_COUNT, seed)
+  const seedPotions = allPotions.filter(isSeedPotion)
+  const otherPotions = allPotions.filter(p => !isSeedPotion(p))
+
+  // 種系を確実に2種類選出
+  const pickedSeeds = pickRandom(seedPotions, GUARANTEED_SEED_COUNT, seed + 1)
+  // 残り枠は「種以外 + 未選出の種」から抽選
+  const remainingCount = SHOP_POTION_COUNT - pickedSeeds.length
+  const remainingPool = [...otherPotions, ...seedPotions.filter(s => !pickedSeeds.includes(s))]
+  const pickedRest = pickRandom(remainingPool, remainingCount, seed + 2)
+
+  // 表示順をシャッフル（種系が先頭に固まらないように）
+  const selected = pickRandom([...pickedSeeds, ...pickedRest], SHOP_POTION_COUNT, seed + 3)
   return {
     shopSlots: selected.map(potion => ({ potion, stock: INITIAL_STOCK })),
   }
