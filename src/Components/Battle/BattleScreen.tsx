@@ -107,6 +107,18 @@ function CharacterPanel({
   const positionLabel = isFront ? '前衛' : '後衛'
   const commands = [...member.weapons, ...member.spells]
 
+  // HP割合しきい値で発動する武器（怒りの大剣など）所持中はHPバーに閾値マーカーを表示
+  let hpThresholdMarker: { positionPct: number; tooltip: string } | null = null
+  for (const w of member.weapons) {
+    if ('effect' in w && w.effect?.type === 'hpThresholdBonus' && w.effect.when === 'below') {
+      hpThresholdMarker = {
+        positionPct: w.effect.thresholdRate * 100,
+        tooltip: `${w.name}：HP${Math.round(w.effect.thresholdRate * 100)}%以下でPower+${w.effect.powerBonus}`,
+      }
+      break
+    }
+  }
+
   // EXP/レベルアップ進捗
   const requiredKills = getRequiredKillsForNextLevel(member.level)
   const expProgress = requiredKills > 0 ? displayedExp : 0
@@ -175,7 +187,22 @@ function CharacterPanel({
               <span className="text-red-400">HP</span>
               <span>{member.hp}/{member.maxHp}</span>
             </div>
-            <ResourceBar current={member.hp} max={member.maxHp} color="green" showText={false} size="sm" />
+            <div className="relative">
+              <ResourceBar current={member.hp} max={member.maxHp} color="green" showText={false} size="sm" />
+              {/* HP割合しきい値マーカー（怒りの大剣など所持時） */}
+              {hpThresholdMarker && (
+                <div
+                  className="absolute inset-y-0 z-[2]"
+                  style={{ left: `${hpThresholdMarker.positionPct}%`, transform: 'translateX(-50%)' }}
+                >
+                  <Tooltip content={hpThresholdMarker.tooltip} position="top">
+                    <div className="px-1 -mx-1 h-full flex items-center cursor-help">
+                      <div className="w-0.5 h-3 -my-0.5 bg-white rounded-full shadow ring-1 ring-black/40" />
+                    </div>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* MP バー */}
