@@ -799,7 +799,7 @@ export function BattleScreen() {
               )
 
               // キルラインバー: ホバー中なら仮想コマンドを含めてプレビュー計算
-              const previewOptions = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0 }
+              const previewOptions = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0 }
               let tentative: TentativeCommand | null = null
               if (draggingCommand && draggingExplorerId && hoverEnemyId && !isAllyTarget) {
                 // 全体攻撃: ホバー先に関係なく全敵にダメージ

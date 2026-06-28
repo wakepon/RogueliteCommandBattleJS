@@ -4,7 +4,8 @@ import { RelicInstance } from './Relic'
 import { PotionInstance } from './Potion'
 
 // セーブデータバージョン（パーティー制導入で互換性破壊）
-export const SAVE_VERSION = 6
+// v7: 武器刷新（撤廃/効果変更/新規追加・totalBrokenWeaponCount追加）で互換性破壊
+export const SAVE_VERSION = 7
 
 // 統計情報
 export interface RunStats {
@@ -29,7 +30,8 @@ export interface RunState {
   party: ExplorerState[]
   stats: RunStats
   battleLevelUps: LevelUpInfo[]  // 戦闘中のレベルアップ情報（一時保存）
-  brokenWeaponCount: number  // 努力の証: 壊れた武器の累計本数
+  brokenWeaponCount: number  // 努力の証: 壊れた武器の累計本数（レリック所持中のみ加算）
+  totalBrokenWeaponCount: number  // 破片の大剣: ラン中に耐久値が0になった累計回数（レリック非依存・常時加算）
   battleStartSnapshot: BattleStartSnapshot | null  // リザルト画面の変化量表示用
 }
 
@@ -50,6 +52,7 @@ export function createInitialRun(): RunState {
     },
     battleLevelUps: [],
     brokenWeaponCount: 0,
+    totalBrokenWeaponCount: 0,
     battleStartSnapshot: null,
   }
 }

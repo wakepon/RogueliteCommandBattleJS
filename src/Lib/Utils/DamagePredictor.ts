@@ -55,6 +55,7 @@ export interface DamagePredictOptions {
   includeConditionalRelics?: boolean
   hasPrecision?: boolean  // 精密バフでブレ幅→0
   brokenWeaponCount?: number  // 努力の証: 壊れた武器の累計本数
+  totalBrokenWeaponCount?: number  // 破片の大剣: ラン中に耐久0になった累計回数
   party?: ExplorerState[]
   explorerIndex?: number  // パーティ内の位置（ポジションボーナス用）
   commandSlots?: CommandSlot[]  // 行動順スロット（followUp計算用）
@@ -149,6 +150,23 @@ export function predictWeaponDamage(
     }
     if (weapon.effect?.type === 'revengeDamage') {
       conditionalPowerBonus += Math.floor(explorer.damageTakenLastTurn * weapon.effect.coefficient)
+    }
+    if (weapon.effect?.type === 'revengeFlat') {
+      if (explorer.damageTakenLastTurn > 0) conditionalPowerBonus += weapon.effect.powerBonus
+    }
+    if (weapon.effect?.type === 'hpThresholdBonus') {
+      const hpRatio = explorer.hp / explorer.maxHp
+      const meets = weapon.effect.when === 'below'
+        ? hpRatio <= weapon.effect.thresholdRate
+        : hpRatio >= weapon.effect.thresholdRate
+      if (meets) conditionalPowerBonus += weapon.effect.powerBonus
+    }
+    if (weapon.effect?.type === 'allyFollowUpBonus') {
+      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
+      if (allyAttacks >= weapon.effect.requiredCount) conditionalPowerBonus += weapon.effect.powerBonus
+    }
+    if (weapon.effect?.type === 'breakCountBonus') {
+      conditionalPowerBonus += (options.totalBrokenWeaponCount ?? 0)
     }
   }
 
@@ -432,6 +450,22 @@ function detectActiveMultipliers(
       multipliers.push({ relicName: command.name, multiplier: 0 })
     }
     if (command.effect?.type === 'revengeDamage' && explorer.damageTakenLastTurn > 0) {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect?.type === 'revengeFlat' && explorer.damageTakenLastTurn > 0) {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect?.type === 'hpThresholdBonus') {
+      const hpRatio = explorer.hp / explorer.maxHp
+      const meets = command.effect.when === 'below'
+        ? hpRatio <= command.effect.thresholdRate
+        : hpRatio >= command.effect.thresholdRate
+      if (meets) multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect?.type === 'allyFollowUpBonus') {
+      multipliers.push({ relicName: command.name, multiplier: 0 })
+    }
+    if (command.effect?.type === 'breakCountBonus') {
       multipliers.push({ relicName: command.name, multiplier: 0 })
     }
   }

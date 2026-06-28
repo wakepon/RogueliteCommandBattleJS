@@ -74,8 +74,12 @@ export const SaveManager = {
         return null
       }
 
-      // 古いセーブデータに battleStartSnapshot が無い場合の正規化
-      return { ...data.run, battleStartSnapshot: data.run.battleStartSnapshot ?? null }
+      // 古いセーブデータに battleStartSnapshot / totalBrokenWeaponCount が無い場合の正規化
+      return {
+        ...data.run,
+        battleStartSnapshot: data.run.battleStartSnapshot ?? null,
+        totalBrokenWeaponCount: data.run.totalBrokenWeaponCount ?? 0,
+      }
     } catch {
       return null
     }

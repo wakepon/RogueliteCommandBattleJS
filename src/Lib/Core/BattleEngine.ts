@@ -53,7 +53,14 @@ function processTurnEnd(
   // バフのターン減少処理
   const buffsAfterDecrement = decrementBuffDurations(explorer.battleBuffs)
   // 棘スタックリセット: ターン終了時に棘バフを除去
-  const updatedBuffs = buffsAfterDecrement.filter(b => b.type !== 'thorns')
+  const buffsAfterThorns = buffsAfterDecrement.filter(b => b.type !== 'thorns')
+  // 鍛錬のナイフ: 'strNextTurn'(発動待ち)を次ターンのみ有効なstrバフへ変換
+  // （減算後に変換するため、この処理で生成したstrバフは次ターン中のみ有効）
+  const updatedBuffs = buffsAfterThorns.flatMap(b =>
+    b.type === 'strNextTurn'
+      ? [{ type: 'str', value: b.value, duration: 1 } as const]
+      : [b]
+  )
 
   // HPを減少（毒ダメージ適用）、最低0
   const newHp = Math.max(0, explorer.hp - poisonDamage)

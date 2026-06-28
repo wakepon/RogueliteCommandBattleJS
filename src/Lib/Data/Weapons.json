@@ -7,49 +7,49 @@
   "followup_knife": {
     "id": "followup_knife", "name": "追撃のナイフ", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "knife",
-    "targetType": "enemySingle", "power": 3, "variance": 3, "maxUses": 5,
-    "effect": { "type": "followUp", "coefficient": 2 }
+    "targetType": "enemySingle", "power": 2, "variance": 5, "maxUses": 5,
+    "effect": { "type": "allyFollowUpBonus", "requiredCount": 2, "powerBonus": 4 }
   },
-  "growth_knife": {
-    "id": "growth_knife", "name": "成長のナイフ", "rarity": "Uncommon", "price": 7,
+  "composure_knife": {
+    "id": "composure_knife", "name": "余裕のナイフ", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "knife",
-    "targetType": "enemySingle", "power": 2, "variance": 3, "maxUses": 6,
-    "effect": { "type": "levelScale", "basePower": 2 }
+    "targetType": "enemySingle", "power": 2, "variance": 5, "maxUses": 5,
+    "effect": { "type": "hpThresholdBonus", "thresholdRate": 1.0, "powerBonus": 3, "when": "atLeast" }
   },
   "training_knife": {
-    "id": "training_knife", "name": "鍛錬のナイフ", "rarity": "Uncommon", "price": 8,
+    "id": "training_knife", "name": "鍛錬のナイフ", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "knife",
-    "targetType": "enemySingle", "power": 2, "variance": 4, "maxUses": 6,
-    "effect": { "type": "combatStrGain", "value": 1 }
+    "targetType": "enemySingle", "power": 3, "variance": 4, "maxUses": 6,
+    "effect": { "type": "nextTurnStrGain", "value": 3 }
   },
   "recoil_greatsword": {
-    "id": "recoil_greatsword", "name": "反動の大剣", "rarity": "Common", "price": 5,
+    "id": "recoil_greatsword", "name": "反動の大剣", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 8, "variance": 6, "maxUses": 3,
-    "hpCost": 10
-  },
-  "opening_greatsword": {
-    "id": "opening_greatsword", "name": "後隙の大剣", "rarity": "Common", "price": 5,
-    "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 7, "variance": 8, "maxUses": 4,
-    "effect": { "type": "selfVulnerability", "multiplier": 1.5, "duration": 1 }
-  },
-  "fickle_greatsword": {
-    "id": "fickle_greatsword", "name": "気まぐれ大剣", "rarity": "Common", "price": 4,
-    "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 9, "variance": 14, "maxUses": 2
+    "targetType": "enemySingle", "power": 8, "variance": 10, "maxUses": 4,
+    "effect": { "type": "recoilSelfDamage", "rate": 0.25 }
   },
   "rage_greatsword": {
     "id": "rage_greatsword", "name": "怒りの大剣", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 3, "variance": 4, "maxUses": 4,
-    "effect": { "type": "selfHpConditional", "coefficient": 10 }
+    "targetType": "enemySingle", "power": 3, "variance": 10, "maxUses": 4,
+    "effect": { "type": "hpThresholdBonus", "thresholdRate": 0.25, "powerBonus": 5, "when": "below" }
   },
-  "execution_greatsword": {
-    "id": "execution_greatsword", "name": "処刑の大剣", "rarity": "Uncommon", "price": 8,
+  "revenge_greatsword": {
+    "id": "revenge_greatsword", "name": "復讐の大剣", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 3, "variance": 5, "maxUses": 3,
-    "effect": { "type": "targetHpConditional", "coefficient": 8 }
+    "targetType": "enemySingle", "power": 4, "variance": 8, "maxUses": 4,
+    "effect": { "type": "revengeFlat", "powerBonus": 2 }
+  },
+  "shard_greatsword": {
+    "id": "shard_greatsword", "name": "破片の大剣", "rarity": "Uncommon", "price": 7,
+    "commandCategory": "weapon", "category": "greatsword",
+    "targetType": "enemySingle", "power": 1, "variance": 10, "maxUses": 3,
+    "effect": { "type": "breakCountBonus" }
+  },
+  "broken_greatsword": {
+    "id": "broken_greatsword", "name": "壊れかけの大剣", "rarity": "Common", "price": 4,
+    "commandCategory": "weapon", "category": "greatsword",
+    "targetType": "enemySingle", "power": 6, "variance": 10, "maxUses": 2
   },
   "training_staff": {
     "id": "training_staff", "name": "稽古の杖", "rarity": "Uncommon", "price": 8,
@@ -58,57 +58,39 @@
     "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
   },
   "vampire_staff": {
-    "id": "vampire_staff", "name": "吸血の杖", "rarity": "Rare", "price": 10,
+    "id": "vampire_staff", "name": "吸血の杖", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "staff",
-    "targetType": "enemySingle", "power": 3, "variance": 3, "maxUses": 4,
-    "effect": { "type": "lifestealPercent", "rate": 0.5 }
+    "targetType": "enemySingle", "power": 3, "variance": 6, "maxUses": 4,
+    "effect": { "type": "lifestealPercent", "rate": 0.25 }
   },
   "mana_drain_staff": {
-    "id": "mana_drain_staff", "name": "吸魔の杖", "rarity": "Rare", "price": 10,
+    "id": "mana_drain_staff", "name": "吸魔の杖", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "staff",
-    "targetType": "enemySingle", "power": 2, "variance": 2, "maxUses": 4,
-    "effect": { "type": "manaSteal", "rate": 0.75 }
+    "targetType": "enemySingle", "power": 2, "variance": 5, "maxUses": 3,
+    "effect": { "type": "manaSteal", "rate": 0.1 }
   },
   "guardian_shield": {
-    "id": "guardian_shield", "name": "守護の盾", "rarity": "Uncommon", "price": 7,
+    "id": "guardian_shield", "name": "守護の盾", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "shield",
     "targetType": "allySingle", "power": 0, "variance": 0, "maxUses": 5,
-    "effect": { "type": "shield", "value": 20 }
+    "effect": { "type": "scalingShield", "base": 5, "strMultiplier": 3 }
   },
   "thorns_shield": {
-    "id": "thorns_shield", "name": "棘の盾", "rarity": "Rare", "price": 10,
+    "id": "thorns_shield", "name": "棘の盾", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "shield",
     "targetType": "allySingle", "power": 0, "variance": 0, "maxUses": 4,
-    "effect": { "type": "thornsShield", "shieldValue": 15, "thornStacks": 3 }
-  },
-  "revenge_greatsword": {
-    "id": "revenge_greatsword", "name": "復讐の大剣", "rarity": "Uncommon", "price": 7,
-    "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 2, "variance": 4, "maxUses": 4,
-    "effect": { "type": "revengeDamage", "coefficient": 0.25 }
+    "effect": { "type": "thornsShield", "shieldBase": 5, "shieldStrMultiplier": 2, "thornStacks": 3 }
   },
   "whirlwind_sword": {
-    "id": "whirlwind_sword", "name": "旋風剣", "rarity": "Rare", "price": 10,
+    "id": "whirlwind_sword", "name": "大鎌", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "other",
-    "targetType": "enemyAll", "power": 3, "variance": 4, "maxUses": 3,
+    "targetType": "enemyAll", "power": 2, "variance": 6, "maxUses": 4,
     "effect": { "type": "aoe" }
   },
-  "shield_bash": {
-    "id": "shield_bash", "name": "盾殴り", "rarity": "Uncommon", "price": 8,
+  "recoil_scythe": {
+    "id": "recoil_scythe", "name": "反動の大鎌", "rarity": "Uncommon", "price": 8,
     "commandCategory": "weapon", "category": "other",
-    "targetType": "enemySingle", "power": 2, "variance": 3, "maxUses": 4,
-    "effect": { "type": "shieldBash" }
-  },
-  "life_fist": {
-    "id": "life_fist", "name": "生命の拳", "rarity": "Uncommon", "price": 7,
-    "commandCategory": "weapon", "category": "other",
-    "targetType": "enemySingle", "power": 0, "variance": 0, "maxUses": 3,
-    "effect": { "type": "hpPercentDamage", "rate": 0.3 }
-  },
-  "desperate_strike": {
-    "id": "desperate_strike", "name": "捨て身の一撃", "rarity": "Rare", "price": 10,
-    "commandCategory": "weapon", "category": "other",
-    "targetType": "enemySingle", "power": 0, "variance": 0, "maxUses": 2,
-    "effect": { "type": "currentHpDamage" }
+    "targetType": "enemyAll", "power": 3, "variance": 10, "maxUses": 3,
+    "effect": { "type": "recoilSelfDamage", "rate": 0.25 }
   }
 }

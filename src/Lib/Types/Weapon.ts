@@ -19,11 +19,18 @@ export type WeaponEffect =
   | { type: 'combatStrGain'; value: number }  // 鍛錬のナイフ: 使用後STR+value(戦闘中永続)
   | { type: 'targetHpConditional'; coefficient: number }  // 処刑の大剣: 敵が失ったHP割合×coefficientをPower加算
   | { type: 'selfHpConditional'; coefficient: number }  // 怒りの大剣: 失ったHP割合×coefficientをPower加算
-  | { type: 'revengeDamage'; coefficient: number }  // 復讐の大剣: 前ターン被ダメ×coefficientをPower加算
+  | { type: 'revengeDamage'; coefficient: number }  // 復讐の氷弾(魔法)互換: 前ターン被ダメ×coefficientをPower加算
+  | { type: 'revengeFlat'; powerBonus: number }  // 復讐の大剣: 前ターン被ダメを受けていたらPower+powerBonus
   | { type: 'lifestealPercent'; rate: number }  // 吸血の杖: ダメージのrate%をHP回復
   | { type: 'manaSteal'; rate: number }  // 吸魔の杖: ダメージのrate%をMP回復
-  | { type: 'thornsShield'; shieldValue: number; thornStacks: number }  // 棘の盾: シールド+棘スタック付与
-  | { type: 'aoe' }  // 旋風剣: 全体攻撃
+  | { type: 'scalingShield'; base: number; strMultiplier: number }  // 守護の盾: シールド(base + STR×strMultiplier)付与
+  | { type: 'thornsShield'; shieldBase: number; shieldStrMultiplier: number; thornStacks: number }  // 棘の盾: シールド(base + STR×mult)+棘スタック付与
+  | { type: 'aoe' }  // 大鎌: 全体攻撃
+  | { type: 'recoilSelfDamage'; rate: number }  // 反動の大剣/大鎌: 攻撃後、与えたダメージ(敵1体分)×rateの自傷
+  | { type: 'hpThresholdBonus'; thresholdRate: number; powerBonus: number; when: 'below' | 'atLeast' }  // 怒りの大剣/余裕のナイフ: HP割合条件でPower+powerBonus
+  | { type: 'allyFollowUpBonus'; requiredCount: number; powerBonus: number }  // 追撃のナイフ: 同ターンに先行味方攻撃がrequiredCount回以上ならPower+powerBonus
+  | { type: 'breakCountBonus' }  // 破片の大剣: ラン中に耐久0になった回数をPower加算
+  | { type: 'nextTurnStrGain'; value: number }  // 鍛錬のナイフ: 次のターンのみSTR+value
 
 /** 武器データ（マスター） */
 export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetable, IUseLimited {

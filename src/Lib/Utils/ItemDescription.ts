@@ -17,6 +17,7 @@ export interface DamageContext {
   includeConditionalRelics?: boolean
   party?: ExplorerState[]
   brokenWeaponCount?: number
+  totalBrokenWeaponCount?: number
   explorerIndex?: number
 }
 
@@ -27,6 +28,7 @@ function toPredictOptions(context: DamageContext): DamagePredictOptions {
     includeConditionalRelics: context.includeConditionalRelics,
     party: context.party,
     brokenWeaponCount: context.brokenWeaponCount,
+    totalBrokenWeaponCount: context.totalBrokenWeaponCount,
     explorerIndex: context.explorerIndex,
   }
 }
@@ -127,11 +129,34 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       if (weapon.effect.type === 'manaSteal') {
         desc += ` | ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`
       }
+      if (weapon.effect.type === 'scalingShield') {
+        desc += ` | シールド(${weapon.effect.base}+STR×${weapon.effect.strMultiplier})付与`
+      }
       if (weapon.effect.type === 'thornsShield') {
-        desc += ` | シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornStacks}スタック`
+        desc += ` | シールド(${weapon.effect.shieldBase}+STR×${weapon.effect.shieldStrMultiplier})+棘${weapon.effect.thornStacks}スタック`
       }
       if (weapon.effect.type === 'aoe') {
         desc += ' | 全体攻撃'
+      }
+      if (weapon.effect.type === 'recoilSelfDamage') {
+        desc += ` | 攻撃後、与ダメの${Math.floor(weapon.effect.rate * 100)}%を自身に反動ダメージ`
+      }
+      if (weapon.effect.type === 'hpThresholdBonus') {
+        desc += weapon.effect.when === 'below'
+          ? ` | HP${Math.floor(weapon.effect.thresholdRate * 100)}%以下でPower+${weapon.effect.powerBonus}`
+          : ` | HP満タン時Power+${weapon.effect.powerBonus}`
+      }
+      if (weapon.effect.type === 'allyFollowUpBonus') {
+        desc += ` | このターン先に味方が${weapon.effect.requiredCount}回攻撃でPower+${weapon.effect.powerBonus}`
+      }
+      if (weapon.effect.type === 'revengeFlat') {
+        desc += ` | 前ターン被ダメ時Power+${weapon.effect.powerBonus}`
+      }
+      if (weapon.effect.type === 'breakCountBonus') {
+        desc += ' | ラン中の武器破壊回数だけPower加算'
+      }
+      if (weapon.effect.type === 'nextTurnStrGain') {
+        desc += ` | 次のターンSTR+${weapon.effect.value}`
       }
       if (weapon.effect.type === 'currentHpDamage') {
         desc += ' | 現在HP-1のダメージ（HPが1になる）'
@@ -155,6 +180,13 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
     if ('targetType' in weapon && weapon.targetType === 'enemyRandom') {
       const hitCount = 'hits' in weapon && weapon.hits ? weapon.hits : 3
       desc += ` | ランダムな敵に攻撃（${hitCount}回）`
+    }
+    if ('targetType' in weapon && weapon.targetType === 'enemyAll'
+        && !('effect' in weapon && weapon.effect?.type === 'aoe')) {
+      desc += ' | 全体攻撃'
+    }
+    if (weapon.variance >= 10) {
+      desc += ' | ダメージのブレが大きい'
     }
     return desc
   }
@@ -279,10 +311,26 @@ export function getItemSpecialEffect(item: ItemType): string {
         parts.push(`ダメージの${Math.floor(weapon.effect.rate * 100)}%HP回復`)
       } else if (weapon.effect.type === 'manaSteal') {
         parts.push(`ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`)
+      } else if (weapon.effect.type === 'scalingShield') {
+        parts.push(`シールド(${weapon.effect.base}+STR×${weapon.effect.strMultiplier})付与`)
       } else if (weapon.effect.type === 'thornsShield') {
-        parts.push(`シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornStacks}スタック`)
+        parts.push(`シールド(${weapon.effect.shieldBase}+STR×${weapon.effect.shieldStrMultiplier})+棘${weapon.effect.thornStacks}スタック`)
       } else if (weapon.effect.type === 'aoe') {
         parts.push('全体攻撃')
+      } else if (weapon.effect.type === 'recoilSelfDamage') {
+        parts.push(`攻撃後、与ダメの${Math.floor(weapon.effect.rate * 100)}%を反動ダメージ`)
+      } else if (weapon.effect.type === 'hpThresholdBonus') {
+        parts.push(weapon.effect.when === 'below'
+          ? `HP${Math.floor(weapon.effect.thresholdRate * 100)}%以下でPower+${weapon.effect.powerBonus}`
+          : `HP満タン時Power+${weapon.effect.powerBonus}`)
+      } else if (weapon.effect.type === 'allyFollowUpBonus') {
+        parts.push(`先に味方が${weapon.effect.requiredCount}回攻撃でPower+${weapon.effect.powerBonus}`)
+      } else if (weapon.effect.type === 'revengeFlat') {
+        parts.push(`前ターン被ダメ時Power+${weapon.effect.powerBonus}`)
+      } else if (weapon.effect.type === 'breakCountBonus') {
+        parts.push('ラン中の武器破壊回数だけPower加算')
+      } else if (weapon.effect.type === 'nextTurnStrGain') {
+        parts.push(`次のターンSTR+${weapon.effect.value}`)
       } else if (weapon.effect.type === 'currentHpDamage') {
         parts.push('現在HP-1のダメージ（HPが1になる）')
       } else if (weapon.effect.type === 'shieldBash') {
@@ -301,6 +349,13 @@ export function getItemSpecialEffect(item: ItemType): string {
     if ('targetType' in weapon && weapon.targetType === 'enemyRandom') {
       const hitCount = 'hits' in weapon && weapon.hits ? weapon.hits : 3
       parts.push(`ランダムな敵に攻撃（${hitCount}回）`)
+    }
+    if ('targetType' in weapon && weapon.targetType === 'enemyAll'
+        && !('effect' in weapon && weapon.effect?.type === 'aoe')) {
+      parts.push('全体攻撃')
+    }
+    if (weapon.variance >= 10) {
+      parts.push('ダメージのブレが大きい')
     }
     return parts.join(' / ')
   }
@@ -424,6 +479,32 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
       }
       if (command.effect.type === 'revengeDamage') {
         desc += ' 前ターン被ダメ→火力UP'
+      }
+      if (command.effect.type === 'revengeFlat') {
+        desc += ` 前ターン被ダメ時P+${command.effect.powerBonus}`
+      }
+      if (command.effect.type === 'recoilSelfDamage') {
+        desc += ` 反動${Math.floor(command.effect.rate * 100)}%`
+      }
+      if (command.effect.type === 'hpThresholdBonus') {
+        desc += command.effect.when === 'below'
+          ? ` HP${Math.floor(command.effect.thresholdRate * 100)}%以下でP+${command.effect.powerBonus}`
+          : ` HP満タンでP+${command.effect.powerBonus}`
+      }
+      if (command.effect.type === 'allyFollowUpBonus') {
+        desc += ` 先行味方${command.effect.requiredCount}回でP+${command.effect.powerBonus}`
+      }
+      if (command.effect.type === 'breakCountBonus') {
+        desc += ' 破壊回数分P加算'
+      }
+      if (command.effect.type === 'nextTurnStrGain') {
+        desc += ` 次ターンSTR+${command.effect.value}`
+      }
+      if (command.effect.type === 'scalingShield') {
+        desc += ` シールド(${command.effect.base}+STR×${command.effect.strMultiplier})`
+      }
+      if (command.effect.type === 'thornsShield') {
+        desc += ` シールド(${command.effect.shieldBase}+STR×${command.effect.shieldStrMultiplier})+棘${command.effect.thornStacks}`
       }
     }
     if ('hpCost' in command && command.hpCost) {

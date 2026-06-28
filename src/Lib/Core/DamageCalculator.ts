@@ -30,6 +30,7 @@ interface DamageOptions {
   currentCommandIndex?: number
   hasHpCostPowerBoost?: boolean
   hpCostPowerBoostValue?: number
+  totalBrokenWeaponCount?: number  // 破片の大剣: ラン中に耐久0になった累計回数
 }
 
 function generateVarianceOffset(variance: number): number {
@@ -76,6 +77,7 @@ export function calculateWeaponDamage(
     varianceOffset, relics = [], party, explorerIndex,
     brokenWeaponCount = 0, commandSlots, currentCommandIndex,
     hasHpCostPowerBoost = false, hpCostPowerBoostValue = 0,
+    totalBrokenWeaponCount = 0,
   } = options
   const contributors: DamageContributor[] = []
 
@@ -156,12 +158,56 @@ export function calculateWeaponDamage(
     contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
   }
 
-  // 復讐ダメージ (復讐の大剣)
+  // 復讐ダメージ (旧仕様・スケーリング型: 互換のため残置)
   if ('effect' in weapon && weapon.effect?.type === 'revengeDamage') {
     const bonusPower = Math.floor(attacker.damageTakenLastTurn * weapon.effect.coefficient)
     if (bonusPower > 0) {
       conditionalPowerBonus += bonusPower
       const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
+  // 復讐(フラット型) (復讐の大剣): 前ターンにダメージを受けていたらPower+powerBonus
+  if ('effect' in weapon && weapon.effect?.type === 'revengeFlat') {
+    if (attacker.damageTakenLastTurn > 0) {
+      const bonusPower = weapon.effect.powerBonus
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
+  // HP割合しきい値 (怒りの大剣: HP以下 / 余裕のナイフ: HP以上) でPower+powerBonus
+  if ('effect' in weapon && weapon.effect?.type === 'hpThresholdBonus') {
+    const hpRatio = attacker.hp / attacker.maxHp
+    const meetsCondition = weapon.effect.when === 'below'
+      ? hpRatio <= weapon.effect.thresholdRate
+      : hpRatio >= weapon.effect.thresholdRate
+    if (meetsCondition) {
+      const bonusPower = weapon.effect.powerBonus
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
+  // 先行味方攻撃しきい値 (追撃のナイフ): requiredCount回以上でPower+powerBonus
+  if ('effect' in weapon && weapon.effect?.type === 'allyFollowUpBonus') {
+    const allyAttacks = countAllyAttacksThisTurn(commandSlots, currentCommandIndex)
+    if (allyAttacks >= weapon.effect.requiredCount) {
+      const bonusPower = weapon.effect.powerBonus
+      conditionalPowerBonus += bonusPower
+      const dmgContribution = Math.floor(effectiveStat * bonusPower * buffMultiplier)
+      contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
+    }
+  }
+
+  // 破壊回数参照 (破片の大剣): ラン中に耐久0になった回数をPower加算
+  if ('effect' in weapon && weapon.effect?.type === 'breakCountBonus') {
+    if (totalBrokenWeaponCount > 0) {
+      conditionalPowerBonus += totalBrokenWeaponCount
+      const dmgContribution = Math.floor(effectiveStat * totalBrokenWeaponCount * buffMultiplier)
       contributors.push({ name: weapon.name, label: `ダメージ+${dmgContribution}` })
     }
   }

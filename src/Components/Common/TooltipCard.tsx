@@ -131,8 +131,11 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       if (weapon.effect.type === 'manaSteal') {
         lines.push({ label: '効果', value: `ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`, color: 'text-blue-300' })
       }
+      if (weapon.effect.type === 'scalingShield') {
+        lines.push({ label: '効果', value: `シールド(${weapon.effect.base}+STR×${weapon.effect.strMultiplier})付与`, color: 'text-cyan-300' })
+      }
       if (weapon.effect.type === 'thornsShield') {
-        lines.push({ label: '効果', value: `シールド${weapon.effect.shieldValue}+棘${weapon.effect.thornStacks}スタック`, color: 'text-cyan-300' })
+        lines.push({ label: '効果', value: `シールド(${weapon.effect.shieldBase}+STR×${weapon.effect.shieldStrMultiplier})+棘${weapon.effect.thornStacks}`, color: 'text-cyan-300' })
       }
       if (weapon.effect.type === 'aoe') {
         lines.push({ label: '効果', value: '全体攻撃', color: 'text-red-300' })
@@ -151,6 +154,30 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
       }
       if (weapon.effect.type === 'revengeDamage') {
         lines.push({ label: '効果', value: `前ターン被ダメ×${weapon.effect.coefficient}P加算`, color: 'text-orange-300' })
+      }
+      if (weapon.effect.type === 'revengeFlat') {
+        lines.push({ label: '効果', value: `前ターン被ダメ時Power+${weapon.effect.powerBonus}`, color: 'text-orange-300' })
+      }
+      if (weapon.effect.type === 'recoilSelfDamage') {
+        lines.push({ label: 'デメリット', value: `与ダメの${Math.floor(weapon.effect.rate * 100)}%を反動ダメージ`, color: 'text-red-400' })
+      }
+      if (weapon.effect.type === 'hpThresholdBonus') {
+        lines.push({
+          label: '効果',
+          value: weapon.effect.when === 'below'
+            ? `HP${Math.floor(weapon.effect.thresholdRate * 100)}%以下でPower+${weapon.effect.powerBonus}`
+            : `HP満タン時Power+${weapon.effect.powerBonus}`,
+          color: 'text-orange-300',
+        })
+      }
+      if (weapon.effect.type === 'allyFollowUpBonus') {
+        lines.push({ label: '効果', value: `先行味方${weapon.effect.requiredCount}回攻撃でPower+${weapon.effect.powerBonus}`, color: 'text-yellow-300' })
+      }
+      if (weapon.effect.type === 'breakCountBonus') {
+        lines.push({ label: '効果', value: 'ラン中の武器破壊回数分Power加算', color: 'text-orange-300' })
+      }
+      if (weapon.effect.type === 'nextTurnStrGain') {
+        lines.push({ label: '効果', value: `次のターンSTR+${weapon.effect.value}`, color: 'text-green-300' })
       }
     }
     if ('hpCost' in weapon && weapon.hpCost) {
