@@ -15,6 +15,8 @@ interface DraggableCommandProps {
   explorer?: ExplorerState
   relics?: RelicInstance[]
   party?: ExplorerState[]
+  /** 行動欄で先に詠唱予定の武器強化による武器Power加算（武器コマンドの予測に反映） */
+  extraWeaponPowerBonus?: number
 }
 
 /** コマンドカテゴリに応じたアイコン */
@@ -36,7 +38,7 @@ function getCommandStyle(command: BattleCommand): { bgColor: string; label: stri
  * ドラッグ可能なコマンドアイテム
  * 武器/魔法を敵や味方にドラッグ&ドロップしてコマンドをセット
  */
-export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party }: DraggableCommandProps) {
+export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party, extraWeaponPowerBonus = 0 }: DraggableCommandProps) {
   const uniqueId = commandIndex !== undefined ? `cmd-${explorerId}-${command.id}-${commandIndex}` : `cmd-${explorerId}-${command.id}`
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: uniqueId,
@@ -59,7 +61,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   if (isEnemyTarget && command.power > 0 && explorer) {
     const idx = party ? party.findIndex(e => e.id === explorer.id) : -1
     const explorerIndex = idx >= 0 ? idx : undefined
-    const opts = { relics, includeConditionalRelics: true, party, explorerIndex }
+    const opts = { relics, includeConditionalRelics: true, party, explorerIndex, extraWeaponPowerBonus }
     if (isWeapon(command)) {
       const range = predictWeaponDamage(explorer, command, opts)
       damageText = formatDamageRange(range)

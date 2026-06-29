@@ -63,6 +63,7 @@ export interface DamagePredictOptions {
   targetCurrentHp?: number  // 対象敵の現在HP（targetHpConditional用）
   targetMaxHp?: number  // 対象敵の最大HP（targetHpConditional用）
   comboBonus?: number  // 連携の紋章: コマンドフェーズで算出したPowerボーナス
+  extraWeaponPowerBonus?: number  // 行動欄で先に詠唱予定の武器強化による武器Power加算（未適用バフの先読み）
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -171,9 +172,11 @@ export function predictWeaponDamage(
   }
 
   // weaponPowerBonus バフ: 武器強化による一時的なPower加算
+  // （既存バフ + 行動欄で先に詠唱予定の武器強化の先読み分）
   const weaponPowerBonusValue = explorer.battleBuffs
     .filter(b => b.type === 'weaponPowerBonus')
     .reduce((sum, b) => sum + b.value, 0)
+    + (options.extraWeaponPowerBonus ?? 0)
 
   // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
   const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
@@ -349,6 +352,26 @@ function willReceivePrecision(
   return false
 }
 
+/**
+ * 行動順を考慮して、特定キャラがこのターン先に受け取る武器強化（weaponPowerBuff）の合計値を返す
+ * （そのキャラより先に行動するスロットに、そのキャラ宛ての武器強化がセットされている場合に加算）
+ */
+export function pendingWeaponPowerBonus(
+  commandSlots: CommandSlot[],
+  targetExplorerId: string,
+  slotIndex: number
+): number {
+  let total = 0
+  for (let i = 0; i < slotIndex; i++) {
+    const prevSlot = commandSlots[i]
+    if (!prevSlot.command) continue
+    if (!isSpell(prevSlot.command)) continue
+    if (prevSlot.command.effect?.type !== 'weaponPowerBuff') continue
+    if (prevSlot.targetId === targetExplorerId) total += prevSlot.command.effect.value
+  }
+  return total
+}
+
 /** コマンドスロットから連携の紋章の条件を判定し、ボーナス値を返す */
 export function getComboConditionBonus(
   commandSlots: CommandSlot[],
@@ -393,7 +416,8 @@ function detectActiveMultipliers(
   explorer: ExplorerState,
   command: BattleCommand,
   includeConditionalRelics: boolean,
-  comboBonus?: number
+  comboBonus?: number,
+  extraWeaponPowerBonus?: number
 ): MultiplierEffect[] {
   if (!includeConditionalRelics) return []
 
@@ -424,9 +448,10 @@ function detectActiveMultipliers(
     }
   }
 
-  // 武器強化バフ
+  // 武器強化バフ（既存バフ + 行動欄での先読み分）
   if (isWeapon(command)) {
     const wpBonus = explorer.battleBuffs.filter(b => b.type === 'weaponPowerBonus').reduce((s, b) => s + b.value, 0)
+      + (extraWeaponPowerBonus ?? 0)
     if (wpBonus > 0) {
       multipliers.push({ relicName: '武器強化', multiplier: 0 })
     }
@@ -553,9 +578,10 @@ export function calculateDetailedDamagePreview(
     if (!explorer) continue
 
     const precisionFromOrder = willReceivePrecision(allSlots, slot.explorerId, i)
+    const wpBonusFromOrder = pendingWeaponPowerBonus(allSlots, slot.explorerId, i)
     const rawIdx = party.findIndex(e => e.id === slot.explorerId)
     const explorerIndex = rawIdx >= 0 ? rawIdx : undefined
-    const slotOptions = { ...options, hasPrecision: precisionFromOrder, party, explorerIndex, commandSlots: allSlots, currentCommandIndex: i, targetCurrentHp, targetMaxHp, comboBonus }
+    const slotOptions = { ...options, hasPrecision: precisionFromOrder, extraWeaponPowerBonus: wpBonusFromOrder, party, explorerIndex, commandSlots: allSlots, currentCommandIndex: i, targetCurrentHp, targetMaxHp, comboBonus }
 
     const targetsThisEnemy = slot.targetId === targetEnemyId
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
@@ -607,7 +633,8 @@ export function calculateDetailedDamagePreview(
         explorer,
         slot.command,
         options.includeConditionalRelics || false,
-        comboBonus
+        comboBonus,
+        wpBonusFromOrder
       )
 
       segments.push({

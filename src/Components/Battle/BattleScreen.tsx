@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isFrontMember, targetsDownedAlly } from '../../Lib/Core'
-import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus } from '../../Lib/Utils/DamagePredictor'
+import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, pendingWeaponPowerBonus } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
@@ -69,6 +69,7 @@ function CharacterPanel({
   orderIndex,
   dragHandleProps,
   relics,
+  weaponPowerBonusPreview,
   acting,
   shaking,
   levelingUp,
@@ -92,6 +93,8 @@ function CharacterPanel({
   draggingPanel: boolean
   orderIndex: number
   relics: RelicInstance[]
+  /** このキャラがこのターン先に受け取る武器強化の合計（武器チップの予測に反映） */
+  weaponPowerBonusPreview: number
   dragHandleProps?: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }
   /** 行動中ならアニメ種別。攻撃/ヒール時にパネル全体を浮かせる */
   acting: AvatarActingType | null
@@ -266,6 +269,7 @@ function CharacterPanel({
                   explorer={member}
                   relics={relics}
                   party={allParty}
+                  extraWeaponPowerBonus={weaponPowerBonusPreview}
                 />
               )
             })}
@@ -909,6 +913,11 @@ export function BattleScreen() {
               const rate = targetRates.find(r => r.explorerId === member.id)?.rate
               const prevRate = previewTargetRates.find(r => r.explorerId === member.id)?.rate
               const slot = commandSlots.find(s => s.explorerId === member.id) ?? null
+              // このキャラがこのターン先に受け取る武器強化の合計（武器チップ予測へ反映）
+              const memberSlotIndex = commandSlots.findIndex(s => s.explorerId === member.id)
+              const weaponPowerBonusPreview = memberSlotIndex >= 0
+                ? pendingWeaponPowerBonus(commandSlots, member.id, memberSlotIndex)
+                : 0
               return (
                 <SortableCharacterPanel
                   key={member.id}
@@ -945,6 +954,7 @@ export function BattleScreen() {
                       draggingPanel={draggingPanel}
                       orderIndex={index}
                       relics={run.relics}
+                      weaponPowerBonusPreview={weaponPowerBonusPreview}
                       dragHandleProps={dragHandleProps}
                       acting={acting?.explorerId === member.id ? acting.type : null}
                       shaking={shakingIds.has(member.id)}
