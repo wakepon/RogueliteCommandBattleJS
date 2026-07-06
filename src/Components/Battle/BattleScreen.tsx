@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
-import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, pendingWeaponPowerBonus } from '../../Lib/Utils/DamagePredictor'
+import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, pendingWeaponPowerBonus, pendingWeaponPowerBuffSources } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
@@ -122,6 +122,7 @@ function CharacterPanel({
   dragHandleProps,
   relics,
   weaponPowerBonusPreview,
+  weaponBuffSources = [],
   hpPreviewAdd = 0,
   mpPreviewAdd = 0,
   acting,
@@ -149,6 +150,8 @@ function CharacterPanel({
   relics: RelicInstance[]
   /** このキャラがこのターン先に受け取る武器強化の合計（武器チップの予測に反映） */
   weaponPowerBonusPreview: number
+  /** このキャラが先に受け取る武器強化魔法の内訳（バフポップアップで呪文名つき表示） */
+  weaponBuffSources?: { name: string; value: number }[]
   /** 回復系コマンドのドラッグ中ホバー時、このキャラが回復する予測量（HPバーを点滅で伸ばす） */
   hpPreviewAdd?: number
   /** MP回復ポーションのドラッグ中ホバー時、このキャラが回復するMPの予測量（MPバーを点滅で伸ばす） */
@@ -338,6 +341,7 @@ function CharacterPanel({
                   relics={relics}
                   party={allParty}
                   extraWeaponPowerBonus={weaponPowerBonusPreview}
+                  pendingWeaponBuffs={weaponBuffSources}
                 />
               )
             })}
@@ -1019,6 +1023,10 @@ export function BattleScreen() {
               const weaponPowerBonusPreview = memberSlotIndex >= 0
                 ? pendingWeaponPowerBonus(previewCommandSlots, member.id, memberSlotIndex)
                 : 0
+              // 武器強化魔法の内訳（呪文名つき。バフポップアップ表示用）
+              const weaponBuffSources = memberSlotIndex >= 0
+                ? pendingWeaponPowerBuffSources(previewCommandSlots, member.id, memberSlotIndex)
+                : []
               // 回復プレビュー: バーを点滅で伸ばす予測量を算出（コマンドフェーズのみ）
               let hpPreviewAdd = 0
               let mpPreviewAdd = 0
@@ -1071,6 +1079,7 @@ export function BattleScreen() {
                       orderIndex={index}
                       relics={run.relics}
                       weaponPowerBonusPreview={weaponPowerBonusPreview}
+                      weaponBuffSources={weaponBuffSources}
                       hpPreviewAdd={hpPreviewAdd}
                       mpPreviewAdd={mpPreviewAdd}
                       dragHandleProps={dragHandleProps}

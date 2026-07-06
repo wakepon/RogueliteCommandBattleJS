@@ -372,6 +372,28 @@ export function pendingWeaponPowerBonus(
   return total
 }
 
+/**
+ * pendingWeaponPowerBonus の内訳版。バフ元の呪文名と加算値のリストを返す。
+ * バフポップアップで「武器強化魔法 Power+3」のように呪文名つきで列挙するために使う。
+ */
+export function pendingWeaponPowerBuffSources(
+  commandSlots: CommandSlot[],
+  targetExplorerId: string,
+  slotIndex: number
+): { name: string; value: number }[] {
+  const sources: { name: string; value: number }[] = []
+  for (let i = 0; i < slotIndex; i++) {
+    const prevSlot = commandSlots[i]
+    if (!prevSlot.command) continue
+    if (!isSpell(prevSlot.command)) continue
+    if (prevSlot.command.effect?.type !== 'weaponPowerBuff') continue
+    if (prevSlot.targetId === targetExplorerId) {
+      sources.push({ name: prevSlot.command.name, value: prevSlot.command.effect.value })
+    }
+  }
+  return sources
+}
+
 /** コマンドスロットから連携の紋章の条件を判定し、ボーナス値を返す */
 export function getComboConditionBonus(
   commandSlots: CommandSlot[],
@@ -648,5 +670,111 @@ export function calculateDetailedDamagePreview(
   }
 
   return { totalMin, totalMax, isBoosted: anyBoosted, segments }
+}
+
+/** バフポップアップ1行分（表示名 + 効果テキスト） */
+export interface CommandBuffEntry {
+  /** 表示名（レリック名 / 武器名 / 呪文名など） */
+  label: string
+  /** 効果テキスト（"INT+3", "Power+5" など） */
+  detail: string
+}
+
+/**
+ * コマンド（武器/魔法）のダメージに現在乗っているバフを、表示用のリストにして返す。
+ * ダメージ計算（predictWeaponDamage / predictSpellDamage）と同じ条件判定を用いるため、
+ * 予測ダメージと矛盾しない。条件が成立していない効果や、敵・行動順に依存して
+ * この文脈で確定できない効果（targetHpConditional / followUp 等）は含めない。
+ */
+export function getCommandBuffEntries(
+  explorer: ExplorerState,
+  command: BattleCommand,
+  options: {
+    relics?: RelicInstance[]
+    party?: ExplorerState[]
+    explorerIndex?: number
+    /** 行動欄で先に詠唱予定の武器強化魔法の内訳（呪文名 + 加算値） */
+    pendingWeaponBuffs?: { name: string; value: number }[]
+  } = {}
+): CommandBuffEntry[] {
+  const { relics = [], party, explorerIndex, pendingWeaponBuffs = [] } = options
+  const entries: CommandBuffEntry[] = []
+
+  const weapon = isWeapon(command) ? command : null
+  const spell = isSpell(command) ? command : null
+  if (!weapon && !spell) return entries
+
+  // スケールステータス判定（武器は基本STR、魔力弾等はINT、魔法はINT）
+  const scaleStat: 'str' | 'int' = weapon
+    ? (('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str')
+    : 'int'
+
+  // ポジションボーナス（レリック）: 前衛の矜持 INT+N / 後衛の底力 STR+N
+  if (explorerIndex !== undefined && party) {
+    const pos = getPositionStatBonus(relics, explorerIndex, party.length)
+    if (scaleStat === 'int' && pos.intBonus > 0) {
+      const relic = relics.find(r => r.passiveEffect.type === 'frontRowIntBonus')
+      if (relic) entries.push({ label: relic.name, detail: `INT+${pos.intBonus}` })
+    }
+    if (scaleStat === 'str' && pos.strBonus > 0) {
+      const relic = relics.find(r => r.passiveEffect.type === 'backRowStrBonus')
+      if (relic) entries.push({ label: relic.name, detail: `STR+${pos.strBonus}` })
+    }
+  }
+
+  // 武器強化（武器コマンドのみ）
+  if (weapon) {
+    // 既に適用済みの武器強化バフ
+    const existingWpBonus = explorer.battleBuffs
+      .filter(b => b.type === 'weaponPowerBonus')
+      .reduce((s, b) => s + b.value, 0)
+    if (existingWpBonus > 0) {
+      entries.push({ label: '武器強化', detail: `Power+${existingWpBonus}` })
+    }
+    // 行動欄で先に詠唱予定の武器強化魔法（呪文名つきで列挙）
+    for (const src of pendingWeaponBuffs) {
+      if (src.value > 0) entries.push({ label: src.name, detail: `Power+${src.value}` })
+    }
+  }
+
+  // 条件付き武器効果（現在成立しているもののみ、Power加算を算出）
+  if (weapon && 'effect' in weapon && weapon.effect) {
+    const eff = weapon.effect
+    if (eff.type === 'hpThresholdBonus') {
+      const hpRatio = explorer.hp / explorer.maxHp
+      const meets = eff.when === 'below' ? hpRatio <= eff.thresholdRate : hpRatio >= eff.thresholdRate
+      if (meets && eff.powerBonus > 0) entries.push({ label: weapon.name, detail: `Power+${eff.powerBonus}` })
+    } else if (eff.type === 'selfHpConditional') {
+      const lostHpRatio = 1 - explorer.hp / explorer.maxHp
+      const bonus = Math.floor(lostHpRatio * eff.coefficient)
+      if (bonus > 0) entries.push({ label: weapon.name, detail: `Power+${bonus}` })
+    } else if (eff.type === 'levelScale') {
+      if (explorer.level > 0) entries.push({ label: weapon.name, detail: `Power+${explorer.level}` })
+    } else if (eff.type === 'revengeFlat') {
+      if (explorer.damageTakenLastTurn > 0) entries.push({ label: weapon.name, detail: `Power+${eff.powerBonus}` })
+    } else if (eff.type === 'revengeDamage') {
+      const bonus = Math.floor(explorer.damageTakenLastTurn * eff.coefficient)
+      if (bonus > 0) entries.push({ label: weapon.name, detail: `Power+${bonus}` })
+    }
+  }
+
+  // 条件付き魔法効果（現在成立しているもののみ）
+  if (spell && spell.effect) {
+    const eff = spell.effect
+    if (eff.type === 'lowMpConditional') {
+      const mpCost = 'mpCost' in spell ? spell.mpCost : 0
+      const mpAfterCast = Math.max(0, explorer.mp - mpCost)
+      const usedMpRatio = 1 - mpAfterCast / explorer.maxMp
+      const bonus = Math.floor(usedMpRatio * eff.coefficient)
+      if (bonus > 0) entries.push({ label: spell.name, detail: `Power+${bonus}` })
+    } else if (eff.type === 'revengeFlat') {
+      if (explorer.damageTakenLastTurn > 0) entries.push({ label: spell.name, detail: `Power+${eff.powerBonus}` })
+    } else if (eff.type === 'revengeDamage') {
+      const bonus = Math.floor(explorer.damageTakenLastTurn * eff.coefficient)
+      if (bonus > 0) entries.push({ label: spell.name, detail: `Power+${bonus}` })
+    }
+  }
+
+  return entries
 }
 
