@@ -89,7 +89,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
     : undefined
 
   const tooltipContent = (
-    <TooltipCard item={command} damageText={damageText || undefined} durabilityText={durabilityText} />
+    <TooltipCard item={command} damageText={damageText || undefined} durabilityText={durabilityText} explorer={explorer} />
   )
 
   // 2つ目のポップアップ: 現在乗っているバフを列挙
