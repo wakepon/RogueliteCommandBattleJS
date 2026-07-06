@@ -7,6 +7,7 @@ import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, pendingWeaponPowerBonus, pendingWeaponPowerBuffSources } from '../../Lib/Utils/DamagePredictor'
+import { classifyCommandsKillPotential, killPotentialKey, getReferenceEnemy, KillCategory } from '../../Lib/Utils/KillPotential'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
@@ -121,6 +122,7 @@ function CharacterPanel({
   orderIndex,
   dragHandleProps,
   relics,
+  killCategoryMap,
   weaponPowerBonusPreview,
   weaponBuffSources = [],
   hpPreviewAdd = 0,
@@ -148,6 +150,8 @@ function CharacterPanel({
   draggingPanel: boolean
   orderIndex: number
   relics: RelicInstance[]
+  /** 各コマンドの撃破確定カテゴリ（左端アクセントバーの着色に使う） */
+  killCategoryMap?: Map<string, KillCategory>
   /** このキャラがこのターン先に受け取る武器強化の合計（武器チップの予測に反映） */
   weaponPowerBonusPreview: number
   /** このキャラが先に受け取る武器強化魔法の内訳（バフポップアップで呪文名つき表示） */
@@ -329,6 +333,7 @@ function CharacterPanel({
               const isAvail = !isDead && !isGameOver && availableCommands.some(ac => ac.id === cmd.id)
               // 武器のweapons配列内インデックスを計算（spellsはundefined）
               const weaponIdx = cmdIdx < member.weapons.length ? cmdIdx : undefined
+              const killCategory = killCategoryMap?.get(killPotentialKey(member.id, cmd.id))
               return (
                 <DraggableCommand
                   key={`${cmd.id}-${cmdIdx}`}
@@ -340,6 +345,7 @@ function CharacterPanel({
                   explorer={member}
                   relics={relics}
                   party={allParty}
+                  killCategory={killCategory}
                   extraWeaponPowerBonus={weaponPowerBonusPreview}
                   pendingWeaponBuffs={weaponBuffSources}
                 />
@@ -530,6 +536,8 @@ export function BattleScreen() {
   const [draggingExplorerId, setDraggingExplorerId] = useState<string | null>(null)
   const [draggingPanel, setDraggingPanel] = useState(false)
   const [hoverEnemyId, setHoverEnemyId] = useState<string | null>(null)
+  // ドラッグ外でマウスホバー中の敵ID（コマンド着色の基準敵をホバー先に切り替えるため）
+  const [colorHoverEnemyId, setColorHoverEnemyId] = useState<string | null>(null)
   // 味方対象コマンドをドラッグ中にホバーしている味方メンバーID（武器強化のダメージ予測プレビュー用）
   const [hoverAllyId, setHoverAllyId] = useState<string | null>(null)
   // 行動アニメ: { explorerId, type } を保持。執行直前にセットし、進行後にクリア
@@ -888,6 +896,18 @@ export function BattleScreen() {
   // 回復ポーションの効果倍率（レリック補正）。回復プレビュー量の算出に使う
   const potionEffectMultiplier = getPotionEffectMultiplier(run.relics)
 
+  // コマンド立案支援: 各コマンドの撃破確定カテゴリ（solo/combo/none/nonAttack）を算出。
+  // 土台に previewCommandSlots を使うことで、武器強化などのバフ確定/ドラッグ中ホバーが即座に反映される。
+  // 基準敵はドラッグ中のホバー敵 > 通常ホバー敵 > 最小HPの敵 の優先で決まる。
+  // 依存は「解決済みの基準敵ID」にすることで、最小HP敵と同一の敵をホバーした場合など基準が
+  // 変わらないマウス移動では再計算をスキップする（敵をなぞる操作での無駄な再計算を抑制）。
+  const referenceEnemyId = getReferenceEnemy(enemies, hoverEnemyId ?? colorHoverEnemyId)?.instanceId ?? null
+  const killCategoryMap = useMemo<Map<string, KillCategory>>(() => {
+    if (!isCommandPhase) return new Map()
+    const options = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0 }
+    return classifyCommandsKillPotential(party, enemies, previewCommandSlots, referenceEnemyId, options)
+  }, [isCommandPhase, party, enemies, previewCommandSlots, referenceEnemyId, run.relics, run.brokenWeaponCount, run.totalBrokenWeaponCount])
+
   // パネルソート用のID配列
   const panelIds = party.map(m => `panel-${m.id}`)
 
@@ -965,7 +985,10 @@ export function BattleScreen() {
                 : null
 
               return (
-                <div key={enemy.instanceId} id={`enemy-dom-${enemy.instanceId}`}>
+                <div key={enemy.instanceId} id={`enemy-dom-${enemy.instanceId}`}
+                  onMouseEnter={() => enemy.currentHp > 0 && setColorHoverEnemyId(enemy.instanceId)}
+                  onMouseLeave={() => setColorHoverEnemyId(prev => (prev === enemy.instanceId ? null : prev))}
+                >
                   <DroppableTarget id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll' || draggingPanel}>
                     <EnemyDisplay enemy={enemy} isCurrentActor={false}
                       isTargetSelected={isSelected} isTargetHighlighted={isHighlighted}
@@ -1078,6 +1101,7 @@ export function BattleScreen() {
                       draggingPanel={draggingPanel}
                       orderIndex={index}
                       relics={run.relics}
+                      killCategoryMap={killCategoryMap}
                       weaponPowerBonusPreview={weaponPowerBonusPreview}
                       weaponBuffSources={weaponBuffSources}
                       hpPreviewAdd={hpPreviewAdd}
