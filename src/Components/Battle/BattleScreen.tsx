@@ -228,6 +228,17 @@ function CharacterPanel({
                 </span>
               )}
               {(() => {
+                // シールドバフ（複数付与時は合算して表示）
+                const shieldTotal = member.battleBuffs
+                  .filter(b => b.type === 'shield')
+                  .reduce((sum, b) => sum + b.value, 0)
+                return shieldTotal > 0 && (
+                  <span className="text-cyan-300 text-xs font-bold bg-cyan-900/50 px-1 rounded shrink-0">
+                    盾{shieldTotal}
+                  </span>
+                )
+              })()}
+              {(() => {
                 const thornsBuff = member.battleBuffs.find(b => b.type === 'thorns')
                 return thornsBuff && (
                   <span className="text-orange-400 text-xs font-bold bg-orange-900/50 px-1 rounded shrink-0">
