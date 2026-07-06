@@ -722,6 +722,16 @@ export function getCommandBuffEntries(
     }
   }
 
+  // ステータス強化バフ（鍛錬のナイフ・血の契約・バフ魔法など）
+  // ダメージ計算はスケールステータスに一致するバフのみ乗算するため、それに合わせて表示
+  const statBuffValue = explorer.battleBuffs
+    .filter(b => b.type === scaleStat)
+    .reduce((sum, b) => sum + b.value, 0)
+  if (statBuffValue > 0) {
+    const statLabel = scaleStat === 'str' ? 'STR' : 'INT'
+    entries.push({ label: `${statLabel}強化`, detail: `${statLabel}+${statBuffValue}` })
+  }
+
   // 武器強化（武器コマンドのみ）
   if (weapon) {
     // 既に適用済みの武器強化バフ
