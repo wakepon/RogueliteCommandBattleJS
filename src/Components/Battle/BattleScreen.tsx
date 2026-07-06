@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, DragOverlay, pointerWithin, closestCenter, CollisionDetection } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
-import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isFrontMember, targetsDownedAlly } from '../../Lib/Core'
+import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, pendingWeaponPowerBonus } from '../../Lib/Utils/DamagePredictor'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
@@ -48,6 +48,58 @@ const ENEMY_TURN_DELAY_MS = 600
 const TURN_END_DELAY_MS = 300
 const MESSAGE_DISPLAY_MS = 1500
 
+/**
+ * コマンドスロットに積まれたヒール魔法・蘇生呪文が、対象メンバーを回復させる予測量の合計（未クランプ）を返す。
+ * 確定済みのスロットに加え、ドラッグ中ホバーを仮反映した previewCommandSlots を渡すことで、
+ * 「ドロップ前のホバー中」も「ドロップ後〜ターン実行開始まで」も同じ計算でプレビューできる。
+ * ポーションはスロットに乗らない（即時発動）ため対象外。
+ */
+function getPendingHealForMember(slots: CommandSlot[], member: ExplorerState): number {
+  let total = 0
+  for (const slot of slots) {
+    if (!slot.command) continue
+    if (!isSpell(slot.command)) continue
+    const effect = slot.command.effect
+    // 全体回復は全員、単体はこのメンバーを対象にしているスロットのみ
+    const targetsMember = slot.command.targetType === 'allyAll' || slot.targetId === member.id
+    if (!targetsMember) continue
+    if (effect?.type === 'heal' && member.hp > 0) {
+      // ヒールは生存者のみ対象
+      total += effect.value
+    } else if (effect?.type === 'revive' && member.hp <= 0) {
+      // 蘇生は戦闘不能者のみ対象。HP=0 から reviveHp まで伸ばす
+      total += Math.min(effect.hp, member.maxHp)
+    }
+  }
+  return total
+}
+
+/**
+ * HP回復ポーション（healHp）が対象メンバーを回復させる予測量（未クランプ）を返す。
+ * 対象外・回復不要（HP満タン、戦闘不能者）の場合は 0。ポーションは即時発動のためホバー中のみ使う。
+ */
+function getPotionHpRestoreAmount(command: BattleCommand, member: ExplorerState, potionMultiplier: number): number {
+  if (isPotion(command) && command.effect.type === 'healHp') {
+    const amount = Math.floor(command.effect.value * potionMultiplier)
+    return member.hp > 0 ? Math.max(0, amount) : 0
+  }
+  return 0
+}
+
+/**
+ * MP回復ポーション（healMp）が対象メンバーを回復させる予測量を返す。
+ * 対象外・回復不要（MP満タン、戦闘不能者）の場合は 0。MPバーの点滅プレビューに使う。
+ */
+function getMpRestorePreviewAmount(command: BattleCommand, member: ExplorerState, potionMultiplier: number): number {
+  const missing = member.maxMp - member.mp
+  if (isPotion(command) && command.effect.type === 'healMp') {
+    const amount = Math.floor(command.effect.value * potionMultiplier)
+    // MP回復ポーションは生存者のみ対象
+    return member.hp > 0 ? Math.max(0, Math.min(amount, missing)) : 0
+  }
+  return 0
+}
+
 /** キャラ欄: ステータスバー + コマンド一覧 */
 function CharacterPanel({
   member,
@@ -70,6 +122,8 @@ function CharacterPanel({
   dragHandleProps,
   relics,
   weaponPowerBonusPreview,
+  hpPreviewAdd = 0,
+  mpPreviewAdd = 0,
   acting,
   shaking,
   levelingUp,
@@ -95,6 +149,10 @@ function CharacterPanel({
   relics: RelicInstance[]
   /** このキャラがこのターン先に受け取る武器強化の合計（武器チップの予測に反映） */
   weaponPowerBonusPreview: number
+  /** 回復系コマンドのドラッグ中ホバー時、このキャラが回復する予測量（HPバーを点滅で伸ばす） */
+  hpPreviewAdd?: number
+  /** MP回復ポーションのドラッグ中ホバー時、このキャラが回復するMPの予測量（MPバーを点滅で伸ばす） */
+  mpPreviewAdd?: number
   dragHandleProps?: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }
   /** 行動中ならアニメ種別。攻撃/ヒール時にパネル全体を浮かせる */
   acting: AvatarActingType | null
@@ -188,10 +246,15 @@ function CharacterPanel({
           <div id={`hp-bar-${member.id}`} className="mb-0.5">
             <div className="flex justify-between text-[9px] text-gray-400">
               <span className="text-red-400">HP</span>
-              <span>{member.hp}/{member.maxHp}</span>
+              <span>
+                {member.hp}/{member.maxHp}
+                {hpPreviewAdd > 0 && (
+                  <span className="text-green-300 animate-exp-blink ml-0.5">+{hpPreviewAdd}</span>
+                )}
+              </span>
             </div>
             <div className="relative">
-              <ResourceBar current={member.hp} max={member.maxHp} color="green" showText={false} size="sm" />
+              <ResourceBar current={member.hp} max={member.maxHp} color="green" showText={false} size="sm" preview={hpPreviewAdd} />
               {/* HP割合しきい値マーカー（怒りの大剣など所持時） */}
               {hpThresholdMarker && (
                 <div
@@ -212,9 +275,14 @@ function CharacterPanel({
           <div className="mb-0.5">
             <div className="flex justify-between text-[9px] text-gray-400">
               <span className="text-blue-400">MP</span>
-              <span>{member.mp}/{member.maxMp}</span>
+              <span>
+                {member.mp}/{member.maxMp}
+                {mpPreviewAdd > 0 && (
+                  <span className="text-blue-300 animate-exp-blink ml-0.5">+{mpPreviewAdd}</span>
+                )}
+              </span>
             </div>
-            <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" />
+            <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" preview={mpPreviewAdd} />
           </div>
 
           {/* EXP バー（必要敵数で区画分割表示。経験値到達時に1セグずつ点灯） */}
@@ -458,6 +526,8 @@ export function BattleScreen() {
   const [draggingExplorerId, setDraggingExplorerId] = useState<string | null>(null)
   const [draggingPanel, setDraggingPanel] = useState(false)
   const [hoverEnemyId, setHoverEnemyId] = useState<string | null>(null)
+  // 味方対象コマンドをドラッグ中にホバーしている味方メンバーID（武器強化のダメージ予測プレビュー用）
+  const [hoverAllyId, setHoverAllyId] = useState<string | null>(null)
   // 行動アニメ: { explorerId, type } を保持。執行直前にセットし、進行後にクリア
   const [acting, setActing] = useState<{ explorerId: string; type: AvatarActingType } | null>(null)
   // 被弾振動: 振動中のメンバーID集合
@@ -651,6 +721,7 @@ export function BattleScreen() {
       setDraggingCommand(command)
       setDraggingExplorerId(explorerId)
       setHoverEnemyId(null)
+      setHoverAllyId(null)
       const slotIndex = commandSlots.findIndex(s => s.explorerId === explorerId)
       if (slotIndex >= 0) changeActiveExplorer(slotIndex)
     }
@@ -660,8 +731,16 @@ export function BattleScreen() {
     const overId = event.over?.id as string | undefined
     if (overId?.startsWith('enemy-')) {
       setHoverEnemyId(overId.replace('enemy-', ''))
+      setHoverAllyId(null)
+    } else if (overId?.startsWith('ally-avatar-')) {
+      setHoverEnemyId(null)
+      setHoverAllyId(overId.replace('ally-avatar-', ''))
+    } else if (overId?.startsWith('ally-')) {
+      setHoverEnemyId(null)
+      setHoverAllyId(overId.replace('ally-', ''))
     } else {
       setHoverEnemyId(null)
+      setHoverAllyId(null)
     }
   }, [])
 
@@ -671,6 +750,7 @@ export function BattleScreen() {
     setDraggingPanel(false)
     setDraggingAvatarId(null)
     setHoverEnemyId(null)
+    setHoverAllyId(null)
 
     if (!event.over || !isCommandPhase) {
       cancelCommand()
@@ -782,7 +862,27 @@ export function BattleScreen() {
     setDraggingPanel(false)
     setDraggingAvatarId(null)
     setHoverEnemyId(null)
+    setHoverAllyId(null)
   }, [cancelCommand, draggingCommand])
+
+  // ドラッグ中の武器強化魔法を、ホバー中の味方へ仮セットしたコマンドスロット。
+  // ドロップ前でも武器強化のダメージ予測を反映するために使う（ホバーを外すと元に戻る）。
+  // ドラッグ中の味方対象コマンド（武器強化・ヒール等）を、ホバー中の味方へ仮セットしたコマンドスロット。
+  // ドロップ前でも予測（武器強化ダメージ / 回復量）を反映するために使う（ホバーを外すと元に戻る）。
+  // ポーションは explorerId="shared" でスロットに乗らないため findIndex で自然に除外される。
+  const previewCommandSlots = useMemo(() => {
+    if (!draggingCommand || !draggingExplorerId || !hoverAllyId) return commandSlots
+    const isAllyTargeting = draggingCommand.targetType === 'allySingle' || draggingCommand.targetType === 'allyAll'
+    if (!isAllyTargeting) return commandSlots
+    const idx = commandSlots.findIndex(s => s.explorerId === draggingExplorerId)
+    if (idx < 0) return commandSlots
+    const next = [...commandSlots]
+    next[idx] = { explorerId: draggingExplorerId, command: draggingCommand, targetId: hoverAllyId }
+    return next
+  }, [commandSlots, draggingCommand, draggingExplorerId, hoverAllyId])
+
+  // 回復ポーションの効果倍率（レリック補正）。回復プレビュー量の算出に使う
+  const potionEffectMultiplier = getPotionEffectMultiplier(run.relics)
 
   // パネルソート用のID配列
   const panelIds = party.map(m => `panel-${m.id}`)
@@ -914,10 +1014,26 @@ export function BattleScreen() {
               const prevRate = previewTargetRates.find(r => r.explorerId === member.id)?.rate
               const slot = commandSlots.find(s => s.explorerId === member.id) ?? null
               // このキャラがこのターン先に受け取る武器強化の合計（武器チップ予測へ反映）
-              const memberSlotIndex = commandSlots.findIndex(s => s.explorerId === member.id)
+              // ドラッグ中の武器強化魔法をホバー中の味方へ仮反映した previewCommandSlots を使う
+              const memberSlotIndex = previewCommandSlots.findIndex(s => s.explorerId === member.id)
               const weaponPowerBonusPreview = memberSlotIndex >= 0
-                ? pendingWeaponPowerBonus(commandSlots, member.id, memberSlotIndex)
+                ? pendingWeaponPowerBonus(previewCommandSlots, member.id, memberSlotIndex)
                 : 0
+              // 回復プレビュー: バーを点滅で伸ばす予測量を算出（コマンドフェーズのみ）
+              let hpPreviewAdd = 0
+              let mpPreviewAdd = 0
+              if (isCommandPhase) {
+                // ヒール魔法・蘇生はスロット由来で集計。previewCommandSlots はドラッグ中ホバーを仮反映済みなので、
+                // 「ドロップ前のホバー中」も「ドロップ後〜ターン実行開始まで」も同じ計算でプレビューされる
+                let rawHeal = getPendingHealForMember(previewCommandSlots, member)
+                // ポーションはスロットに乗らず即時発動のため、ドラッグ中ホバー時のみ直接加算
+                if (draggingCommand && hoverAllyId && isPotion(draggingCommand) && member.id === hoverAllyId) {
+                  rawHeal += getPotionHpRestoreAmount(draggingCommand, member, potionEffectMultiplier)
+                  mpPreviewAdd = getMpRestorePreviewAmount(draggingCommand, member, potionEffectMultiplier)
+                }
+                // 合算が最大HPを超えないようクランプ
+                hpPreviewAdd = Math.max(0, Math.min(rawHeal, member.maxHp - member.hp))
+              }
               return (
                 <SortableCharacterPanel
                   key={member.id}
@@ -955,6 +1071,8 @@ export function BattleScreen() {
                       orderIndex={index}
                       relics={run.relics}
                       weaponPowerBonusPreview={weaponPowerBonusPreview}
+                      hpPreviewAdd={hpPreviewAdd}
+                      mpPreviewAdd={mpPreviewAdd}
                       dragHandleProps={dragHandleProps}
                       acting={acting?.explorerId === member.id ? acting.type : null}
                       shaking={shakingIds.has(member.id)}
