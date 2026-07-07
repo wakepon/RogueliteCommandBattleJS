@@ -26,7 +26,7 @@ interface DraggableCommandProps {
   commandSlots?: CommandSlot[]
   /** このキャラの行動順スロットインデックス（追撃系の算出用） */
   commandSlotIndex?: number
-  /** 撃破確定カテゴリ（左端アクセントバーの着色。solo=赤 / combo=オレンジ） */
+  /** 撃破確定カテゴリ（左端アクセントバーの着色。solo=赤 / combo=黄） */
   killCategory?: KillCategory
 }
 
@@ -115,14 +115,14 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   const damageColor = isWeakened ? 'text-blue-400' : isBoosted ? 'text-yellow-400' : 'text-gray-400'
 
   // 撃破確定カテゴリの右端アクセントバー（利用可能・非ドラッグ・非無効時のみ）
-  // solo=確定単騎キル=赤 / combo=他キャラと組めば確定キル=オレンジ
+  // solo=確定単騎キル=赤 / combo=他キャラと組めば確定キル=黄
   // border ではなく独立要素で描くことで、ホバー時の hover:border-gray-400 に色を奪われない
   // （コスト/MP表示の隣に置き、コストとバーの視線移動を最小化する）
   const killAccentColor = (!isDragging && isAvailable && !disabled)
     ? killCategory === 'solo'
       ? 'bg-red-500'
       : killCategory === 'combo'
-        ? 'bg-orange-500'
+        ? 'bg-yellow-400'
         : ''
     : ''
 
