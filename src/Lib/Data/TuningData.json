@@ -49,9 +49,9 @@
   "phoenix_ember_increment": 0.25,
   "floor_1_common_rate": 0.75,
   "floor_2_hp_multiplier": 1.5,
-  "floor_2_damage_multiplier": 1.8,
+  "floor_2_damage_multiplier": 2.5,
   "floor_2_common_rate": 0.5,
-  "floor_3_hp_multiplier": 3.0,
-  "floor_3_damage_multiplier": 2.5,
+  "floor_3_hp_multiplier": 3,
+  "floor_3_damage_multiplier": 3.5,
   "floor_3_common_rate": 0.4
 }
