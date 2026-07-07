@@ -128,6 +128,8 @@ function CharacterPanel({
   weaponPowerBonusPreview,
   weaponBuffSources = [],
   comboBonusPreview = 0,
+  previewCommandSlots,
+  memberSlotIndex,
   hpPreviewAdd = 0,
   mpPreviewAdd = 0,
   acting,
@@ -161,6 +163,10 @@ function CharacterPanel({
   weaponBuffSources?: { name: string; value: number }[]
   /** 連携の紋章: このキャラが攻撃をセットしたと仮定した場合のSTR/INTボーナス（コマンドチップの予測に反映） */
   comboBonusPreview?: number
+  /** 行動順スロット（追撃のナイフ等の先行味方攻撃数の算出用。ドラッグ中ホバーを仮反映済み） */
+  previewCommandSlots?: CommandSlot[]
+  /** このキャラの行動順スロットインデックス（追撃系の算出用） */
+  memberSlotIndex?: number
   /** 回復系コマンドのドラッグ中ホバー時、このキャラが回復する予測量（HPバーを点滅で伸ばす） */
   hpPreviewAdd?: number
   /** MP回復ポーションのドラッグ中ホバー時、このキャラが回復するMPの予測量（MPバーを点滅で伸ばす） */
@@ -365,6 +371,8 @@ function CharacterPanel({
                   extraWeaponPowerBonus={weaponPowerBonusPreview}
                   pendingWeaponBuffs={weaponBuffSources}
                   comboBonus={comboBonusPreview}
+                  commandSlots={previewCommandSlots}
+                  commandSlotIndex={memberSlotIndex}
                 />
               )
             })}
@@ -1153,6 +1161,8 @@ export function BattleScreen() {
                       weaponPowerBonusPreview={weaponPowerBonusPreview}
                       weaponBuffSources={weaponBuffSources}
                       comboBonusPreview={comboBonusPreview}
+                      previewCommandSlots={previewCommandSlots}
+                      memberSlotIndex={memberSlotIndex}
                       hpPreviewAdd={hpPreviewAdd}
                       mpPreviewAdd={mpPreviewAdd}
                       dragHandleProps={dragHandleProps}

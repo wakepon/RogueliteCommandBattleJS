@@ -64,6 +64,7 @@ export interface DamagePredictOptions {
   targetMaxHp?: number  // 対象敵の最大HP（targetHpConditional用）
   comboBonus?: number  // 連携の紋章: コマンドフェーズで算出したSTR/INTボーナス
   extraWeaponPowerBonus?: number  // 行動欄で先に詠唱予定の武器強化による武器Power加算（未適用バフの先読み）
+  followUpCountOverride?: number  // 追撃系(followUp/allyFollowUpBonus)の先行味方攻撃数を明示指定（キル判定でスロット無効化しても実際の先行攻撃数で計算するため）
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -133,6 +134,9 @@ export function predictWeaponDamage(
 
   const effectiveStat = baseStat + brokenBonus + positionBonus + comboStatBonus
 
+  // 追撃系の先行味方攻撃数（キル判定でスロットを無効化する場合は override を優先）
+  const followUpAllyAttacks = options.followUpCountOverride ?? countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
+
   // 条件付きPowerボーナス（スケーリング型）
   let conditionalPowerBonus = 0
   if (includeConditionalRelics && 'effect' in weapon) {
@@ -150,8 +154,7 @@ export function predictWeaponDamage(
       conditionalPowerBonus += explorer.level
     }
     if (weapon.effect?.type === 'followUp') {
-      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
-      conditionalPowerBonus += allyAttacks * weapon.effect.coefficient
+      conditionalPowerBonus += followUpAllyAttacks * weapon.effect.coefficient
     }
     if (weapon.effect?.type === 'revengeDamage') {
       conditionalPowerBonus += Math.floor(explorer.damageTakenLastTurn * weapon.effect.coefficient)
@@ -167,8 +170,7 @@ export function predictWeaponDamage(
       if (meets) conditionalPowerBonus += weapon.effect.powerBonus
     }
     if (weapon.effect?.type === 'allyFollowUpBonus') {
-      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
-      if (allyAttacks >= weapon.effect.requiredCount) conditionalPowerBonus += weapon.effect.powerBonus
+      if (followUpAllyAttacks >= weapon.effect.requiredCount) conditionalPowerBonus += weapon.effect.powerBonus
     }
     if (weapon.effect?.type === 'breakCountBonus') {
       conditionalPowerBonus += (options.totalBrokenWeaponCount ?? 0)
@@ -255,6 +257,9 @@ export function predictSpellDamage(
   const effectiveInt = explorer.int + positionBonus + comboStatBonus
   const buffMultiplier = calculateBuffMultiplier(explorer, 'int')
 
+  // 追撃系の先行味方攻撃数（キル判定でスロットを無効化する場合は override を優先）
+  const followUpAllyAttacks = options.followUpCountOverride ?? countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
+
   // 条件付きPowerボーナス（スケーリング型）
   let conditionalPowerBonus = 0
   if (includeConditionalRelics && spell.effect) {
@@ -270,8 +275,7 @@ export function predictSpellDamage(
       conditionalPowerBonus += Math.floor(usedMpRatio * spell.effect.coefficient)
     }
     if (spell.effect.type === 'followUp') {
-      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
-      conditionalPowerBonus += allyAttacks * spell.effect.coefficient
+      conditionalPowerBonus += followUpAllyAttacks * spell.effect.coefficient
     }
     if (spell.effect.type === 'revengeDamage') {
       conditionalPowerBonus += Math.floor(explorer.damageTakenLastTurn * spell.effect.coefficient)
@@ -280,8 +284,7 @@ export function predictSpellDamage(
       if (explorer.damageTakenLastTurn > 0) conditionalPowerBonus += spell.effect.powerBonus
     }
     if (spell.effect.type === 'allyFollowUpBonus') {
-      const allyAttacks = countAllyAttacksThisTurn(options.commandSlots, options.currentCommandIndex)
-      if (allyAttacks >= spell.effect.requiredCount) conditionalPowerBonus += spell.effect.powerBonus
+      if (followUpAllyAttacks >= spell.effect.requiredCount) conditionalPowerBonus += spell.effect.powerBonus
     }
   }
 
@@ -444,6 +447,16 @@ export function getComboBonusAssumingAttacker(
   }
 
   return attackerIds.size >= combo.requiredCount ? combo.statBonus : 0
+}
+
+/**
+ * owner の行動順より前で、味方が攻撃コマンドをセットしている数を返す。
+ * 追撃系(followUp/allyFollowUpBonus)の条件判定用。commandSlots は行動順に並んでいる前提。
+ */
+export function countPrecedingAllyAttacks(commandSlots: CommandSlot[], ownerId: string): number {
+  const ownerIdx = commandSlots.findIndex(s => s.explorerId === ownerId)
+  // owner がスロットに無い場合は末尾行動とみなし全スロットを先行として数える
+  return countAllyAttacksThisTurn(commandSlots, ownerIdx < 0 ? commandSlots.length : ownerIdx)
 }
 
 /** 仮想コマンド情報（ドラッグ中のプレビュー用） */
@@ -704,8 +717,10 @@ export interface CommandBuffEntry {
 /**
  * コマンド（武器/魔法）のダメージに現在乗っているバフを、表示用のリストにして返す。
  * ダメージ計算（predictWeaponDamage / predictSpellDamage）と同じ条件判定を用いるため、
- * 予測ダメージと矛盾しない。条件が成立していない効果や、敵・行動順に依存して
- * この文脈で確定できない効果（targetHpConditional / followUp 等）は含めない。
+ * 予測ダメージと矛盾しない。条件が成立していない効果や、敵に依存して
+ * この文脈で確定できない効果（targetHpConditional 等）は含めない。
+ * 行動順に依存する効果（追撃のナイフ等の allyFollowUpBonus / followUp）は、
+ * commandSlots + currentCommandIndex が渡された場合のみ、先行味方攻撃数から確定して含める。
  */
 export function getCommandBuffEntries(
   explorer: ExplorerState,
@@ -718,9 +733,15 @@ export function getCommandBuffEntries(
     pendingWeaponBuffs?: { name: string; value: number }[]
     /** 連携の紋章: 条件成立時のSTR/INTボーナス（コマンドフェーズの予測値） */
     comboBonus?: number
+    /** 行動順スロット（追撃系の先行味方攻撃数の算出用） */
+    commandSlots?: CommandSlot[]
+    /** このキャラの行動順スロットインデックス（追撃系の算出用） */
+    currentCommandIndex?: number
   } = {}
 ): CommandBuffEntry[] {
-  const { relics = [], party, explorerIndex, pendingWeaponBuffs = [], comboBonus = 0 } = options
+  const { relics = [], party, explorerIndex, pendingWeaponBuffs = [], comboBonus = 0, commandSlots, currentCommandIndex } = options
+  // 先行味方攻撃数（追撃のナイフ・追撃の炎の条件判定用）
+  const precedingAllyAttacks = countAllyAttacksThisTurn(commandSlots, currentCommandIndex)
   const entries: CommandBuffEntry[] = []
 
   const weapon = isWeapon(command) ? command : null
@@ -795,6 +816,11 @@ export function getCommandBuffEntries(
     } else if (eff.type === 'revengeDamage') {
       const bonus = Math.floor(explorer.damageTakenLastTurn * eff.coefficient)
       if (bonus > 0) entries.push({ label: weapon.name, detail: `Power+${bonus}` })
+    } else if (eff.type === 'allyFollowUpBonus') {
+      if (precedingAllyAttacks >= eff.requiredCount) entries.push({ label: weapon.name, detail: `Power+${eff.powerBonus}` })
+    } else if (eff.type === 'followUp') {
+      const bonus = precedingAllyAttacks * eff.coefficient
+      if (bonus > 0) entries.push({ label: weapon.name, detail: `Power+${bonus}` })
     }
   }
 
@@ -811,6 +837,11 @@ export function getCommandBuffEntries(
       if (explorer.damageTakenLastTurn > 0) entries.push({ label: spell.name, detail: `Power+${eff.powerBonus}` })
     } else if (eff.type === 'revengeDamage') {
       const bonus = Math.floor(explorer.damageTakenLastTurn * eff.coefficient)
+      if (bonus > 0) entries.push({ label: spell.name, detail: `Power+${bonus}` })
+    } else if (eff.type === 'allyFollowUpBonus') {
+      if (precedingAllyAttacks >= eff.requiredCount) entries.push({ label: spell.name, detail: `Power+${eff.powerBonus}` })
+    } else if (eff.type === 'followUp') {
+      const bonus = precedingAllyAttacks * eff.coefficient
       if (bonus > 0) entries.push({ label: spell.name, detail: `Power+${bonus}` })
     }
   }

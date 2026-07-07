@@ -2,7 +2,7 @@ import { ExplorerState } from '../Types/Explorer'
 import { CommandSlot, BattleCommand } from '../Types/Battle'
 import { EnemyInstance } from '../Types/Enemy'
 import { isWeapon, isSpell, getAvailableCommands } from '../Core/CommandValidator'
-import { calculateDetailedDamagePreview, DamagePredictOptions } from './DamagePredictor'
+import { calculateDetailedDamagePreview, countPrecedingAllyAttacks, DamagePredictOptions } from './DamagePredictor'
 
 /**
  * コマンド立案支援用の撃破確定カテゴリ。
@@ -107,11 +107,16 @@ function computeRawMin(
     slots.push({ explorerId: owner.id, command, targetId: ref.instanceId })
   }
 
+  // 追撃系(追撃のナイフ等): 上で基準敵を攻撃する先行スロットを無効化してしまうため、
+  // 実際にセット済みの先行味方攻撃数を元スロット(baseSlots)から算出して明示的に渡す。
+  // これにより「先行2人がコマンドをセット済みなら +power を反映して着色」という挙動になる。
+  const followUpCountOverride = countPrecedingAllyAttacks(baseSlots, owner.id)
+
   const preview = calculateDetailedDamagePreview(
     slots,
     ref.instanceId,
     party,
-    options,
+    { ...options, followUpCountOverride },
     undefined,
     aliveEnemyCount,
     false, // シールドは applyShield で別途適用
