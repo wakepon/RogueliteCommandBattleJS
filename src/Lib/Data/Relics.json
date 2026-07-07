@@ -33,7 +33,7 @@
   },
   "combo_crest": {
     "id": "combo_crest", "name": "連携の紋章", "rarity": "Rare", "price": 10,
-    "passiveEffect": { "type": "comboAttackBonus", "requiredCount": 2, "powerBonus": 2 }
+    "passiveEffect": { "type": "comboAttackBonus", "requiredCount": 3, "powerBonus": 2 }
   },
   "fighting_spirit_bracelet": {
     "id": "fighting_spirit_bracelet", "name": "闘気の腕輪", "rarity": "Uncommon", "price": 7,

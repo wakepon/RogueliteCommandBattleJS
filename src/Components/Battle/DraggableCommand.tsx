@@ -3,7 +3,8 @@ import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
-import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
+import { predictWeaponDamage, predictSpellDamage, formatDamageRange, getCommandBuffEntries } from '../../Lib/Utils/DamagePredictor'
+import { KillCategory } from '../../Lib/Utils/KillPotential'
 import { Tooltip, TooltipCard } from '../Common'
 
 interface DraggableCommandProps {
@@ -17,6 +18,10 @@ interface DraggableCommandProps {
   party?: ExplorerState[]
   /** 行動欄で先に詠唱予定の武器強化による武器Power加算（武器コマンドの予測に反映） */
   extraWeaponPowerBonus?: number
+  /** 行動欄で先に詠唱予定の武器強化魔法の内訳（バフポップアップで呪文名つき表示） */
+  pendingWeaponBuffs?: { name: string; value: number }[]
+  /** 撃破確定カテゴリ（左端アクセントバーの着色。solo=赤 / combo=オレンジ） */
+  killCategory?: KillCategory
 }
 
 /** コマンドカテゴリに応じたアイコン */
@@ -38,7 +43,7 @@ function getCommandStyle(command: BattleCommand): { bgColor: string; label: stri
  * ドラッグ可能なコマンドアイテム
  * 武器/魔法を敵や味方にドラッグ&ドロップしてコマンドをセット
  */
-export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party, extraWeaponPowerBonus = 0 }: DraggableCommandProps) {
+export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party, extraWeaponPowerBonus = 0, pendingWeaponBuffs = [], killCategory }: DraggableCommandProps) {
   const uniqueId = commandIndex !== undefined ? `cmd-${explorerId}-${command.id}-${commandIndex}` : `cmd-${explorerId}-${command.id}`
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: uniqueId,
@@ -57,6 +62,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   let damageText = ''
   let isBoosted = false
   let isWeakened = false
+  let buffEntries: ReturnType<typeof getCommandBuffEntries> = []
   const isEnemyTarget = command.targetType === 'enemySingle' || command.targetType === 'enemyAll'
   if (isEnemyTarget && command.power > 0 && explorer) {
     const idx = party ? party.findIndex(e => e.id === explorer.id) : -1
@@ -73,6 +79,8 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
       isBoosted = range.isBoosted
       isWeakened = range.isWeakened ?? false
     }
+    // 現在このコマンドのダメージに乗っているバフの一覧（2つ目のポップアップ用）
+    buffEntries = getCommandBuffEntries(explorer, command, { relics, party, explorerIndex, pendingWeaponBuffs })
   }
 
   // 耐久値テキスト（武器のみ。無限使用武器は∞表示）
@@ -81,19 +89,44 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
     : undefined
 
   const tooltipContent = (
-    <TooltipCard item={command} damageText={damageText || undefined} durabilityText={durabilityText} />
+    <TooltipCard item={command} damageText={damageText || undefined} durabilityText={durabilityText} explorer={explorer} />
   )
+
+  // 2つ目のポップアップ: 現在乗っているバフを列挙
+  const buffContent = buffEntries.length > 0 ? (
+    <div className="min-w-[110px] max-w-[220px]">
+      <div className="text-[9px] text-gray-400 mb-1">発動中バフ</div>
+      {buffEntries.map((entry, i) => (
+        <div key={i} className="flex justify-between gap-3 text-[10px]">
+          <span className="text-gray-200">{entry.label}</span>
+          <span className="text-green-300">{entry.detail}</span>
+        </div>
+      ))}
+    </div>
+  ) : undefined
 
   const damageColor = isWeakened ? 'text-blue-400' : isBoosted ? 'text-yellow-400' : 'text-gray-400'
 
+  // 撃破確定カテゴリの右端アクセントバー（利用可能・非ドラッグ・非無効時のみ）
+  // solo=確定単騎キル=赤 / combo=他キャラと組めば確定キル=オレンジ
+  // border ではなく独立要素で描くことで、ホバー時の hover:border-gray-400 に色を奪われない
+  // （コスト/MP表示の隣に置き、コストとバーの視線移動を最小化する）
+  const killAccentColor = (!isDragging && isAvailable && !disabled)
+    ? killCategory === 'solo'
+      ? 'bg-red-500'
+      : killCategory === 'combo'
+        ? 'bg-orange-500'
+        : ''
+    : ''
+
   return (
-    <Tooltip content={tooltipContent} position="bottom" disabled={isDragging}>
+    <Tooltip content={tooltipContent} secondaryContent={buffContent} position="bottom" disabled={isDragging}>
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
       className={`
-        flex items-center gap-1.5 px-2 py-1 rounded text-base border
+        relative flex items-center gap-1.5 px-2 py-1 rounded text-base border
         ${isDragging
           ? 'opacity-50 ring-2 ring-yellow-400 border-yellow-400'
           : !isAvailable || disabled
@@ -103,6 +136,9 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
         transition-colors select-none
       `}
     >
+      {killAccentColor && (
+        <span className={`absolute right-0 top-0 bottom-0 w-1 rounded-r pointer-events-none ${killAccentColor}`} />
+      )}
       <span className={`w-6 h-6 rounded text-sm flex items-center justify-center flex-shrink-0 ${style.bgColor}`}>
         {style.label}
       </span>

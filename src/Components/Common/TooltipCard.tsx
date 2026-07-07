@@ -3,6 +3,7 @@ import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
+import { ExplorerState } from '../../Lib/Types/Explorer'
 import { getPassiveEffectDescription } from '../../Lib/Utils/ItemDescription'
 import { MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
 
@@ -15,15 +16,16 @@ interface TooltipLine {
 }
 
 /** カード形式のTooltipコンテンツを生成 */
-export function TooltipCard({ item, damageText, durabilityText, attackImpacts }: {
+export function TooltipCard({ item, damageText, durabilityText, attackImpacts, explorer }: {
   item: AnyItem
   damageText?: string   // "5-9" 形式
   durabilityText?: string  // "3/5" 形式
   attackImpacts?: MemberAttackImpact[]  // レリック用: 各メンバーの最大攻撃力変化
+  explorer?: ExplorerState  // 使用者（スケーリングシールドの付与値を実数で算出するため）
 }) {
   const name = item.name
   const category = getCategory(item)
-  const lines = buildLines(item, damageText, durabilityText)
+  const lines = buildLines(item, damageText, durabilityText, explorer)
   const isRelic = 'passiveEffect' in item
   const visibleImpacts = attackImpacts?.filter(i => i.status !== 'noWeapon') ?? []
   // 誰か1人でも攻撃力が変化するレリックのみ「最大攻撃力の変化」セクションを表示
@@ -78,7 +80,25 @@ function getCategory(item: AnyItem): string {
   return ''
 }
 
-function buildLines(item: AnyItem, damageText?: string, durabilityText?: string): TooltipLine[] {
+/**
+ * スケーリングシールドの表示文字列を生成。
+ * 使用者(explorer)が判明していれば付与値の実数を「シールド25(=5+STR×3)付与」の形で示し、
+ * 不明な場合（ショップ等）は数式のみを表示する。
+ */
+function formatScalingShield(
+  base: number,
+  multiplier: number,
+  statLabel: 'STR' | 'INT',
+  statValue: number | undefined,
+  suffix: string
+): string {
+  const formula = `${base}+${statLabel}×${multiplier}`
+  if (statValue === undefined) return `シールド(${formula})${suffix}`
+  const value = base + statValue * multiplier
+  return `シールド${value}(=${formula})${suffix}`
+}
+
+function buildLines(item: AnyItem, damageText?: string, durabilityText?: string, explorer?: ExplorerState): TooltipLine[] {
   const lines: TooltipLine[] = []
 
   // 武器
@@ -132,10 +152,10 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '効果', value: `ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`, color: 'text-blue-300' })
       }
       if (weapon.effect.type === 'scalingShield') {
-        lines.push({ label: '効果', value: `シールド(${weapon.effect.base}+STR×${weapon.effect.strMultiplier})付与`, color: 'text-cyan-300' })
+        lines.push({ label: '効果', value: formatScalingShield(weapon.effect.base, weapon.effect.strMultiplier, 'STR', explorer?.str, '付与'), color: 'text-cyan-300' })
       }
       if (weapon.effect.type === 'thornsShield') {
-        lines.push({ label: '効果', value: `シールド(${weapon.effect.shieldBase}+STR×${weapon.effect.shieldStrMultiplier})+棘${weapon.effect.thornStacks}`, color: 'text-cyan-300' })
+        lines.push({ label: '効果', value: formatScalingShield(weapon.effect.shieldBase, weapon.effect.shieldStrMultiplier, 'STR', explorer?.str, `+棘${weapon.effect.thornStacks}`), color: 'text-cyan-300' })
       }
       if (weapon.effect.type === 'aoe') {
         lines.push({ label: '効果', value: '全体攻撃', color: 'text-red-300' })
@@ -249,7 +269,7 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string)
         lines.push({ label: '効果', value: `最大MP${Math.floor(spell.effect.rate * 100)}%シールド`, color: 'text-cyan-300' })
       }
       if (spell.effect.type === 'scalingShieldInt') {
-        lines.push({ label: '効果', value: `シールド(${spell.effect.base}+INT×${spell.effect.intMultiplier})付与`, color: 'text-cyan-300' })
+        lines.push({ label: '効果', value: formatScalingShield(spell.effect.base, spell.effect.intMultiplier, 'INT', explorer?.int, '付与'), color: 'text-cyan-300' })
       }
       if (spell.effect.type === 'mpAllDamage') {
         lines.push({ label: '効果', value: '現在MP全量→ダメージ', color: 'text-purple-300' })

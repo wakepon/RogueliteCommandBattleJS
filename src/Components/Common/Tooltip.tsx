@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 
 interface TooltipProps {
   content: React.ReactNode
+  /** 指定すると、メインのポップアップの隣にもう1つ別枠のポップアップを表示する（バフ一覧など） */
+  secondaryContent?: React.ReactNode
   children: React.ReactNode
   position?: 'top' | 'bottom'
   disabled?: boolean
@@ -13,7 +15,7 @@ interface TooltipProps {
  * overflow:hidden の親コンテナでもクリッ���されない。
  * disabled=true でツールチップを無効化（ドラッグ中など）。
  */
-export function Tooltip({ content, children, position = 'top', disabled = false }: TooltipProps) {
+export function Tooltip({ content, secondaryContent, children, position = 'top', disabled = false }: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const [coords, setCoords] = useState({ x: 0, y: 0 })
   const [offsetX, setOffsetX] = useState(0)
@@ -67,8 +69,15 @@ export function Tooltip({ content, children, position = 'top', disabled = false 
             transform: `translateX(-50%) ${isTop ? 'translateY(-100%)' : ''}`,
           }}
         >
-          <div className="bg-gray-900 border border-gray-600 text-white text-[11px] px-2.5 py-1.5 rounded shadow-lg">
-            {content}
+          <div className="flex items-start gap-1.5">
+            <div className="bg-gray-900 border border-gray-600 text-white text-[11px] px-2.5 py-1.5 rounded shadow-lg">
+              {content}
+            </div>
+            {secondaryContent && (
+              <div className="bg-gray-900 border border-gray-600 text-white text-[11px] px-2.5 py-1.5 rounded shadow-lg">
+                {secondaryContent}
+              </div>
+            )}
           </div>
         </div>,
         document.body
