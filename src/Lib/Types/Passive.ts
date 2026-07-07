@@ -10,7 +10,7 @@ export type PassiveEffectType =
   | { type: 'frontRowIntBonus'; value: number }  // 前衛の矜持: 前衛時INT+N
   | { type: 'backRowStrBonus'; value: number }  // 後衛の底力: 後衛時STR+N
   | { type: 'shieldTaunt'; value: number }  // 挑発式防御: シールド付与時被ターゲット率+N
-  | { type: 'comboAttackBonus'; requiredCount: number; powerBonus: number }  // 連携の紋章: 同ターンN人以上攻撃でPower+bonus
+  | { type: 'comboAttackBonus'; requiredCount: number; statBonus: number }  // 連携の紋章: 同ターンN人以上攻撃でSTR/INT+bonus
   | { type: 'levelUpStatBoost'; strBonus: number; intBonus: number }  // 闘気の腕輪: レベルアップ時STR/INT追加上昇
   | { type: 'brokenWeaponStatBonus'; strPerWeapon: number }  // 努力の証: 壊れた武器1本につきSTR+N
   // リソース変換

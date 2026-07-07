@@ -83,11 +83,11 @@ export function getShieldTauntBonus(relics: RelicInstance[]): number {
   return 0
 }
 
-/** 連携の紋章: 同ターン複数攻撃時のPowerボーナス */
-export function getComboAttackBonus(relics: RelicInstance[]): { requiredCount: number; powerBonus: number } | null {
+/** 連携の紋章: 同ターン複数攻撃時のSTR/INTボーナス */
+export function getComboAttackBonus(relics: RelicInstance[]): { requiredCount: number; statBonus: number } | null {
   for (const r of relics) {
     if (r.passiveEffect.type === 'comboAttackBonus') {
-      return { requiredCount: r.passiveEffect.requiredCount, powerBonus: r.passiveEffect.powerBonus }
+      return { requiredCount: r.passiveEffect.requiredCount, statBonus: r.passiveEffect.statBonus }
     }
   }
   return null

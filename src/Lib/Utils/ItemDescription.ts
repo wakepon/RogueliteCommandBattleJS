@@ -55,7 +55,7 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
     case 'shieldTaunt':
       return `シールド付与時被ターゲット率+${effect.value}%`
     case 'comboAttackBonus':
-      return `同ターン${effect.requiredCount}人以上攻撃でPower+${effect.powerBonus}`
+      return `同ターン${effect.requiredCount}人以上攻撃でSTR/INT+${effect.statBonus}`
     case 'levelUpStatBoost':
       return `レベルアップ時STR+${effect.strBonus}/INT+${effect.intBonus}`
     case 'brokenWeaponStatBonus':

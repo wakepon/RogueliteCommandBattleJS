@@ -62,7 +62,7 @@ export interface DamagePredictOptions {
   currentCommandIndex?: number  // 現在のスロットインデックス（followUp計算用）
   targetCurrentHp?: number  // 対象敵の現在HP（targetHpConditional用）
   targetMaxHp?: number  // 対象敵の最大HP（targetHpConditional用）
-  comboBonus?: number  // 連携の紋章: コマンドフェーズで算出したPowerボーナス
+  comboBonus?: number  // 連携の紋章: コマンドフェーズで算出したSTR/INTボーナス
   extraWeaponPowerBonus?: number  // 行動欄で先に詠唱予定の武器強化による武器Power加算（未適用バフの先読み）
 }
 
@@ -127,7 +127,11 @@ export function predictWeaponDamage(
     positionBonus = scaleStat === 'str' ? posBonus.strBonus : posBonus.intBonus
   }
 
-  const effectiveStat = baseStat + brokenBonus + positionBonus
+  // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
+  const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboStatBonus')
+  const comboStatBonus = options.comboBonus ?? (comboBuff ? comboBuff.value : 0)
+
+  const effectiveStat = baseStat + brokenBonus + positionBonus + comboStatBonus
 
   // 条件付きPowerボーナス（スケーリング型）
   let conditionalPowerBonus = 0
@@ -178,16 +182,8 @@ export function predictWeaponDamage(
     .reduce((sum, b) => sum + b.value, 0)
     + (options.extraWeaponPowerBonus ?? 0)
 
-  // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
-  const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  const comboPowerBonus = options.comboBonus ?? (comboBuff ? comboBuff.value : 0)
-
   const effectivePower = weapon.power + conditionalPowerBonus + weaponPowerBonusValue
   let baseDamage = effectiveStat * effectivePower * buffMultiplier
-
-  if (comboPowerBonus > 0) {
-    baseDamage += effectiveStat * comboPowerBonus * buffMultiplier
-  }
 
   // 逆境の鎧
   const hasVulnerability = explorer.battleDebuffs.some(d => d.type === 'vulnerability')
@@ -224,7 +220,7 @@ export function predictWeaponDamage(
     || buffMultiplier > 1.0
     || conditionalPowerBonus > 0
     || weaponPowerBonusValue > 0
-    || comboPowerBonus > 0
+    || comboStatBonus > 0
     || shieldBashBonus > 0
 
   const isWeakened = weaknessDebuff !== undefined
@@ -252,7 +248,11 @@ export function predictSpellDamage(
     positionBonus = posBonus.intBonus
   }
 
-  const effectiveInt = explorer.int + positionBonus
+  // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
+  const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboStatBonus')
+  const comboStatBonus = options.comboBonus ?? (comboBuff ? comboBuff.value : 0)
+
+  const effectiveInt = explorer.int + positionBonus + comboStatBonus
   const buffMultiplier = calculateBuffMultiplier(explorer, 'int')
 
   // 条件付きPowerボーナス（スケーリング型）
@@ -288,13 +288,6 @@ export function predictSpellDamage(
   const effectivePower = spell.power + conditionalPowerBonus
   let baseDamage = effectiveInt * effectivePower * buffMultiplier
 
-  // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
-  const comboBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  const comboPowerBonus = options.comboBonus ?? (comboBuff ? comboBuff.value : 0)
-  if (comboPowerBonus > 0) {
-    baseDamage += effectiveInt * comboPowerBonus * buffMultiplier
-  }
-
   // 逆境の鎧
   const hasVulnerability = explorer.battleDebuffs.some(d => d.type === 'vulnerability')
   if (hasVulnerability && includeConditionalRelics) {
@@ -318,7 +311,7 @@ export function predictSpellDamage(
 
   const isBoosted = positionBonus > 0
     || buffMultiplier > 1.0
-    || comboPowerBonus > 0
+    || comboStatBonus > 0
     || conditionalPowerBonus > 0
 
   const isWeakened = spellWeakness !== undefined
@@ -422,7 +415,7 @@ export function getComboConditionBonus(
     }
   }
 
-  return attackerIds.size >= combo.requiredCount ? combo.powerBonus : 0
+  return attackerIds.size >= combo.requiredCount ? combo.statBonus : 0
 }
 
 /** 仮想コマンド情報（ドラッグ中のプレビュー用） */
@@ -480,8 +473,8 @@ function detectActiveMultipliers(
   }
 
   // 連携の紋章: コマンドフェーズの予測値 or 既存バフ
-  const comboPowerBuff = explorer.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  if ((comboBonus && comboBonus > 0) || comboPowerBuff) {
+  const comboStatBuff = explorer.battleBuffs.find(b => b.type === 'comboStatBonus')
+  if ((comboBonus && comboBonus > 0) || comboStatBuff) {
     multipliers.push({ relicName: '連携の紋章', multiplier: 0 })
   }
 

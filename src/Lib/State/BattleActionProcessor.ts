@@ -477,7 +477,7 @@ function executeAttackCommand(
     return state
   }
 
-  // 連携の紋章: DamageCalculator側でcomboPowerBonusバフを参照済み（バフ付与はターン開始時に実施）
+  // 連携の紋章: DamageCalculator側でcomboStatBonusバフを参照済み（バフ付与はターン開始時に実施）
 
   // 敵のdefenseバフによるダメージ軽減
   const reducedDamage = applyDefenseReduction(calculatedDamage, targetEnemy.battleBuffs)
@@ -1769,7 +1769,7 @@ export function processExecuteCommand(
 
   const relics = state.run.relics
 
-  // 連携の紋章: 同ターンに規定人数以上が攻撃する場合、comboPowerBonusバフを行動者に付与
+  // 連携の紋章: 同ターンに規定人数以上が攻撃する場合、comboStatBonusバフを行動者に付与
   let effectiveState = state
   const combo = getComboAttackBonus(relics)
   if (combo) {
@@ -1782,11 +1782,11 @@ export function processExecuteCommand(
     ).size
     if (attackerCount >= combo.requiredCount) {
       const explorer = battleAction.explorer
-      const hasComboBuff = explorer.battleBuffs.some(b => b.type === 'comboPowerBonus')
+      const hasComboBuff = explorer.battleBuffs.some(b => b.type === 'comboStatBonus')
       if (!hasComboBuff) {
         const updatedExplorer: ExplorerState = {
           ...explorer,
-          battleBuffs: [...explorer.battleBuffs, { type: 'comboPowerBonus', value: combo.powerBonus, duration: 'nextAction' }],
+          battleBuffs: [...explorer.battleBuffs, { type: 'comboStatBonus', value: combo.statBonus, duration: 'nextAction' }],
         }
         const updatedRun = updatePartyMember(state.run, updatedExplorer)
         effectiveState = {

@@ -111,8 +111,15 @@ export function calculateWeaponDamage(
     }
   }
 
+  // 連携の紋章: 同ターン連携時のステータスボーナス
+  const comboBuff = attacker.battleBuffs.find(b => b.type === 'comboStatBonus')
+  const comboStatBonus = comboBuff ? comboBuff.value : 0
+  if (comboStatBonus > 0) {
+    contributors.push({ name: '連携の紋章', label: `${scaleStat === 'str' ? 'STR' : 'INT'}+${comboStatBonus}` })
+  }
+
   const baseStat = scaleStat === 'int' ? attacker.int : attacker.str
-  const effectiveStat = baseStat + positionBonus + brokenBonus
+  const effectiveStat = baseStat + positionBonus + brokenBonus + comboStatBonus
 
   // 条件付きPowerボーナス計算
   let conditionalPowerBonus = 0
@@ -245,13 +252,6 @@ export function calculateWeaponDamage(
     }
   }
 
-  // 連携の紋章バフ
-  const comboBuff = attacker.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  if (comboBuff) {
-    rawDamage += effectiveStat * comboBuff.value * buffMultiplier
-    contributors.push({ name: '連携の紋章', label: `+${comboBuff.value}` })
-  }
-
   // シールドバッシュ
   let shieldBashBonus = 0
   if ('effect' in weapon && weapon.effect?.type === 'shieldBash') {
@@ -313,7 +313,14 @@ export function calculateSpellDamage(
     }
   }
 
-  const effectiveInt = attacker.int + positionBonus
+  // 連携の紋章: 同ターン連携時のステータスボーナス
+  const comboBuff = attacker.battleBuffs.find(b => b.type === 'comboStatBonus')
+  const comboStatBonus = comboBuff ? comboBuff.value : 0
+  if (comboStatBonus > 0) {
+    contributors.push({ name: '連携の紋章', label: `INT+${comboStatBonus}` })
+  }
+
+  const effectiveInt = attacker.int + positionBonus + comboStatBonus
 
   // バフ倍率の寄与者
   if (buffMultiplier > 1.0) {
@@ -404,13 +411,6 @@ export function calculateSpellDamage(
       rawDamage += effectiveInt * vulnBonus * buffMultiplier
       contributors.push({ name: '逆境の鎧', label: `+${vulnBonus}` })
     }
-  }
-
-  // 連携の紋章バフ
-  const comboBuff = attacker.battleBuffs.find(b => b.type === 'comboPowerBonus')
-  if (comboBuff) {
-    rawDamage += effectiveInt * comboBuff.value * buffMultiplier
-    contributors.push({ name: '連携の紋章', label: `+${comboBuff.value}` })
   }
 
   // 弱体デバフ
