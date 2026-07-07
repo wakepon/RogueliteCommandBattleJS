@@ -418,6 +418,34 @@ export function getComboConditionBonus(
   return attackerIds.size >= combo.requiredCount ? combo.statBonus : 0
 }
 
+/**
+ * 「このキャラが攻撃コマンドをセットした」と仮定した場合の連携の紋章ボーナスを返す。
+ * コマンドリスト内のダメージ予測用: そのコマンドを置けば条件が成立する場合も
+ * 予測値に反映する（killCategory の判定と同じ考え方）。
+ */
+export function getComboBonusAssumingAttacker(
+  commandSlots: CommandSlot[],
+  relics: RelicInstance[],
+  explorerId: string
+): number {
+  const combo = getComboAttackBonus(relics)
+  if (!combo) return 0
+
+  const attackerIds = new Set<string>([explorerId])
+  for (const slot of commandSlots) {
+    if (slot.explorerId === explorerId) continue
+    if (!slot.command || !slot.targetId) continue
+    const cmd = slot.command
+    if ((isWeapon(cmd) || isSpell(cmd))
+      && cmd.targetType !== 'allySingle'
+      && cmd.targetType !== 'allyAll') {
+      attackerIds.add(slot.explorerId)
+    }
+  }
+
+  return attackerIds.size >= combo.requiredCount ? combo.statBonus : 0
+}
+
 /** 仮想コマンド情報（ドラッグ中のプレビュー用） */
 export interface TentativeCommand {
   command: BattleCommand
@@ -688,9 +716,11 @@ export function getCommandBuffEntries(
     explorerIndex?: number
     /** 行動欄で先に詠唱予定の武器強化魔法の内訳（呪文名 + 加算値） */
     pendingWeaponBuffs?: { name: string; value: number }[]
+    /** 連携の紋章: 条件成立時のSTR/INTボーナス（コマンドフェーズの予測値） */
+    comboBonus?: number
   } = {}
 ): CommandBuffEntry[] {
-  const { relics = [], party, explorerIndex, pendingWeaponBuffs = [] } = options
+  const { relics = [], party, explorerIndex, pendingWeaponBuffs = [], comboBonus = 0 } = options
   const entries: CommandBuffEntry[] = []
 
   const weapon = isWeapon(command) ? command : null
@@ -713,6 +743,13 @@ export function getCommandBuffEntries(
       const relic = relics.find(r => r.passiveEffect.type === 'backRowStrBonus')
       if (relic) entries.push({ label: relic.name, detail: `STR+${pos.strBonus}` })
     }
+  }
+
+  // 連携の紋章: 同ターン複数人攻撃の条件成立時のSTR/INTボーナス
+  if (comboBonus > 0) {
+    const comboRelic = relics.find(r => r.passiveEffect.type === 'comboAttackBonus')
+    const statLabel = scaleStat === 'str' ? 'STR' : 'INT'
+    entries.push({ label: comboRelic?.name ?? '連携の紋章', detail: `${statLabel}+${comboBonus}` })
   }
 
   // ステータス強化バフ（鍛錬のナイフ・血の契約・バフ魔法など）

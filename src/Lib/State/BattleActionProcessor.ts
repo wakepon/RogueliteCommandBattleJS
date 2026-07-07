@@ -477,7 +477,8 @@ function executeAttackCommand(
     return state
   }
 
-  // 連携の紋章: DamageCalculator側でcomboStatBonusバフを参照済み（バフ付与はターン開始時に実施）
+  // 連携の紋章: DamageCalculator側でcomboStatBonusバフを参照済み
+  // （バフはprocessExecuteCommandで攻撃実行直前に付与され、同ターン内のその攻撃に適用される）
 
   // 敵のdefenseバフによるダメージ軽減
   const reducedDamage = applyDefenseReduction(calculatedDamage, targetEnemy.battleBuffs)

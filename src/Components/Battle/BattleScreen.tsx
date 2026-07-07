@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
-import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, pendingWeaponPowerBonus, pendingWeaponPowerBuffSources } from '../../Lib/Utils/DamagePredictor'
+import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, getComboBonusAssumingAttacker, pendingWeaponPowerBonus, pendingWeaponPowerBuffSources } from '../../Lib/Utils/DamagePredictor'
 import { classifyCommandsKillPotential, killPotentialKey, getReferenceEnemy, KillCategory } from '../../Lib/Utils/KillPotential'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
@@ -127,6 +127,7 @@ function CharacterPanel({
   killCategoryMap,
   weaponPowerBonusPreview,
   weaponBuffSources = [],
+  comboBonusPreview = 0,
   hpPreviewAdd = 0,
   mpPreviewAdd = 0,
   acting,
@@ -158,6 +159,8 @@ function CharacterPanel({
   weaponPowerBonusPreview: number
   /** このキャラが先に受け取る武器強化魔法の内訳（バフポップアップで呪文名つき表示） */
   weaponBuffSources?: { name: string; value: number }[]
+  /** 連携の紋章: このキャラが攻撃をセットしたと仮定した場合のSTR/INTボーナス（コマンドチップの予測に反映） */
+  comboBonusPreview?: number
   /** 回復系コマンドのドラッグ中ホバー時、このキャラが回復する予測量（HPバーを点滅で伸ばす） */
   hpPreviewAdd?: number
   /** MP回復ポーションのドラッグ中ホバー時、このキャラが回復するMPの予測量（MPバーを点滅で伸ばす） */
@@ -361,6 +364,7 @@ function CharacterPanel({
                   killCategory={killCategory}
                   extraWeaponPowerBonus={weaponPowerBonusPreview}
                   pendingWeaponBuffs={weaponBuffSources}
+                  comboBonus={comboBonusPreview}
                 />
               )
             })}
@@ -1090,6 +1094,10 @@ export function BattleScreen() {
               const weaponBuffSources = memberSlotIndex >= 0
                 ? pendingWeaponPowerBuffSources(previewCommandSlots, member.id, memberSlotIndex)
                 : []
+              // 連携の紋章: このキャラが攻撃をセットしたと仮定した場合のSTR/INTボーナス（コマンドチップ予測へ反映）
+              const comboBonusPreview = isCommandPhase
+                ? getComboBonusAssumingAttacker(previewCommandSlots, run.relics, member.id)
+                : 0
               // 回復プレビュー: バーを点滅で伸ばす予測量を算出（コマンドフェーズのみ）
               let hpPreviewAdd = 0
               let mpPreviewAdd = 0
@@ -1144,6 +1152,7 @@ export function BattleScreen() {
                       killCategoryMap={killCategoryMap}
                       weaponPowerBonusPreview={weaponPowerBonusPreview}
                       weaponBuffSources={weaponBuffSources}
+                      comboBonusPreview={comboBonusPreview}
                       hpPreviewAdd={hpPreviewAdd}
                       mpPreviewAdd={mpPreviewAdd}
                       dragHandleProps={dragHandleProps}

@@ -20,6 +20,8 @@ interface DraggableCommandProps {
   extraWeaponPowerBonus?: number
   /** 行動欄で先に詠唱予定の武器強化魔法の内訳（バフポップアップで呪文名つき表示） */
   pendingWeaponBuffs?: { name: string; value: number }[]
+  /** 連携の紋章: このキャラが攻撃をセットしたと仮定した場合のSTR/INTボーナス（予測に反映） */
+  comboBonus?: number
   /** 撃破確定カテゴリ（左端アクセントバーの着色。solo=赤 / combo=オレンジ） */
   killCategory?: KillCategory
 }
@@ -43,7 +45,7 @@ function getCommandStyle(command: BattleCommand): { bgColor: string; label: stri
  * ドラッグ可能なコマンドアイテム
  * 武器/魔法を敵や味方にドラッグ&ドロップしてコマンドをセット
  */
-export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party, extraWeaponPowerBonus = 0, pendingWeaponBuffs = [], killCategory }: DraggableCommandProps) {
+export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party, extraWeaponPowerBonus = 0, pendingWeaponBuffs = [], comboBonus = 0, killCategory }: DraggableCommandProps) {
   const uniqueId = commandIndex !== undefined ? `cmd-${explorerId}-${command.id}-${commandIndex}` : `cmd-${explorerId}-${command.id}`
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: uniqueId,
@@ -68,7 +70,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   if (isEnemyTarget && command.power > 0 && explorer) {
     const idx = party ? party.findIndex(e => e.id === explorer.id) : -1
     const explorerIndex = idx >= 0 ? idx : undefined
-    const opts = { relics, includeConditionalRelics: true, party, explorerIndex, extraWeaponPowerBonus }
+    const opts = { relics, includeConditionalRelics: true, party, explorerIndex, extraWeaponPowerBonus, comboBonus: comboBonus > 0 ? comboBonus : undefined }
     if (isWeapon(command)) {
       const range = predictWeaponDamage(explorer, command, opts)
       damageText = formatDamageRange(range)
@@ -81,7 +83,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
       isWeakened = range.isWeakened ?? false
     }
     // 現在このコマンドのダメージに乗っているバフの一覧（2つ目のポップアップ用）
-    buffEntries = getCommandBuffEntries(explorer, command, { relics, party, explorerIndex, pendingWeaponBuffs })
+    buffEntries = getCommandBuffEntries(explorer, command, { relics, party, explorerIndex, pendingWeaponBuffs, comboBonus })
   }
 
   // 耐久値テキスト（武器のみ。無限使用武器は∞表示）

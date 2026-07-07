@@ -1,4 +1,17 @@
 import { RunState, SAVE_VERSION } from '../Types/Run'
+import { RelicInstance } from '../Types/Relic'
+import RelicsData from '../Data/Relics.json'
+
+const relicsData = RelicsData as Record<string, RelicInstance>
+
+/**
+ * 保存されたレリックをマスターデータで再構築する。
+ * レリックは状態を持たないため、id からマスターデータを引き直すことで
+ * バランス調整や効果形式の変更（例: powerBonus → statBonus）を古いセーブにも反映する。
+ */
+function rehydrateRelics(relics: RelicInstance[]): RelicInstance[] {
+  return relics.map(r => relicsData[r.id] ?? r)
+}
 
 /** セーブデータの構造 */
 interface SaveData {
@@ -79,6 +92,7 @@ export const SaveManager = {
         ...data.run,
         battleStartSnapshot: data.run.battleStartSnapshot ?? null,
         totalBrokenWeaponCount: data.run.totalBrokenWeaponCount ?? 0,
+        relics: rehydrateRelics(data.run.relics),
       }
     } catch {
       return null
