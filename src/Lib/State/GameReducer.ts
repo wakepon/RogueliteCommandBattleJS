@@ -31,7 +31,8 @@ import {
 } from './BattleActionProcessor'
 import { calculateMemberDiffs } from '../Core/BattleResultDiff'
 import { createPotionShopState, canBuyShopPotion, applyPotionToMember, canUseImmediately, canStorePotion, canUseOnMember, createPotionInstance } from '../Core/PotionShopLogic'
-import { canBuyPotion } from '../Core/StoreLogic'
+import { canBuyPotion, canBuyRelic } from '../Core/StoreLogic'
+import { grantWeaponToParty, grantSpellToParty, buildDebugEnemy, replaceEnemyAt, rebuildEnemyIntents } from './DebugActions'
 
 /** ショップスロットのアイテムを更新するヘルパー */
 function updateShopSlotItem(storeState: StoreState, slotIndex: number, newItem: unknown): StoreState {
@@ -86,6 +87,15 @@ export type GameAction =
   | { type: 'BUY_AND_USE_POTION'; shopSlotIndex: number; targetId: string }
   | { type: 'BUY_AND_STORE_POTION'; shopSlotIndex: number }
   | { type: 'CLOSE_POTION_SHOP' }
+  // === デバッグ専用アクション（DEV時のみUIから発行される） ===
+  | { type: 'DEBUG_GRANT_WEAPON'; item: WeaponData }
+  | { type: 'DEBUG_GRANT_SPELL'; item: SpellData }
+  | { type: 'DEBUG_GRANT_RELIC'; item: RelicData }
+  | { type: 'DEBUG_DISCARD_WEAPON'; memberIndex: number; weaponIndex: number }
+  | { type: 'DEBUG_DISCARD_SPELL'; memberIndex: number; spellIndex: number }
+  | { type: 'DEBUG_REPLACE_ENEMY'; index: number; enemyId: string }
+  | { type: 'DEBUG_ADD_ENEMY'; enemyId: string }
+  | { type: 'DEBUG_KILL_ALL_ENEMIES' }
 
 /** 次のステージへ進みマップ画面に遷移する共通ヘルパー */
 function advanceToMapPhase(state: GameState, run: RunState): GameState {
@@ -929,6 +939,93 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         run: { ...state.run, party: updatedParty, potions: updatedPotions },
         battleState: { ...state.battleState, playerDamagePopups: popups },
+      }
+    }
+
+    // === デバッグ専用アクション（DEV時のみUIから発行される） ===
+
+    case 'DEBUG_GRANT_WEAPON': {
+      if (!state.run) return state
+      const updatedParty = grantWeaponToParty(state.run.party, action.item)
+      if (!updatedParty) return state
+      return { ...state, run: { ...state.run, party: updatedParty } }
+    }
+
+    case 'DEBUG_GRANT_SPELL': {
+      if (!state.run) return state
+      const updatedParty = grantSpellToParty(state.run.party, action.item)
+      if (!updatedParty) return state
+      return { ...state, run: { ...state.run, party: updatedParty } }
+    }
+
+    case 'DEBUG_GRANT_RELIC': {
+      if (!state.run) return state
+      if (!canBuyRelic(state.run.relics)) return state
+      return {
+        ...state,
+        run: { ...state.run, relics: [...state.run.relics, action.item] },
+      }
+    }
+
+    case 'DEBUG_DISCARD_WEAPON': {
+      if (!state.run) return state
+      const explorer = state.run.party[action.memberIndex]
+      if (!explorer) return state
+      const weapon = explorer.weapons[action.weaponIndex]
+      // パンチは常時必須のためデバッグでも削除不可
+      if (!weapon || weapon.id === 'punch') return state
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        weapons: explorer.weapons.filter((_, i) => i !== action.weaponIndex),
+      }
+      const updatedParty = state.run.party.map((m, i) => i === action.memberIndex ? updatedExplorer : m)
+      return { ...state, run: { ...state.run, party: updatedParty } }
+    }
+
+    case 'DEBUG_DISCARD_SPELL': {
+      if (!state.run) return state
+      const explorer = state.run.party[action.memberIndex]
+      if (!explorer || !explorer.spells[action.spellIndex]) return state
+
+      const updatedExplorer: ExplorerState = {
+        ...explorer,
+        spells: explorer.spells.filter((_, i) => i !== action.spellIndex),
+      }
+      const updatedParty = state.run.party.map((m, i) => i === action.memberIndex ? updatedExplorer : m)
+      return { ...state, run: { ...state.run, party: updatedParty } }
+    }
+
+    case 'DEBUG_REPLACE_ENEMY':
+    case 'DEBUG_ADD_ENEMY': {
+      if (!state.run || !state.battleState) return state
+      // 行動キュー実行中の差し替えは不整合の元になるためコマンドフェーズ限定
+      if (state.battleState.phase !== 'command') return state
+
+      const newEnemy = buildDebugEnemy(action.enemyId, state.battleState.enemyHpMultiplier)
+      const newEnemies = action.type === 'DEBUG_REPLACE_ENEMY'
+        ? replaceEnemyAt(state.battleState.enemies, action.index, newEnemy)
+        : [...state.battleState.enemies, newEnemy]
+
+      // 行動予告とアクションキューを敵リストの変更に合わせて再構築
+      const enemyIntents = rebuildEnemyIntents(
+        state.battleState.enemyIntents, newEnemies, state.run.party, state.battleState.enemyDamageMultiplier
+      )
+      const actionQueue = createActionQueue(state.run.party, newEnemies)
+
+      return {
+        ...state,
+        battleState: { ...state.battleState, enemies: newEnemies, enemyIntents, actionQueue },
+      }
+    }
+
+    case 'DEBUG_KILL_ALL_ENEMIES': {
+      if (!state.battleState) return state
+      if (state.battleState.phase !== 'command') return state
+      // 敵を全消去して既存の勝利判定（checkBattleResult）に乗せる。EXP/ゴールドは付与しない
+      return {
+        ...state,
+        battleState: { ...state.battleState, enemies: [], enemyIntents: [] },
       }
     }
 

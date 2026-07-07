@@ -55,6 +55,15 @@ interface GameContextType {
   closePotionShop: () => void
   // マップ関連アクション
   advanceFromMap: () => void
+  // デバッグ関連アクション（DEV時のみ使用）
+  debugGrantWeapon: (item: WeaponData) => void
+  debugGrantSpell: (item: SpellData) => void
+  debugGrantRelic: (item: RelicData) => void
+  debugDiscardWeapon: (memberIndex: number, weaponIndex: number) => void
+  debugDiscardSpell: (memberIndex: number, spellIndex: number) => void
+  debugReplaceEnemy: (index: number, enemyId: string) => void
+  debugAddEnemy: (enemyId: string) => void
+  debugKillAllEnemies: () => void
 }
 
 const GameContext = createContext<GameContextType | null>(null)
@@ -149,6 +158,18 @@ export function GameProvider({ children }: GameProviderProps) {
   const closePotionShop = useCallback(() => dispatch({ type: 'CLOSE_POTION_SHOP' }), [])
   // マップ関連アクション
   const advanceFromMap = useCallback(() => dispatch({ type: 'ADVANCE_FROM_MAP' }), [])
+  // デバッグ関連アクション（DEV時のみ使用）
+  const debugGrantWeapon = useCallback((item: WeaponData) => dispatch({ type: 'DEBUG_GRANT_WEAPON', item }), [])
+  const debugGrantSpell = useCallback((item: SpellData) => dispatch({ type: 'DEBUG_GRANT_SPELL', item }), [])
+  const debugGrantRelic = useCallback((item: RelicData) => dispatch({ type: 'DEBUG_GRANT_RELIC', item }), [])
+  const debugDiscardWeapon = useCallback((memberIndex: number, weaponIndex: number) =>
+    dispatch({ type: 'DEBUG_DISCARD_WEAPON', memberIndex, weaponIndex }), [])
+  const debugDiscardSpell = useCallback((memberIndex: number, spellIndex: number) =>
+    dispatch({ type: 'DEBUG_DISCARD_SPELL', memberIndex, spellIndex }), [])
+  const debugReplaceEnemy = useCallback((index: number, enemyId: string) =>
+    dispatch({ type: 'DEBUG_REPLACE_ENEMY', index, enemyId }), [])
+  const debugAddEnemy = useCallback((enemyId: string) => dispatch({ type: 'DEBUG_ADD_ENEMY', enemyId }), [])
+  const debugKillAllEnemies = useCallback(() => dispatch({ type: 'DEBUG_KILL_ALL_ENEMIES' }), [])
 
   // Tuning Editorからのリアルタイム反映（DEV時のみ）
   useEffect(() => {
@@ -216,6 +237,14 @@ export function GameProvider({ children }: GameProviderProps) {
       buyAndStorePotion,
       closePotionShop,
       advanceFromMap,
+      debugGrantWeapon,
+      debugGrantSpell,
+      debugGrantRelic,
+      debugDiscardWeapon,
+      debugDiscardSpell,
+      debugReplaceEnemy,
+      debugAddEnemy,
+      debugKillAllEnemies,
     }}>
       {children}
     </GameContext.Provider>

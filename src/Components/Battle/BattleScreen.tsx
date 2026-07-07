@@ -5,7 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
-import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
+import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, pendingWeaponPowerBonus, pendingWeaponPowerBuffSources } from '../../Lib/Utils/DamagePredictor'
 import { classifyCommandsKillPotential, killPotentialKey, getReferenceEnemy, KillCategory } from '../../Lib/Utils/KillPotential'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
@@ -26,6 +26,8 @@ import { GameOverOverlay } from './GameOverOverlay'
 import { ExpPopupEffect } from './ExpPopupEffect'
 import { PlayerDamagePopupEffect } from './PlayerDamagePopupEffect'
 import { PartyAvatars, AvatarActingType, CLASS_ICONS, AvatarVisual } from './PartyAvatars'
+import { DebugButton } from '../Debug/DebugButton'
+import { DebugWindow } from '../Debug/DebugWindow'
 
 /** ターゲット名を解決 */
 function resolveTargetName(
@@ -342,15 +344,15 @@ function CharacterPanel({
           <div className="flex-1 overflow-y-auto space-y-1 mt-0.5">
             {commands.map((cmd, cmdIdx) => {
               const isAvail = !isDead && !isGameOver && availableCommands.some(ac => ac.id === cmd.id)
-              // 武器のweapons配列内インデックスを計算（spellsはundefined）
-              const weaponIdx = cmdIdx < member.weapons.length ? cmdIdx : undefined
+              // weapons/spells 各配列内の生インデックス（武器はweapons内、魔法はspells内の位置）
+              const commandIndex = cmdIdx < member.weapons.length ? cmdIdx : cmdIdx - member.weapons.length
               const killCategory = killCategoryMap?.get(killPotentialKey(member.id, cmd.id))
               return (
                 <DraggableCommand
                   key={`${cmd.id}-${cmdIdx}`}
                   command={cmd}
                   explorerId={member.id}
-                  commandIndex={weaponIdx}
+                  commandIndex={commandIndex}
                   disabled={!isCommandPhase || isDead || isGameOver}
                   isAvailable={isAvail}
                   explorer={member}
@@ -383,6 +385,8 @@ function LeftPanel({
   currentStage,
   seed,
   commandSlots,
+  onOpenDebug,
+  draggingDiscardable,
 }: {
   potions: { id: string; name: string; commandCategory: 'potion' }[]
   relics: RelicInstance[]
@@ -391,6 +395,10 @@ function LeftPanel({
   currentStage: number
   seed: number
   commandSlots: CommandSlot[]
+  /** デバッグウィンドウを開く（DEV時のみ） */
+  onOpenDebug: () => void
+  /** 破棄可能なコマンド（武器/魔法）をドラッグ中か */
+  draggingDiscardable: boolean
 }) {
   const comboActive = isCommandPhase && getComboConditionBonus(commandSlots, relics) > 0
   return (
@@ -443,6 +451,11 @@ function LeftPanel({
         )}
       </div>
 
+      {/* デバッグボタン（開発時のみ。破棄のドロップ先を兼ねる） */}
+      {import.meta.env.DEV && (
+        <DebugButton onClick={onOpenDebug} isDraggingItem={draggingDiscardable} />
+      )}
+
       {/* 最下部の空白スペース（ポーションを上方に押し上げる） */}
       <div className="flex-[1]" />
     </div>
@@ -485,7 +498,7 @@ function SortableCharacterPanel({
 }
 
 export function BattleScreen() {
-  const { state, returnToTitle, endBattle } = useGame()
+  const { state, returnToTitle, endBattle, debugDiscardWeapon, debugDiscardSpell } = useGame()
   const battle = useBattle()
   const { run, battleState } = state
 
@@ -561,6 +574,8 @@ export function BattleScreen() {
   const [draggingAvatarId, setDraggingAvatarId] = useState<string | null>(null)
   // 経験値ポップアップ「未到達」分の合計（メンバーID別）。到達するまで EXP バーに反映しない
   const [pendingExpByMember, setPendingExpByMember] = useState<Record<string, number>>({})
+  // デバッグウィンドウ開閉（DEV時のみ使用）
+  const [debugOpen, setDebugOpen] = useState(false)
 
   // === フェーズ自動処理 ===
   // レベルアップ演出はフローティングポップアップとして並走するため、フェーズ進行は止めない
@@ -813,7 +828,19 @@ export function BattleScreen() {
     const data = event.active.data.current
     if (!data || !('command' in data)) return
 
-    const { command, explorerId: rawExplorerId, weaponIndex } = data as { command: BattleCommand; explorerId: string; weaponIndex?: number }
+    const { command, explorerId: rawExplorerId, weaponIndex, commandIndex } = data as { command: BattleCommand; explorerId: string; weaponIndex?: number; commandIndex?: number }
+
+    // デバッグ: 左下デバッグボタンへのドロップで武器/魔法を即時破棄（DEV時のみ）
+    if (overId === 'debug-discard') {
+      if (import.meta.env.DEV && commandIndex !== undefined && rawExplorerId !== 'shared') {
+        const memberIndex = party.findIndex(m => m.id === rawExplorerId)
+        if (memberIndex >= 0) {
+          if (isWeapon(command)) debugDiscardWeapon(memberIndex, commandIndex)
+          else if (isSpell(command)) debugDiscardSpell(memberIndex, commandIndex)
+        }
+      }
+      return
+    }
     // ポーションは explorerId="shared" で来るので、アクティブエクスプローラーのIDに差し替え
     const explorerId = rawExplorerId === 'shared'
       ? commandSlots[battleState.activeExplorerIndex]?.explorerId ?? rawExplorerId
@@ -851,7 +878,7 @@ export function BattleScreen() {
         setCommandSlotDirect(explorerId, command, targetId, weaponIndex)
       }
     }
-  }, [isCommandPhase, party, setCommandSlotDirect, usePotionInstant, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex])
+  }, [isCommandPhase, party, setCommandSlotDirect, usePotionInstant, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex, debugDiscardWeapon, debugDiscardSpell])
 
   // コマンドD&DではpointerWithin、パネルソートではpanel-/ally-のみ対象のclosestCenter
   const customCollisionDetection: CollisionDetection = useCallback((args) => {
@@ -936,6 +963,8 @@ export function BattleScreen() {
             currentStage={run.currentStage}
             seed={run.seed}
             commandSlots={commandSlots}
+            onOpenDebug={() => setDebugOpen(true)}
+            draggingDiscardable={draggingCommand !== null && !isPotion(draggingCommand)}
           />
         </div>
 
@@ -1179,6 +1208,9 @@ export function BattleScreen() {
         {expPopups.map(popup => (
           <ExpPopupEffect key={popup.id} popup={popup} onComplete={() => handleExpPopupComplete(popup)} />
         ))}
+
+        {/* デバッグウィンドウ（開発時のみ） */}
+        {import.meta.env.DEV && debugOpen && <DebugWindow onClose={() => setDebugOpen(false)} />}
 
         {battleState.isGameOver && <GameOverOverlay onReturnTitle={returnToTitle} />}
       </div>

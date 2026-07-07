@@ -47,7 +47,8 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   const uniqueId = commandIndex !== undefined ? `cmd-${explorerId}-${command.id}-${commandIndex}` : `cmd-${explorerId}-${command.id}`
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: uniqueId,
-    data: { command, explorerId, weaponIndex: commandIndex },
+    // weaponIndex はコマンドスロット設定用（武器のみ）。commandIndex は weapons/spells 各配列内の生インデックス（デバッグ破棄用）
+    data: { command, explorerId, weaponIndex: isWeapon(command) ? commandIndex : undefined, commandIndex },
     disabled: disabled || !isAvailable,
   })
 
