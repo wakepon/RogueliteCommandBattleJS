@@ -71,6 +71,7 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   // レベルアップ回復率
   { key: 'levelup_hp_recovery_rate', label: 'LvUP HP回復率', category: 'levelup', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
   { key: 'levelup_mp_recovery_rate', label: 'LvUP MP回復率', category: 'levelup', defaultValue: 0.5, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
+  { key: 'finish_exp_bonus', label: 'トドメEXP', category: 'levelup', defaultValue: 1, control: { type: 'number', min: 0, max: 10, step: 1 } },
 
   // === 武器・基本攻撃 ===
   { key: 'punch_power', label: 'パンチ 威力', category: 'weapon', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
@@ -105,3 +106,8 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
   { key: 'floor_3_damage_multiplier', label: 'F3 敵攻撃力倍率', category: 'floor', defaultValue: 2.5, control: { type: 'slider', min: 1.0, max: 5.0, step: 0.1 } },
   { key: 'floor_3_common_rate', label: 'F3 報酬Common率', category: 'floor', defaultValue: 0.4, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },
 ]
+
+/** スキーマで定義されたデフォルト値を取得する */
+export function getTuningDefault(key: string): unknown {
+  return TUNING_SCHEMA.find(f => f.key === key)?.defaultValue
+}

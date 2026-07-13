@@ -33,6 +33,7 @@
   "levelup_required_kills_cap": 5,
   "levelup_hp_recovery_rate": 0.25,
   "levelup_mp_recovery_rate": 0.25,
+  "finish_exp_bonus": 1,
   "punch_power": 1,
   "punch_variance": 2,
   "magic_bullet_power": 1,

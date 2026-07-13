@@ -39,6 +39,7 @@ export interface TuningConfig {
   readonly levelup_required_kills_cap: number
   readonly levelup_hp_recovery_rate: number
   readonly levelup_mp_recovery_rate: number
+  readonly finish_exp_bonus: number
 
   // 武器・基本攻撃
   readonly punch_power: number

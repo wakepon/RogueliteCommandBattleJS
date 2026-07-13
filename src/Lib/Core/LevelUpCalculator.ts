@@ -126,7 +126,7 @@ export function addExpAndProcessLevelUp(
  *
  * ルール:
  * - 敵を倒すと全員のkillCount+1（EXP+1）
- * - 止めを刺したキャラはさらに+1（合計+2）
+ * - 止めを刺したキャラはさらにトドメEXP分（デフォルト+1、tuningで調整可）
  * - 戦闘不能キャラにもEXPは入る（次バトルで復活するため）
  */
 export function distributeExpToParty(
@@ -148,12 +148,14 @@ export function distributeExpToParty(
   const allLevelUps: LevelUpInfo[] = []
   const extraBonusToAll = options?.extraBonusToAll ?? 0
   const extraKillerBonus = options?.extraKillerBonus ?? 0
+  // トドメEXP: 撃破1体あたりのキラーボーナス（tuningで調整可、デフォルト1）
+  const finishExpBonus = getTuningValue('finish_exp_bonus', 1)
 
   const updatedParty = party.map(member => {
     // 全員にdefeatedCount分のEXP + 追加ボーナス
     const baseExp = defeatedCount + extraBonusToAll
-    // 止めを刺したキャラにはさらに+defeatedCount + 追加キラーボーナス
-    const bonusExp = member.id === killerExplorerId ? defeatedCount + extraKillerBonus : 0
+    // 止めを刺したキャラにはさらにトドメEXP×撃破数 + 追加キラーボーナス
+    const bonusExp = member.id === killerExplorerId ? finishExpBonus * defeatedCount + extraKillerBonus : 0
     const totalExp = baseExp + bonusExp
 
     const { updatedExplorer, levelUps } = addExpAndProcessLevelUp(member, totalExp)

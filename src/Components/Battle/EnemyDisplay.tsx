@@ -3,6 +3,8 @@ import { EnemyIntent } from '../../Lib/Types/Battle'
 import { BuffIcon } from '../Common'
 import { KillLineBar } from './KillLineBar'
 import { DetailedDamagePreview } from '../../Lib/Utils/DamagePredictor'
+import { getTuningValue } from '../../Lib/Tuning/TuningStore'
+import { getTuningDefault } from '../../Lib/Tuning/TuningSchema'
 
 interface EnemyDisplayProps {
   enemy: EnemyInstance
@@ -60,6 +62,11 @@ export function EnemyDisplay({
   const borderColor = getEnemyTypeColor(enemy.type)
   const bgColor = getEnemyTypeBgColor(enemy.type)
   const isDead = enemy.currentHp <= 0
+
+  // トドメEXP: デフォルト値と異なる場合のみ表示する
+  const finishExpBonus = getTuningValue('finish_exp_bonus', 1)
+  const finishExpDefault = getTuningDefault('finish_exp_bonus') as number
+  const showFinishExp = finishExpBonus !== finishExpDefault
 
   // ターゲット選択時のスタイル
   const targetStyle = isTargetSelected || isTargetHighlighted
@@ -125,10 +132,12 @@ export function EnemyDisplay({
         />
       </div>
 
-      {/* とどめ報酬表示 */}
-      <div className="text-xs text-gray-400 text-center">
-        とどめ時 EXP +1
-      </div>
+      {/* とどめ報酬表示（デフォルト値と異なる場合のみ） */}
+      {showFinishExp && (
+        <div className="text-xs text-gray-400 text-center">
+          とどめ時 EXP +{finishExpBonus}
+        </div>
+      )}
 
       {/* バフ/デバフ表示 */}
       {(enemy.battleBuffs.length > 0 || enemy.battleDebuffs.length > 0) && (
