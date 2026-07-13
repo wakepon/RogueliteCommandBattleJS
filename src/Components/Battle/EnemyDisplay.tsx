@@ -7,6 +7,7 @@ import { DetailedDamagePreview } from '../../Lib/Utils/DamagePredictor'
 interface EnemyDisplayProps {
   enemy: EnemyInstance
   isCurrentActor: boolean
+  isActing?: boolean       // 行動中（上下アニメーション）
   isTargetSelected?: boolean
   isTargetHighlighted?: boolean
   isDragTarget?: boolean   // ドラッグ中に攻撃対象になりうる（全体強調）
@@ -47,6 +48,7 @@ function getEnemyTypeBgColor(type: EnemyInstance['type']): string {
 export function EnemyDisplay({
   enemy,
   isCurrentActor,
+  isActing = false,
   isTargetSelected = false,
   isTargetHighlighted = false,
   isDragTarget = false,
@@ -73,6 +75,7 @@ export function EnemyDisplay({
         relative p-4 rounded-lg border-2 w-32 md:w-40
         ${targetStyle}
         ${isCurrentActor ? 'ring-2 ring-yellow-400' : ''}
+        ${isActing ? 'animate-enemy-bob' : ''}
         ${isDead ? 'opacity-50' : ''}
         ${onSelect && !isDead ? 'cursor-pointer hover:border-yellow-300' : ''}
         transition-all duration-200

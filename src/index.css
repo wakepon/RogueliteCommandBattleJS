@@ -23,6 +23,16 @@
   animation: panel-rise 750ms ease-in-out;
 }
 
+/* 敵カード: 行動時に上下する（どの敵が行動したか分かるように） */
+@keyframes enemy-bob {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+  100% { transform: translateY(0); }
+}
+.animate-enemy-bob {
+  animation: enemy-bob 500ms ease-in-out;
+}
+
 /* 丸アイコン: 攻撃時、敵側（左）へ少し移動して戻る */
 @keyframes avatar-attack {
   0% { transform: translateX(0); }

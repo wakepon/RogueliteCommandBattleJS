@@ -578,6 +578,8 @@ export function BattleScreen() {
   const [hoverAllyId, setHoverAllyId] = useState<string | null>(null)
   // 行動アニメ: { explorerId, type } を保持。執行直前にセットし、進行後にクリア
   const [acting, setActing] = useState<{ explorerId: string; type: AvatarActingType } | null>(null)
+  // 敵の行動アニメ: 現在上下している敵のinstanceId（どの敵が行動したか分かるように）
+  const [actingEnemyId, setActingEnemyId] = useState<string | null>(null)
   // 被弾振動: 振動中のメンバーID集合
   const [shakingIds, setShakingIds] = useState<Set<string>>(new Set())
   // レベルアップ縦伸縮中のメンバーID集合
@@ -617,8 +619,17 @@ export function BattleScreen() {
     if (phase !== 'enemyAction') return
     const aliveEnemies = enemies.filter(e => e.currentHp > 0 && !e.justSummoned)
     if (battleState.currentEnemyIndex >= aliveEnemies.length) return
+    const actingEnemy = aliveEnemies[battleState.currentEnemyIndex]
     const timers: ReturnType<typeof setTimeout>[] = []
     const t1 = setTimeout(() => {
+      // 行動する敵のカードを上下させる（0.5秒）
+      if (actingEnemy) {
+        setActingEnemyId(actingEnemy.instanceId)
+        const tAnim = setTimeout(() => {
+          setActingEnemyId(prev => (prev === actingEnemy.instanceId ? null : prev))
+        }, 500)
+        timers.push(tAnim)
+      }
       enemyAction(battleState.currentEnemyIndex)
       const t2 = setTimeout(() => advanceEnemyAction(), ENEMY_TURN_DELAY_MS / 2)
       timers.push(t2)
@@ -1043,6 +1054,7 @@ export function BattleScreen() {
                 >
                   <DroppableTarget id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll' || draggingPanel}>
                     <EnemyDisplay enemy={enemy} isCurrentActor={false}
+                      isActing={actingEnemyId === enemy.instanceId}
                       isTargetSelected={isSelected} isTargetHighlighted={isHighlighted}
                       isDragTarget={isDraggingAttack}
                       isHovered={isHoveredEnemy}
