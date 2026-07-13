@@ -1,8 +1,9 @@
 import { EnemyInstance } from '../../Lib/Types/Enemy'
 import { EnemyIntent } from '../../Lib/Types/Battle'
-import { BuffIcon } from '../Common'
+import { BuffIcon, Tooltip } from '../Common'
 import { KillLineBar } from './KillLineBar'
 import { DetailedDamagePreview } from '../../Lib/Utils/DamagePredictor'
+import { buildIntentDisplay } from '../../Lib/Utils/EnemyIntentDisplay'
 import { getTuningValue } from '../../Lib/Tuning/TuningStore'
 import { getTuningDefault } from '../../Lib/Tuning/TuningSchema'
 
@@ -110,17 +111,34 @@ export function EnemyDisplay({
       </div>
 
       {/* 行動予告 */}
-      {intent && !isDead && (
-        <div className="text-center mb-1 leading-tight">
-          <span className="text-gray-400 text-[10px]">次: </span>
-          <span className={`text-[10px] ${intent.damage > 0 ? 'text-red-300' : 'text-gray-300'}`}>
-            {intent.actionName}
-          </span>
-          {intent.damage > 0 && (
-            <span className="text-red-300 text-[15px] font-bold ml-0.5">({intent.damage}{intent.hits && intent.hits > 1 ? `x${intent.hits}` : ''})</span>
-          )}
-        </div>
-      )}
+      {intent && !isDead && (() => {
+        const display = buildIntentDisplay(intent.storedAction, enemy.hp)
+        const hasDamage = intent.storedAction.damage > 0
+        const tipContent = display.tooltips.length > 0 ? (
+          <div className="space-y-1 text-left">
+            {display.tooltips.map(t => (
+              <div key={t.term}>
+                <span className="font-bold text-yellow-300">{t.term}</span>：{t.desc}
+              </div>
+            ))}
+          </div>
+        ) : null
+        return (
+          <Tooltip content={tipContent} position="top">
+            <div className="text-center mb-1 leading-tight">
+              <span className="text-gray-400 text-[10px]">次: </span>
+              <span className={`text-[10px] ${hasDamage ? 'text-red-300' : 'text-gray-300'}`}>
+                {intent.actionName}
+              </span>
+              {display.detail && (
+                <span className={`text-[11px] font-bold ml-0.5 ${hasDamage ? 'text-red-300' : 'text-gray-300'}`}>
+                  ({display.detail})
+                </span>
+              )}
+            </div>
+          </Tooltip>
+        )
+      })()}
 
       {/* 統合HP + キルラインバー */}
       <div className="mb-2">
