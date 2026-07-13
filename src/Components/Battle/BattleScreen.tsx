@@ -13,7 +13,7 @@ import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { calculateRelicAttackImpacts } from '../../Lib/Utils/RelicImpactCalculator'
 import { Button } from '../Common/Button'
-import { ResourceBar, Tooltip, SegmentedBar } from '../Common'
+import { ResourceBar, Tooltip, SegmentedBar, CharacterStatTooltip } from '../Common'
 import { EnemyDisplay } from './EnemyDisplay'
 import { TargetSelector, getTargetSelectionState } from './TargetSelector'
 import { DamagePopup } from './DamagePopup'
@@ -226,8 +226,12 @@ function CharacterPanel({
           <div className="flex justify-between items-center mb-1">
             <div className="flex items-center gap-1 min-w-0">
               <span className="text-yellow-400 font-bold text-sm shrink-0">{ORDER_BADGES[orderIndex] ?? `${orderIndex + 1}`}</span>
-              <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
-              <span className="text-white font-bold text-2xl truncate">{member.name}</span>
+              <Tooltip content={<CharacterStatTooltip name={member.name} str={member.str} int={member.int} />} position="bottom">
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
+                  <span className="text-white font-bold text-2xl truncate">{member.name}</span>
+                </div>
+              </Tooltip>
               {member.battleDebuffs.find(d => d.type === 'weakness') && (
                 <span className="text-red-400 text-xs font-bold bg-red-900/50 px-1 rounded shrink-0">
                   攻↓{(member.battleDebuffs.find(d => d.type === 'weakness') as { duration: number }).duration}

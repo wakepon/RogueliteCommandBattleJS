@@ -3,7 +3,7 @@ import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } 
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
-import { ResourceBar, Tooltip, TooltipCard } from '../Common'
+import { ResourceBar, Tooltip, TooltipCard, CharacterStatTooltip } from '../Common'
 import { MapOverlay } from '../Store/MapOverlay'
 import { ExplorerState, CharacterClass } from '../../Lib/Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
@@ -316,10 +316,12 @@ function StoreCharacterPanel({
   return (
     <div className="h-full flex flex-col bg-gray-800/50 rounded-lg border border-gray-500 p-1.5">
       <div className="flex justify-between items-center mb-1">
-        <div className="flex items-center gap-1 min-w-0">
-          <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
-          <span className="text-white font-bold text-2xl truncate">{member.name}</span>
-        </div>
+        <Tooltip content={<CharacterStatTooltip name={member.name} str={member.str} int={member.int} />} position="bottom">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
+            <span className="text-white font-bold text-2xl truncate">{member.name}</span>
+          </div>
+        </Tooltip>
         <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
       </div>
 

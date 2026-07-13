@@ -160,6 +160,12 @@ function SortableAvatar({
             <div className="text-gray-300">
               HP {member.hp}/{member.maxHp}
             </div>
+            <div className="flex justify-between gap-3 text-gray-300">
+              <span className="text-gray-400">STR</span><span>{member.str}</span>
+            </div>
+            <div className="flex justify-between gap-3 text-gray-300">
+              <span className="text-gray-400">INT</span><span>{member.int}</span>
+            </div>
           </div>
         }
         position="bottom"

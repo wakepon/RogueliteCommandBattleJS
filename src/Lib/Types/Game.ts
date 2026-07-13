@@ -73,6 +73,8 @@ export interface MemberBattleDiff {
   level: number
   exp: number
   expRequired: number
+  str: number
+  int: number
   weapons: WeaponUsesDiff[]
   // 差分（負=減った、正=増えた、0=変化なし）
   hpDiff: number

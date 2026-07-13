@@ -1,5 +1,5 @@
 import { MemberBattleDiff, MemberAnimationPhase } from '../../Lib/Types/Game'
-import { ResourceBar, SegmentedBar } from '../Common'
+import { ResourceBar, SegmentedBar, Tooltip, CharacterStatTooltip } from '../Common'
 import { DiffLabel } from './DiffLabel'
 
 interface ResultMemberPanelProps {
@@ -70,7 +70,9 @@ export function ResultMemberPanel({ diff, phase }: ResultMemberPanelProps) {
     <div className={`bg-black/30 rounded-lg p-4 text-white ${enterAnimClass} ${stretchClass}`}>
       {/* 名前とレベル */}
       <div className="flex justify-between items-center mb-2">
-        <span className="text-white font-bold">{diff.name}</span>
+        <Tooltip content={<CharacterStatTooltip name={diff.name} str={diff.str} int={diff.int} />} position="bottom">
+          <span className="text-white font-bold">{diff.name}</span>
+        </Tooltip>
         <span className="text-yellow-400 text-sm">
           {leveledUp && showNewLevel
             ? `Lv.${diff.levelBefore} → Lv.${diff.level}`

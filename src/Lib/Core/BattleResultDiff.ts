@@ -46,6 +46,8 @@ export function calculateMemberDiffs(
       level: current.level,
       exp: current.exp,
       expRequired: getRequiredKillsForNextLevel(current.level),
+      str: current.str,
+      int: current.int,
       weapons,
       hpDiff: current.hp - snap.hp,
       maxHpDiff: current.maxHp - snap.maxHp,

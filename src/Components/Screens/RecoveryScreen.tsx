@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
 import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
-import { ResourceBar, SegmentedBar, Tooltip, TooltipCard } from '../Common'
+import { ResourceBar, SegmentedBar, Tooltip, TooltipCard, CharacterStatTooltip } from '../Common'
 import { DraggableItem, DroppableSlot } from '../Common/DragDropComponents'
 import { CLASS_ICONS } from '../Battle/PartyAvatars'
 import { NextStagePreview } from '../Battle/NextStagePreview'
@@ -99,10 +99,12 @@ function PotionShopCharacterPanel({
     }`}>
       {/* ヘッダー */}
       <div className="flex justify-between items-center mb-1">
-        <div className="flex items-center gap-1 min-w-0">
-          <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
-          <span className="text-white font-bold text-2xl truncate">{member.name}</span>
-        </div>
+        <Tooltip content={<CharacterStatTooltip name={member.name} str={member.str} int={member.int} />} position="bottom">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-2xl leading-none shrink-0">{CLASS_ICONS[member.characterClass]}</span>
+            <span className="text-white font-bold text-2xl truncate">{member.name}</span>
+          </div>
+        </Tooltip>
         <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
       </div>
 
