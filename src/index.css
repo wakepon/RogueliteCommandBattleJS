@@ -123,3 +123,13 @@
 .animate-panel-shake {
   animation: panel-shake 450ms ease-in-out;
 }
+
+/* ポーション使用時などの画面フラッシュ */
+@keyframes screen-flash {
+  0%   { opacity: 0; }
+  25%  { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+.animate-screen-flash {
+  animation: screen-flash 300ms ease-out forwards;
+}

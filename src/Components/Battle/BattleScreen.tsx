@@ -5,6 +5,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useGame } from '../../Hooks/UseGame'
 import { useBattle } from '../../Hooks/UseBattle'
+import { useScreenFlash } from '../../Hooks/UseScreenFlash'
+import { ScreenFlashOverlay } from '../Common/ScreenFlashOverlay'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, getComboBonusAssumingAttacker, pendingWeaponPowerBonus, pendingWeaponPowerBuffSources } from '../../Lib/Utils/DamagePredictor'
 import { classifyCommandsKillPotential, killPotentialKey, getReferenceEnemy, KillCategory } from '../../Lib/Utils/KillPotential'
@@ -516,6 +518,7 @@ function SortableCharacterPanel({
 export function BattleScreen() {
   const { state, returnToTitle, endBattle, debugDiscardWeapon, debugDiscardSpell } = useGame()
   const battle = useBattle()
+  const { flashKey, triggerFlash } = useScreenFlash()
   const { run, battleState } = state
 
   if (!run || !battleState || !battle) {
@@ -901,11 +904,12 @@ export function BattleScreen() {
       // ポーションは即時発動（行動消費なし）
       if (command.commandCategory === 'potion') {
         usePotionInstant(command.id, targetId)
+        triggerFlash()
       } else {
         setCommandSlotDirect(explorerId, command, targetId, weaponIndex)
       }
     }
-  }, [isCommandPhase, party, setCommandSlotDirect, usePotionInstant, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex, debugDiscardWeapon, debugDiscardSpell])
+  }, [isCommandPhase, party, setCommandSlotDirect, usePotionInstant, triggerFlash, reorderParty, cancelCommand, commandSlots, battleState.activeExplorerIndex, debugDiscardWeapon, debugDiscardSpell])
 
   // コマンドD&DではpointerWithin、パネルソートではpanel-/ally-のみ対象のclosestCenter
   const customCollisionDetection: CollisionDetection = useCallback((args) => {
@@ -978,6 +982,7 @@ export function BattleScreen() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={customCollisionDetection}>
+      <ScreenFlashOverlay flashKey={flashKey} />
       <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
 
         {/* ===== 左サイドパネル ===== */}

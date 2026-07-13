@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
 import { useGame } from '../../Hooks/UseGame'
 import { Button } from '../Common/Button'
-import { ResourceBar, SegmentedBar, Tooltip, TooltipCard, CharacterStatTooltip } from '../Common'
+import { ResourceBar, SegmentedBar, Tooltip, TooltipCard, CharacterStatTooltip, ScreenFlashOverlay } from '../Common'
+import { useScreenFlash } from '../../Hooks/UseScreenFlash'
 import { DraggableItem, DroppableSlot } from '../Common/DragDropComponents'
 import { CLASS_ICONS } from '../Battle/PartyAvatars'
 import { NextStagePreview } from '../Battle/NextStagePreview'
@@ -277,6 +278,7 @@ function PotionShopLeftPanel({
 
 export function RecoveryScreen() {
   const { state, buyAndUsePotion, buyAndStorePotion, closePotionShop } = useGame()
+  const { flashKey, triggerFlash } = useScreenFlash()
   const { run, potionShopState } = state
 
   const [dragLabel, setDragLabel] = useState<string | null>(null)
@@ -313,6 +315,7 @@ export function RecoveryScreen() {
     if (overId.startsWith('member-drop-')) {
       const targetId = overId.replace('member-drop-', '')
       buyAndUsePotion(data.shopSlotIndex, targetId)
+      triggerFlash()
     } else if (overId.startsWith('potion-store-slot-')) {
       buyAndStorePotion(data.shopSlotIndex)
     }
@@ -323,6 +326,7 @@ export function RecoveryScreen() {
 
   return (
     <DndContext collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <ScreenFlashOverlay flashKey={flashKey} />
       <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
 
         {/* ===== 左サイドパネル ===== */}
