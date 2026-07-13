@@ -5,6 +5,7 @@ import { PotionData } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { getPassiveEffectDescription } from '../../Lib/Utils/ItemDescription'
+import { getDisplayMpCost, getDisplayMpCostRate } from '../../Lib/Core/MpCostCalculator'
 import { MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
 
 type AnyItem = WeaponData | ExplorerWeapon | SpellData | SpellInstance | RelicData | RelicInstance | PotionData | BattleCommand
@@ -231,9 +232,9 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
     // MP消費表示: 割合消費型と固定消費型を区別
     if ('mpCostRate' in spell && (spell as SpellData).mpCostRate !== undefined && (spell as SpellData).mpCostRate! > 0) {
       const rate = (spell as SpellData).mpCostRate!
-      lines.push({ label: 'MP消費', value: rate >= 1.0 ? '全消費' : `最大${Math.floor(rate * 100)}%`, color: 'text-blue-300' })
+      lines.push({ label: 'MP消費', value: rate >= 1.0 ? '全消費' : `最大${Math.floor(getDisplayMpCostRate(rate) * 100)}%`, color: 'text-blue-300' })
     } else {
-      lines.push({ label: 'MP消費', value: `${spell.mpCost}`, color: 'text-blue-300' })
+      lines.push({ label: 'MP消費', value: `${getDisplayMpCost(spell.mpCost)}`, color: 'text-blue-300' })
     }
     if (spell.effect) {
       if (spell.effect.type === 'heal') {

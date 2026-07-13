@@ -74,9 +74,11 @@ function getNextStageEnemies(stage: number, seed: number): NextEnemyInfo[] {
   const selectedPattern = pattern.patterns[patternIndex]
 
   const floor = getFloor(stage)
-  const hpMult = floor === 3 ? getTuningValue('floor_3_hp_multiplier', 3.0)
-               : floor === 2 ? getTuningValue('floor_2_hp_multiplier', 1.5)
-               : 1.0
+  const floorHpMult = floor === 3 ? getTuningValue('floor_3_hp_multiplier', 3.0)
+                    : floor === 2 ? getTuningValue('floor_2_hp_multiplier', 1.5)
+                    : 1.0
+  // 全体倍率 × 階層倍率（実際のスポーンHPと一致させる）
+  const hpMult = getTuningValue('global_enemy_hp_multiplier', 1.0) * floorHpMult
 
   const enemyIds = selectedPattern.enemies ?? []
   return enemyIds.map(enemyId => {

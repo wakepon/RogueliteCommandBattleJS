@@ -3,6 +3,7 @@ import { BattleCommand, CommandSlot } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
+import { getDisplayMpCost } from '../../Lib/Core/MpCostCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, getCommandBuffEntries } from '../../Lib/Utils/DamagePredictor'
 import { KillCategory } from '../../Lib/Utils/KillPotential'
 import { Tooltip, TooltipCard } from '../Common'
@@ -62,7 +63,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   const usesText = isWeapon(command) && command.currentUses !== null
     ? `${command.currentUses}/${command.maxUses}`
     : isSpell(command)
-      ? `${command.mpCost}MP`
+      ? `${getDisplayMpCost(command.mpCost)}MP`
       : ''
 
   // ダメージ予測（バフ/レリック/条件付き効果を含む）

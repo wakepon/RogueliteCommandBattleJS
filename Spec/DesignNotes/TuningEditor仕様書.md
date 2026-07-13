@@ -371,3 +371,25 @@ Tuning Editorにデバッグ専用機能を混ぜないこと。
 ### HMR発火の防止
 
 Viteプラグインで `server.watcher.unwatch(jsonPath)` を行い、TuningData.jsonの変更によるHMRリロードを防ぐ。リアルタイム反映はBroadcastChannel経由で行うため、ファイル変更によるリロードは不要。
+
+### 全体倍率（category: `global`「全体倍率」）
+
+全フロア一括で効く倍率。デフォルトはすべて `1.0`（既存挙動を変えない）。
+
+| key | 対象 |
+| --- | --- |
+| `global_enemy_hp_multiplier` | 敵HP |
+| `global_enemy_damage_multiplier` | 敵攻撃力 |
+| `global_mp_cost_multiplier` | 魔法の固定MP消費（`mpCost`） |
+| `global_mp_cost_rate_multiplier` | 割合MP消費（`mpCostRate`、0<rate<1.0） |
+
+**敵HP・敵攻撃力**は `階層倍率（floor）` と積算される（実効倍率 = 全体倍率 × 階層倍率）。
+フロア1は階層倍率が実質1.0のため、全体倍率がそのまま効く。
+適用は `BattleStateFactory.ts` の `getEnemyHpMultiplier` / `getEnemyDamageMultiplier` に集約。
+
+**MP消費**は階層倍率を持たず全体倍率のみ効く。計算は `MpCostCalculator.ts`（`getEffectiveMpCost` / `isFullMpCost`）に集約し、消費（`BattleActionProcessor`）と使用可否判定（`CommandValidator`）で共有する。
+- 固定消費: `round(mpCost × global_mp_cost_multiplier)`（四捨五入）
+- 割合消費: `floor(maxMp × mpCostRate × global_mp_cost_rate_multiplier)`
+- 全MP消費型（`mpCostRate >= 1.0`）は倍率対象外で常に全消費。
+
+UI上のMP表示（コマンド一覧・ツールチップ・ショップ・アイテム説明）も倍率を反映する。表示用ヘルパ `getDisplayMpCost`（固定）と `getDisplayMpCostRate`（割合。表示は100%上限にクランプ）を `MpCostCalculator.ts` に用意し、`CommandList` / `TooltipCard` / `DraggableCommand` / `StoreScreen` / `ItemDescription` で使用する。`getDisplayMpCost` は固定消費の実消費計算と同一のため、表示と実消費が一致する。

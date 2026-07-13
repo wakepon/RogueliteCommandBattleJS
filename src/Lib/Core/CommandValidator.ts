@@ -3,6 +3,7 @@ import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { PotionInstance } from '../Types/Potion'
 import { BattleCommand } from '../Types/Battle'
+import { getEffectiveMpCost, isFullMpCost } from './MpCostCalculator'
 
 /**
  * 武器が WeaponInstance かどうかを判定する型ガード
@@ -86,15 +87,12 @@ function isWeaponAvailable(weapon: ExplorerWeapon, explorer?: ExplorerState): bo
  * @returns 使用可能な場合 true
  */
 function isSpellAvailable(spell: SpellInstance, explorer: ExplorerState): boolean {
-  if (spell.mpCostRate !== undefined && spell.mpCostRate > 0) {
-    // 全MP消費型（rate >= 1.0）: MP残量があれば使用可能
-    if (spell.mpCostRate >= 1.0) {
-      return explorer.mp > 0
-    }
-    // 割合消費型: 最大MP×rate 以上のMPが必要
-    return explorer.mp >= Math.floor(explorer.maxMp * spell.mpCostRate)
+  // 全MP消費型は倍率対象外: MP残量があれば使用可能
+  if (isFullMpCost(spell)) {
+    return explorer.mp > 0
   }
-  return explorer.mp >= spell.mpCost
+  // 割合／固定消費型: 全体倍率を適用した実効コスト以上のMPが必要（実消費と一致）
+  return explorer.mp >= getEffectiveMpCost(spell, explorer.maxMp)
 }
 
 /**

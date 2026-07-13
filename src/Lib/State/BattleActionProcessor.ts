@@ -22,6 +22,7 @@ import {
   processEnemyShieldDamageReduction,
 } from './EnemyEffectProcessor'
 import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
+import { getEffectiveMpCost, isFullMpCost } from '../Core/MpCostCalculator'
 import { getTuningValue } from '../Tuning/TuningStore'
 import { calculateWeaponDamage, calculateSpellDamage } from '../Core/DamageCalculator'
 import { consumeNextActionBuffs } from '../Core/BuffProcessor'
@@ -284,16 +285,10 @@ function consumeCommandCost(
   }
 
   if (isSpell(command)) {
-    let mpToConsume = command.mpCost
-    // 割合消費型（魔力放出、魔力の盾など）
-    if (command.mpCostRate !== undefined && command.mpCostRate > 0) {
-      if (command.mpCostRate >= 1.0) {
-        // 全MP消費
-        mpToConsume = explorer.mp
-      } else {
-        mpToConsume = Math.floor(explorer.maxMp * command.mpCostRate)
-      }
-    }
+    // 全MP消費型は倍率対象外で現在MPを全消費。それ以外は全体倍率を適用した実効コスト
+    const mpToConsume = isFullMpCost(command)
+      ? explorer.mp
+      : getEffectiveMpCost(command, explorer.maxMp)
     let updatedExplorer: ExplorerState = { ...explorer, mp: Math.max(0, explorer.mp - mpToConsume) }
     // hpCost消費（反動魔法など）- HP最低1を保証、自傷ダメージを復讐用に記録
     if (command.hpCost !== undefined && command.hpCost > 0) {

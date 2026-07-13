@@ -22,6 +22,7 @@ export const TUNING_CATEGORIES: Record<string, string> = {
   battle: 'バトル',
   economy: '報酬・経済',
   event: 'イベント',
+  global: '全体倍率',
   floor: '階層倍率',
 }
 
@@ -96,6 +97,12 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
 
   // === レリック ===
   { key: 'phoenix_ember_increment', label: '努力の証 蓄積倍率', category: 'battle', defaultValue: 0.25, control: { type: 'number', min: 0.05, max: 1.0, step: 0.05 } },
+
+  // === 全体倍率（全フロア一括） ===
+  { key: 'global_enemy_hp_multiplier', label: '全体 敵HP倍率', category: 'global', defaultValue: 1.0, control: { type: 'slider', min: 0.1, max: 5.0, step: 0.1 } },
+  { key: 'global_enemy_damage_multiplier', label: '全体 敵攻撃力倍率', category: 'global', defaultValue: 1.0, control: { type: 'slider', min: 0.1, max: 5.0, step: 0.1 } },
+  { key: 'global_mp_cost_multiplier', label: '全体 MP消費倍率(固定)', category: 'global', defaultValue: 1.0, control: { type: 'slider', min: 0.1, max: 5.0, step: 0.1 } },
+  { key: 'global_mp_cost_rate_multiplier', label: '全体 MP消費倍率(割合)', category: 'global', defaultValue: 1.0, control: { type: 'slider', min: 0.1, max: 5.0, step: 0.1 } },
 
   // === 階層倍率 ===
   { key: 'floor_1_common_rate', label: 'F1 報酬Common率', category: 'floor', defaultValue: 0.75, control: { type: 'slider', min: 0, max: 1.0, step: 0.05 } },

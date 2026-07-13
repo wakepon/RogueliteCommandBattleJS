@@ -4,6 +4,7 @@ import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
+import { getDisplayMpCost, getDisplayMpCostRate } from '../../Lib/Core/MpCostCalculator'
 import { getCommandTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
@@ -37,9 +38,9 @@ function getUsesDisplay(command: BattleCommand, potions?: PotionInstance[]): str
   }
   if (isSpell(command)) {
     if (command.mpCostRate !== undefined && command.mpCostRate > 0) {
-      return command.mpCostRate >= 1.0 ? 'MP全' : `${Math.floor(command.mpCostRate * 100)}%MP`
+      return command.mpCostRate >= 1.0 ? 'MP全' : `${Math.floor(getDisplayMpCostRate(command.mpCostRate) * 100)}%MP`
     }
-    return `${command.mpCost}MP`
+    return `${getDisplayMpCost(command.mpCost)}MP`
   }
   if (isPotion(command) && potions) {
     const count = potions.filter(p => p.id === command.id).length

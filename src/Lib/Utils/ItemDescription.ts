@@ -6,6 +6,7 @@ import { PassiveEffectType } from '../Types/Passive'
 import { BattleCommand } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isWeapon, isSpell, isPotion } from '../Core/CommandValidator'
+import { getDisplayMpCost, getDisplayMpCostRate } from '../Core/MpCostCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, type DamagePredictOptions } from './DamagePredictor'
 
 type ItemType = WeaponData | SpellData | RelicData | PotionData | ExplorerWeapon
@@ -198,9 +199,9 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
     if (spell.mpCostRate !== undefined && spell.mpCostRate > 0) {
       desc = spell.mpCostRate >= 1.0
         ? `MP: 全消費`
-        : `MP: 最大${Math.floor(spell.mpCostRate * 100)}%消費`
+        : `MP: 最大${Math.floor(getDisplayMpCostRate(spell.mpCostRate) * 100)}%消費`
     } else {
-      desc = `MP: ${spell.mpCost}`
+      desc = `MP: ${getDisplayMpCost(spell.mpCost)}`
     }
     if (spell.power > 0) {
       if (context) {
@@ -560,9 +561,9 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
     if (command.mpCostRate !== undefined && command.mpCostRate > 0) {
       desc = command.mpCostRate >= 1.0
         ? `「魔法」${command.name} - MP:全消費`
-        : `「魔法」${command.name} - MP:最大${Math.floor(command.mpCostRate * 100)}%`
+        : `「魔法」${command.name} - MP:最大${Math.floor(getDisplayMpCostRate(command.mpCostRate) * 100)}%`
     } else {
-      desc = `「魔法」${command.name} - MP:${command.mpCost}`
+      desc = `「魔法」${command.name} - MP:${getDisplayMpCost(command.mpCost)}`
     }
     if (command.power > 0) {
       if (context) {

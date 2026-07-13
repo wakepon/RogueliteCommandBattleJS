@@ -12,6 +12,7 @@ import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { isWeaponData, isSpellData } from '../../Lib/Core/StoreLogic'
+import { getDisplayMpCost } from '../../Lib/Core/MpCostCalculator'
 import { canUseImmediately, canStorePotion, canUseOnMember, getPotionEffectDescription } from '../../Lib/Core/PotionShopLogic'
 import { getPotionSlotBonus } from '../../Lib/Core/RelicProcessor'
 import { getTuningValue } from '../../Lib/Tuning/TuningStore'
@@ -317,7 +318,7 @@ function getSlotUsesInfo(slot: ShopSlot): string | null {
     case 'weapon':
       return slot.item.maxUses !== null ? `${slot.item.maxUses}回` : null
     case 'spell':
-      return `${slot.item.mpCost}MP`
+      return `${getDisplayMpCost(slot.item.mpCost)}MP`
     default:
       return null
   }
@@ -454,7 +455,7 @@ function StoreCharacterPanel({
                   <div className="flex items-center gap-1">
                     <span className="text-white flex-1 truncate font-bold">{s.name}</span>
                     {s.targetType === 'enemyAll' && <span className="text-[10px] bg-red-700 text-white px-1 rounded flex-shrink-0">全体</span>}
-                    <span className="text-gray-400 text-sm">{s.mpCost}MP</span>
+                    <span className="text-gray-400 text-sm">{getDisplayMpCost(s.mpCost)}MP</span>
                   </div>
                   {dmg && (
                     <div className="text-sm">

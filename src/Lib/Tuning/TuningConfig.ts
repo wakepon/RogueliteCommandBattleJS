@@ -68,6 +68,12 @@ export interface TuningConfig {
   // 棘バフ
   readonly thorns_base_rate: number
 
+  // 全体倍率（全フロア一括。階層倍率と積算される）
+  readonly global_enemy_hp_multiplier: number
+  readonly global_enemy_damage_multiplier: number
+  readonly global_mp_cost_multiplier: number
+  readonly global_mp_cost_rate_multiplier: number
+
   // 報酬のCommon出現率（残りはUncommon+Rareから均等抽選）
   readonly floor_1_common_rate: number
 

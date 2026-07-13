@@ -39,18 +39,22 @@ export function createEnemyInstance(enemyId: string): EnemyInstance {
   }
 }
 
-// 階層ごとのHP倍率を取得
-function getFloorHpMultiplier(floor: number): number {
-  if (floor === 3) return getTuningValue('floor_3_hp_multiplier', 3.0)
-  if (floor === 2) return getTuningValue('floor_2_hp_multiplier', 1.5)
-  return 1.0
+// 敵HP倍率を取得（全体倍率 × 階層倍率）
+function getEnemyHpMultiplier(floor: number): number {
+  const global = getTuningValue('global_enemy_hp_multiplier', 1.0)
+  let floorMult = 1.0
+  if (floor === 3) floorMult = getTuningValue('floor_3_hp_multiplier', 3.0)
+  else if (floor === 2) floorMult = getTuningValue('floor_2_hp_multiplier', 1.5)
+  return global * floorMult
 }
 
-// 階層ごとの攻撃力倍率を取得
-function getFloorDamageMultiplier(floor: number): number {
-  if (floor === 3) return getTuningValue('floor_3_damage_multiplier', 2.5)
-  if (floor === 2) return getTuningValue('floor_2_damage_multiplier', 1.8)
-  return 1.0
+// 敵攻撃力倍率を取得（全体倍率 × 階層倍率）
+function getEnemyDamageMultiplier(floor: number): number {
+  const global = getTuningValue('global_enemy_damage_multiplier', 1.0)
+  let floorMult = 1.0
+  if (floor === 3) floorMult = getTuningValue('floor_3_damage_multiplier', 2.5)
+  else if (floor === 2) floorMult = getTuningValue('floor_2_damage_multiplier', 1.8)
+  return global * floorMult
 }
 
 // ステージに応じた敵を生成（第二階層以降はHP倍率を適用）
@@ -72,7 +76,7 @@ function getEnemiesForStage(stage: number, seed: number): EnemyInstance[] {
   const instances = selectedPattern.enemies.map(enemyId => createEnemyInstance(enemyId))
 
   const floor = getFloor(stage)
-  const mult = getFloorHpMultiplier(floor)
+  const mult = getEnemyHpMultiplier(floor)
   if (mult !== 1.0) {
     return instances.map(e => ({
       ...e,
@@ -192,8 +196,8 @@ export function createBattleState(
   const turnLimit = getTurnLimitForStage(stage)
   const commandSlots = createCommandSlots(adjustedParty)
   const floor = getFloor(stage)
-  const hpMult = getFloorHpMultiplier(floor)
-  const damageMult = getFloorDamageMultiplier(floor)
+  const hpMult = getEnemyHpMultiplier(floor)
+  const damageMult = getEnemyDamageMultiplier(floor)
   const enemyIntents = generateEnemyIntents(enemies, adjustedParty, damageMult)
 
   return {
