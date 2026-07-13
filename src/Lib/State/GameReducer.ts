@@ -83,10 +83,8 @@ export type GameAction =
   | { type: 'ADVANCE_FROM_MAP' }
   | { type: 'REORDER_PARTY'; fromIndex: number; toIndex: number }
   | { type: 'USE_POTION_INSTANT'; potionId: string; targetId: string }
-  | { type: 'OPEN_POTION_SHOP' }
   | { type: 'BUY_AND_USE_POTION'; shopSlotIndex: number; targetId: string }
   | { type: 'BUY_AND_STORE_POTION'; shopSlotIndex: number }
-  | { type: 'CLOSE_POTION_SHOP' }
   // === デバッグ専用アクション（DEV時のみUIから発行される） ===
   | { type: 'DEBUG_GRANT_WEAPON'; item: WeaponData }
   | { type: 'DEBUG_GRANT_SPELL'; item: SpellData }
@@ -118,6 +116,7 @@ function advanceToMapPhase(state: GameState, run: RunState): GameState {
     run: advancedRun,
     mapState,
     storeState: null,
+    potionShopState: null,
     eventState: null,
   }
 }
@@ -137,11 +136,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'CONTINUE_GAME': {
       const { run } = action
       const storeState = createStoreState(run.seed + run.currentStage, run.currentStage)
+      const potionShopState = createPotionShopState(run.seed + run.currentStage + 777)
       const mapState: MapState = {
         nodes: generateMapNodes(run.seed),
         currentStage: run.currentStage,
       }
-      return { ...state, phase: 'store', run, storeState, mapState }
+      return { ...state, phase: 'store', run, storeState, potionShopState, mapState }
     }
 
     case 'RETURN_TITLE':
@@ -258,11 +258,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.run) return state
       const ownedRelicIds = state.run.relics.map(r => r.id)
       const storeState = createStoreState(state.run.seed + state.run.currentStage, state.run.currentStage, ownedRelicIds)
+      const potionShopState = createPotionShopState(state.run.seed + state.run.currentStage + 777)
       const mapState: MapState = {
         nodes: generateMapNodes(state.run.seed),
         currentStage: state.run.currentStage,
       }
-      return { ...state, phase: 'store', storeState, resultState: null, mapState }
+      return { ...state, phase: 'store', storeState, resultState: null, potionShopState, mapState }
     }
 
     case 'BUY_WEAPON': {
@@ -613,12 +614,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return advanceToMapPhase(state, state.run)
     }
 
-    case 'OPEN_POTION_SHOP': {
-      if (!state.run) return state
-      const potionShopState = createPotionShopState(state.run.seed + state.run.currentStage + 777)
-      return { ...state, phase: 'recovery', potionShopState }
-    }
-
     case 'BUY_AND_USE_POTION': {
       if (!state.run || !state.potionShopState) return state
       const run = state.run
@@ -665,16 +660,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         run: updatedRun,
         potionShopState: { ...state.potionShopState, shopSlots: updatedShopSlots },
       }
-    }
-
-    case 'CLOSE_POTION_SHOP': {
-      if (!state.run) return state
-      const storeState = createStoreState(state.run.seed + state.run.currentStage, state.run.currentStage)
-      const mapState: MapState = {
-        nodes: generateMapNodes(state.run.seed),
-        currentStage: state.run.currentStage,
-      }
-      return { ...state, phase: 'store', storeState, resultState: null, potionShopState: null, mapState }
     }
 
     case 'OPEN_EVENT': {
@@ -843,7 +828,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const popups = [...state.battleState.playerDamagePopups]
 
       if (effect.type === 'healHp') {
-        const healAmount = Math.floor(effect.value * potionMultiplier)
+        const healAmount = effect.full ? updatedTarget.maxHp : Math.floor(effect.value * potionMultiplier)
         const newHp = Math.min(updatedTarget.hp + healAmount, updatedTarget.maxHp)
         const actualHeal = newHp - updatedTarget.hp
         updatedTarget = { ...updatedTarget, hp: newHp }
@@ -851,7 +836,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           popups.push(createPlayerDamagePopup(-actualHeal, action.targetId))
         }
       } else if (effect.type === 'healMp') {
-        const healAmount = Math.floor(effect.value * potionMultiplier)
+        const healAmount = effect.full ? updatedTarget.maxMp : Math.floor(effect.value * potionMultiplier)
         const newMp = Math.min(updatedTarget.mp + healAmount, updatedTarget.maxMp)
         const actualHeal = newMp - updatedTarget.mp
         updatedTarget = { ...updatedTarget, mp: newMp }

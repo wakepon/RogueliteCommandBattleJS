@@ -1,6 +1,5 @@
 export * from './TitleScreen'
 export * from './ResultScreen'
-export * from './RecoveryScreen'
 export * from './StoreScreen'
 export * from './EventScreen'
 export * from './MapScreen'

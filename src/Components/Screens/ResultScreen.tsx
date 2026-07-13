@@ -3,7 +3,6 @@ import { Button } from '../Common/Button'
 import { useGame } from '../../Hooks/UseGame'
 import { ResultMemberPanel } from '../Result'
 import { MemberAnimationPhase } from '../../Lib/Types/Game'
-import { isPotionShopStage } from '../../Lib/Core/StageManager'
 
 /** 各段階の遅延（ms） */
 const CARD_TO_MEMBER_DELAY_MS = 500
@@ -14,7 +13,7 @@ const MEMBER_LEVEL_UPDATE_TO_MAX_MS = 1000
 const MEMBER_MAX_TO_DONE_MS = 500
 
 export function ResultScreen() {
-  const { state, openPotionShop, openStore } = useGame()
+  const { state, openStore } = useGame()
   const { resultState } = state
 
   // 敗北時は BattleScreen のオーバーレイで処理するため、ここには勝利時のみ到達する
@@ -118,15 +117,9 @@ export function ResultScreen() {
       )}
 
       <div className="flex flex-col gap-4">
-        {state.run && isPotionShopStage(state.run.currentStage) ? (
-          <Button variant="primary" size="lg" onClick={openPotionShop}>
-            ポーションショップへ
-          </Button>
-        ) : (
-          <Button variant="primary" size="lg" onClick={openStore}>
-            ショップへ
-          </Button>
-        )}
+        <Button variant="primary" size="lg" onClick={openStore}>
+          ショップへ
+        </Button>
       </div>
     </div>
   )

@@ -330,10 +330,10 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
   if ('commandCategory' in item && item.commandCategory === 'potion') {
     const potion = item as PotionData
     if (potion.effect.type === 'healHp') {
-      lines.push({ label: '効果', value: `HP ${potion.effect.value}回復`, color: 'text-green-300' })
+      lines.push({ label: '効果', value: potion.effect.full ? 'HP全回復' : `HP ${potion.effect.value}回復`, color: 'text-green-300' })
     }
     if (potion.effect.type === 'healMp') {
-      lines.push({ label: '効果', value: `MP ${potion.effect.value}回復`, color: 'text-blue-300' })
+      lines.push({ label: '効果', value: potion.effect.full ? 'MP全回復' : `MP ${potion.effect.value}回復`, color: 'text-blue-300' })
     }
     if (potion.effect.type === 'repairWeapons') {
       lines.push({ label: '効果', value: `武器耐久値+${potion.effect.value}`, color: 'text-green-300' })

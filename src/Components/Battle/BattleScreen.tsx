@@ -85,8 +85,9 @@ function getPendingHealForMember(slots: CommandSlot[], member: ExplorerState): n
  */
 function getPotionHpRestoreAmount(command: BattleCommand, member: ExplorerState, potionMultiplier: number): number {
   if (isPotion(command) && command.effect.type === 'healHp') {
-    const amount = Math.floor(command.effect.value * potionMultiplier)
-    return member.hp > 0 ? Math.max(0, amount) : 0
+    const missing = member.maxHp - member.hp
+    const amount = command.effect.full ? missing : Math.floor(command.effect.value * potionMultiplier)
+    return member.hp > 0 ? Math.max(0, Math.min(amount, missing)) : 0
   }
   return 0
 }
@@ -98,7 +99,7 @@ function getPotionHpRestoreAmount(command: BattleCommand, member: ExplorerState,
 function getMpRestorePreviewAmount(command: BattleCommand, member: ExplorerState, potionMultiplier: number): number {
   const missing = member.maxMp - member.mp
   if (isPotion(command) && command.effect.type === 'healMp') {
-    const amount = Math.floor(command.effect.value * potionMultiplier)
+    const amount = command.effect.full ? missing : Math.floor(command.effect.value * potionMultiplier)
     // MP回復ポーションは生存者のみ対象
     return member.hp > 0 ? Math.max(0, Math.min(amount, missing)) : 0
   }

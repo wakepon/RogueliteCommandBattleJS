@@ -6,7 +6,7 @@
     "price": 2,
     "commandCategory": "potion",
     "targetType": "allySingle",
-    "effect": { "type": "healHp", "value": 10 }
+    "effect": { "type": "healHp", "value": 10, "full": true }
   },
   "mp_potion": {
     "id": "mp_potion",
@@ -15,7 +15,7 @@
     "price": 2,
     "commandCategory": "potion",
     "targetType": "allySingle",
-    "effect": { "type": "healMp", "value": 10 }
+    "effect": { "type": "healMp", "value": 10, "full": true }
   },
   "repair_potion": {
     "id": "repair_potion",

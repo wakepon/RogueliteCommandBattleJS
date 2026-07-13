@@ -48,11 +48,9 @@ interface GameContextType {
   toggleRepairWeapon: (weaponId: string) => void
   confirmRepair: (explorerId: string) => void
   closeEvent: () => void
-  // ポーションショップ関連アクション
-  openPotionShop: () => void
+  // ポーションショップ関連アクション（報酬画面のオーバーレイから使用）
   buyAndUsePotion: (shopSlotIndex: number, targetId: string) => void
   buyAndStorePotion: (shopSlotIndex: number) => void
-  closePotionShop: () => void
   // マップ関連アクション
   advanceFromMap: () => void
   // デバッグ関連アクション（DEV時のみ使用）
@@ -149,13 +147,11 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: 'TOGGLE_REPAIR_WEAPON', weaponId }), [])
   const confirmRepair = useCallback((explorerId: string) => dispatch({ type: 'CONFIRM_REPAIR', explorerId }), [])
   const closeEvent = useCallback(() => dispatch({ type: 'CLOSE_EVENT' }), [])
-  // ポーションショップ関連アクション
-  const openPotionShop = useCallback(() => dispatch({ type: 'OPEN_POTION_SHOP' }), [])
+  // ポーションショップ関連アクション（報酬画面のオーバーレイから使用）
   const buyAndUsePotion = useCallback((shopSlotIndex: number, targetId: string) =>
     dispatch({ type: 'BUY_AND_USE_POTION', shopSlotIndex, targetId }), [])
   const buyAndStorePotion = useCallback((shopSlotIndex: number) =>
     dispatch({ type: 'BUY_AND_STORE_POTION', shopSlotIndex }), [])
-  const closePotionShop = useCallback(() => dispatch({ type: 'CLOSE_POTION_SHOP' }), [])
   // マップ関連アクション
   const advanceFromMap = useCallback(() => dispatch({ type: 'ADVANCE_FROM_MAP' }), [])
   // デバッグ関連アクション（DEV時のみ使用）
@@ -232,10 +228,8 @@ export function GameProvider({ children }: GameProviderProps) {
       toggleRepairWeapon,
       confirmRepair,
       closeEvent,
-      openPotionShop,
       buyAndUsePotion,
       buyAndStorePotion,
-      closePotionShop,
       advanceFromMap,
       debugGrantWeapon,
       debugGrantSpell,

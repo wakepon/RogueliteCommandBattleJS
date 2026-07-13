@@ -2,8 +2,9 @@ import { useState, useCallback, useMemo } from 'react'
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { useGame } from '../../Hooks/UseGame'
+import { useScreenFlash } from '../../Hooks/UseScreenFlash'
 import { Button } from '../Common/Button'
-import { ResourceBar, Tooltip, TooltipCard, CharacterStatTooltip } from '../Common'
+import { ResourceBar, Tooltip, TooltipCard, CharacterStatTooltip, ScreenFlashOverlay } from '../Common'
 import { MapOverlay } from '../Store/MapOverlay'
 import { ExplorerState, CharacterClass } from '../../Lib/Types/Explorer'
 import { ExplorerWeapon, WeaponData } from '../../Lib/Types/Weapon'
@@ -11,6 +12,7 @@ import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { isWeaponData, isSpellData } from '../../Lib/Core/StoreLogic'
+import { canUseImmediately, canStorePotion, canUseOnMember, getPotionEffectDescription } from '../../Lib/Core/PotionShopLogic'
 import { getPotionSlotBonus } from '../../Lib/Core/RelicProcessor'
 import { getTuningValue } from '../../Lib/Tuning/TuningStore'
 import { ShopSlot } from '../../Lib/Types/Game'
@@ -51,6 +53,7 @@ type ShopDragData =
   | { source: 'inv-relic'; relicIndex: number }
   | { source: 'inv-potion'; potionIndex: number }
   | { source: 'sold-item'; soldIndex: number; soldItem: SoldItem }
+  | { source: 'potion-shop'; shopSlotIndex: number; potion: PotionData }
 
 /** ShopSlotからShopDragDataを生成する */
 function slotToDragData(slotIndex: number, slot: ShopSlot): ShopDragData | null {
@@ -155,6 +158,55 @@ function EmptySlot({ label }: { label: string }) {
   return (
     <div className="border-2 border-dashed border-gray-600 rounded p-1.5 h-full flex items-center justify-center">
       <span className="text-gray-600 text-[10px]">{label}</span>
+    </div>
+  )
+}
+
+/**
+ * キャラ欄をまるごとドロップ先にする軽量ラッパー。
+ * ポーションショップの即使用ポーションをドラッグ中のみ有効化する。
+ * DroppableSlotと違い disabled 時にグレーアウトしない（常時表示のキャラ欄用）。
+ */
+function MemberDropZone({ id, disabled, isValid, children }: {
+  id: string
+  disabled: boolean
+  isValid: boolean
+  children: React.ReactNode
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id, disabled })
+  const isOverActive = isOver && !disabled
+  const ring = isOverActive
+    ? 'ring-2 ring-teal-400 bg-teal-400/10'
+    : isValid
+      ? 'ring-2 ring-teal-400/50'
+      : ''
+  return (
+    <div ref={setNodeRef} className={`h-full rounded-lg ${ring}`}>
+      {children}
+    </div>
+  )
+}
+
+// === ポーションショップ商品カード（ミニウィンドウ内） ===
+
+function ShopPotionMiniCard({ potion, stock, price, canAfford }: {
+  potion: PotionData
+  stock: number
+  price: number
+  canAfford: boolean
+}) {
+  const disabled = stock <= 0 || !canAfford
+  const effectDesc = getPotionEffectDescription(potion.effect)
+  return (
+    <div className={`border rounded p-2 text-xs min-h-[84px] flex flex-col gap-0.5 transition-all duration-200 ${
+      disabled ? 'border-gray-600 bg-gray-800/60 opacity-40 grayscale' : 'border-teal-500 bg-teal-900/30'
+    }`}>
+      <div className="flex items-center gap-1">
+        <span className={`font-bold truncate flex-1 ${disabled ? 'text-gray-500' : 'text-white'}`}>{potion.name}</span>
+        <span className={`font-bold text-sm flex-shrink-0 ${canAfford ? 'text-yellow-300' : 'text-red-400'}`}>{price}G</span>
+      </div>
+      <div className={`text-[10px] ${disabled ? 'text-gray-600' : 'text-teal-300'}`}>{effectDesc}</div>
+      <div className={`mt-auto text-[10px] ${stock <= 0 ? 'text-red-400' : 'text-gray-400'}`}>残り {stock}</div>
     </div>
   )
 }
@@ -308,8 +360,10 @@ function StoreCharacterPanel({
     || dragData.source === 'inv-spell'
     || (dragData.source === 'sold-item' && dragData.soldItem.type === 'spell')
   )
-  const weaponDropDisabled = !!(isDraggingSpell)
-  const spellDropDisabled = !!(isDraggingWeapon)
+  // ポーションショップの商品をドラッグ中は武器/魔法枠を無効化し、キャラ欄全体のドロップを優先させる
+  const isDraggingShopPotion = dragData?.source === 'potion-shop'
+  const weaponDropDisabled = !!(isDraggingSpell) || isDraggingShopPotion
+  const spellDropDisabled = !!(isDraggingWeapon) || isDraggingShopPotion
 
   const opts = { relics }
 
@@ -449,6 +503,8 @@ export function StoreLeftPanel({
   newPurchaseKeys,
   party,
   dragData,
+  isPotionShopOpen,
+  onTogglePotionShop,
 }: {
   shopTitle: string
   currentStage: number
@@ -459,6 +515,8 @@ export function StoreLeftPanel({
   newPurchaseKeys: Set<string>
   party: ExplorerState[]
   dragData: ShopDragData | null
+  isPotionShopOpen: boolean
+  onTogglePotionShop: () => void
 }) {
   const maxRelicCount = getTuningValue('max_relic_count', 5)
   const relicEmptyCount = Math.max(0, maxRelicCount - relics.length)
@@ -474,6 +532,7 @@ export function StoreLeftPanel({
   const isDraggingPotion = !!(dragData && (
     dragData.source === 'shop-potion'
     || (dragData.source === 'sold-item' && dragData.soldItem.type === 'potion')
+    || (dragData.source === 'potion-shop' && canStorePotion(dragData.potion.effect))
   ))
 
   return (
@@ -546,6 +605,15 @@ export function StoreLeftPanel({
         ))}
       </div>
 
+      {/* ポーションショップ開閉ボタン（ポーション枠の下） */}
+      <Button
+        variant={isPotionShopOpen ? 'secondary' : 'primary'}
+        onClick={onTogglePotionShop}
+        className="w-full text-sm"
+      >
+        {isPotionShopOpen ? '閉じる' : 'ポーションショップ'}
+      </Button>
+
       {/* 余白（ポーションを上方に固定） */}
       <div className="flex-1" />
     </div>
@@ -563,9 +631,12 @@ export function StoreScreen() {
     undoDiscardWeapon, undoDiscardSpell, undoDiscardRelic, undoDiscardPotion,
     transferWeapon, transferSpell,
     rerollStore, closeStore,
+    buyAndUsePotion, buyAndStorePotion,
   } = useGame()
 
+  const { flashKey, triggerFlash } = useScreenFlash()
   const [showMap, setShowMap] = useState(false)
+  const [showPotionShop, setShowPotionShop] = useState(false)
   const [dragData, setDragData] = useState<ShopDragData | null>(null)
   const [draggingLabel, setDraggingLabel] = useState<string | null>(null)
   const [soldItems, setSoldItems] = useState<SoldItem[]>([])
@@ -575,7 +646,7 @@ export function StoreScreen() {
   // 新規購入アイテムキー（NEWバッジ表示用）
   const [newPurchaseKeys, setNewPurchaseKeys] = useState<Set<string>>(new Set())
 
-  const { run, storeState, mapState } = state
+  const { run, storeState, mapState, potionShopState } = state
   if (!run || !storeState) return null
 
   // 商品カード用のダメージ予測（武器=戦士+僧侶、魔法=魔法使い+僧侶 のデュアル予測）
@@ -620,6 +691,7 @@ export function StoreScreen() {
     else if (data.source === 'inv-relic') setDraggingLabel(run.relics[data.relicIndex]?.name ?? '')
     else if (data.source === 'inv-potion') setDraggingLabel(run.potions[data.potionIndex]?.name ?? '')
     else if (data.source === 'sold-item') setDraggingLabel(data.soldItem.name)
+    else if (data.source === 'potion-shop') setDraggingLabel(data.potion.name)
   }, [run])
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -628,6 +700,18 @@ export function StoreScreen() {
     if (!event.over) return
     const dropId = event.over.id as string
     const data = event.active.data.current as ShopDragData
+
+    // === ポーションショップ商品→キャラ/ポーション枠 (ゴールド購入) ===
+    if (data.source === 'potion-shop') {
+      if (dropId.startsWith('member-drop-')) {
+        const targetId = dropId.replace('member-drop-', '')
+        buyAndUsePotion(data.shopSlotIndex, targetId)
+        triggerFlash()
+      } else if (dropId.startsWith('slot-potion-')) {
+        buyAndStorePotion(data.shopSlotIndex)
+      }
+      return
+    }
 
     // === 商品→空き枠 (購入) ===
     if (data.source === 'shop-weapon') {
@@ -794,7 +878,7 @@ export function StoreScreen() {
         setSoldItems(prev => prev.filter((_, i) => i !== data.soldIndex))
       }
     }
-  }, [run, purchaseRecords, buyWeapon, buySpell, buyRelic, buyPotion, discardWeapon, discardSpell, discardRelic, discardPotion, undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion, undoDiscardWeapon, undoDiscardSpell, undoDiscardRelic, undoDiscardPotion, transferWeapon, transferSpell, addMovedKey, removeMovedKey])
+  }, [run, purchaseRecords, buyWeapon, buySpell, buyRelic, buyPotion, discardWeapon, discardSpell, discardRelic, discardPotion, undoBuyWeapon, undoBuySpell, undoBuyRelic, undoBuyPotion, undoDiscardWeapon, undoDiscardSpell, undoDiscardRelic, undoDiscardPotion, transferWeapon, transferSpell, addMovedKey, removeMovedKey, buyAndUsePotion, buyAndStorePotion, triggerFlash])
 
   const handleDragCancel = useCallback(() => {
     setDragData(null)
@@ -814,6 +898,7 @@ export function StoreScreen() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={pointerWithin}>
+      <ScreenFlashOverlay flashKey={flashKey} />
       <div className="min-h-screen bg-gray-800 p-2 flex gap-2">
 
         {/* ===== 左サイドパネル ===== */}
@@ -828,6 +913,8 @@ export function StoreScreen() {
             newPurchaseKeys={newPurchaseKeys}
             party={run.party}
             dragData={dragData}
+            isPotionShopOpen={showPotionShop}
+            onTogglePotionShop={() => setShowPotionShop(v => !v)}
           />
         </div>
 
@@ -893,21 +980,78 @@ export function StoreScreen() {
               )}
             </div>
           </DroppableSlot>
+
+          {/* ===== ポーションショップ ミニウィンドウ（商品枠に少しずらして重ねる） ===== */}
+          {showPotionShop && potionShopState && (
+            <div className="absolute z-20 left-4 top-4 right-14 bottom-3 bg-gray-950/95 border-2 border-teal-500 rounded-lg shadow-2xl shadow-black/70 p-3 flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <span className="text-teal-300 font-bold text-sm">ポーションショップ</span>
+                <span className="text-yellow-300 font-bold text-sm">所持 {run.gold}G</span>
+                <button
+                  type="button"
+                  onClick={() => setShowPotionShop(false)}
+                  aria-label="ポーションショップを閉じる"
+                  className="ml-auto -mt-1 -mr-1 w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="text-[10px] text-gray-400 leading-tight">
+                ポーション枠 / キャラにドラッグして購入（HP・MP回復は即使用、その他は枠に保存）
+              </div>
+              <div className="grid grid-cols-3 gap-2 overflow-y-auto">
+                {potionShopState.shopSlots.map((slot, i) => {
+                  const canAfford = run.gold >= slot.potion.price
+                  const disabled = slot.stock <= 0 || !canAfford
+                  return (
+                    <Tooltip key={`ps-${i}`} content={<TooltipCard item={slot.potion} />} position="bottom">
+                      <DraggableShopItem
+                        id={`ps-potion-${i}`}
+                        data={{ source: 'potion-shop', shopSlotIndex: i, potion: slot.potion }}
+                        disabled={disabled}
+                      >
+                        <ShopPotionMiniCard
+                          potion={slot.potion}
+                          stock={slot.stock}
+                          price={slot.potion.price}
+                          canAfford={canAfford}
+                        />
+                      </DraggableShopItem>
+                    </Tooltip>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ===== キャラ欄3等分（3キャラ。共有枠はサイドバーへ移動） ===== */}
         <div className="grid grid-cols-3 gap-1.5 flex-1 min-h-0">
-          {run.party.map((member, index) => (
-            <StoreCharacterPanel
-              key={member.id}
-              member={member}
-              memberIndex={index}
-              dragData={dragData}
-              movedKeys={movedKeys}
-              newPurchaseKeys={newPurchaseKeys}
-              relics={run.relics as RelicData[]}
-            />
-          ))}
+          {run.party.map((member, index) => {
+            // ポーションショップの即使用ポーションをドラッグ中はキャラ欄をドロップ先にする
+            const potionShopDrag = dragData?.source === 'potion-shop' ? dragData : null
+            const isImmediatePotion = potionShopDrag ? canUseImmediately(potionShopDrag.potion.effect) : false
+            const canUseHere = isImmediatePotion && potionShopDrag
+              ? canUseOnMember(potionShopDrag.potion.effect, member)
+              : false
+            return (
+              <MemberDropZone
+                key={member.id}
+                id={`member-drop-${member.id}`}
+                disabled={!isImmediatePotion}
+                isValid={canUseHere}
+              >
+                <StoreCharacterPanel
+                  member={member}
+                  memberIndex={index}
+                  dragData={dragData}
+                  movedKeys={movedKeys}
+                  newPurchaseKeys={newPurchaseKeys}
+                  relics={run.relics as RelicData[]}
+                />
+              </MemberDropZone>
+            )
+          })}
         </div>
 
         {/* ===== 確定ボタン ===== */}

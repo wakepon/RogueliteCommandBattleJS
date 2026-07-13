@@ -27,34 +27,29 @@ function pickRandom<T>(array: T[], count: number, seed: number): T[] {
   return shuffled.slice(0, Math.min(count, shuffled.length))
 }
 
-const SHOP_POTION_COUNT = 5
-const INITIAL_STOCK = 5
+/** ポーションショップの商品枠数（ランダム3枠） */
+const SHOP_POTION_COUNT = 3
+/** 各商品の在庫（1個限り） */
+const INITIAL_STOCK = 1
+/** 商品価格（全て5Gに統一） */
+const SHOP_POTION_PRICE = 5
 
 /** 種系ポーション（永続ステータス上昇）の効果タイプ */
 const SEED_POTION_EFFECTS = ['boostStr', 'boostInt', 'boostMaxHp', 'boostMaxMp']
-/** ポーションショップに確実に出現させる種系ポーションの種類数 */
-const GUARANTEED_SEED_COUNT = 2
 
 function isSeedPotion(potion: PotionData): boolean {
   return SEED_POTION_EFFECTS.includes(potion.effect.type)
 }
 
-/** ポーションショップ状態を生成（種系ポーションが必ず2種類出現する） */
+/** ポーションショップ状態を生成（種系を除外し、ランダム3枠・各1個・価格5Gで並べる） */
 export function createPotionShopState(seed: number): PotionShopState {
-  const seedPotions = allPotions.filter(isSeedPotion)
-  const otherPotions = allPotions.filter(p => !isSeedPotion(p))
-
-  // 種系を確実に2種類選出
-  const pickedSeeds = pickRandom(seedPotions, GUARANTEED_SEED_COUNT, seed + 1)
-  // 残り枠は「種以外 + 未選出の種」から抽選
-  const remainingCount = SHOP_POTION_COUNT - pickedSeeds.length
-  const remainingPool = [...otherPotions, ...seedPotions.filter(s => !pickedSeeds.includes(s))]
-  const pickedRest = pickRandom(remainingPool, remainingCount, seed + 2)
-
-  // 表示順をシャッフル（種系が先頭に固まらないように）
-  const selected = pickRandom([...pickedSeeds, ...pickedRest], SHOP_POTION_COUNT, seed + 3)
+  const candidates = allPotions.filter(p => !isSeedPotion(p))
+  const selected = pickRandom(candidates, SHOP_POTION_COUNT, seed + 1)
   return {
-    shopSlots: selected.map(potion => ({ potion, stock: INITIAL_STOCK })),
+    shopSlots: selected.map(potion => ({
+      potion: { ...potion, price: SHOP_POTION_PRICE },
+      stock: INITIAL_STOCK,
+    })),
   }
 }
 
@@ -125,10 +120,12 @@ export function applyPotionToMember(potion: PotionData, member: ExplorerState, r
   const multiplier = getPotionEffectMultiplier(relics)
   switch (effect.type) {
     case 'healHp': {
+      if (effect.full) return { ...member, hp: member.maxHp }
       const healAmount = Math.floor(effect.value * multiplier)
       return { ...member, hp: Math.min(member.hp + healAmount, member.maxHp) }
     }
     case 'healMp': {
+      if (effect.full) return { ...member, mp: member.maxMp }
       const healAmount = Math.floor(effect.value * multiplier)
       return { ...member, mp: Math.min(member.mp + healAmount, member.maxMp) }
     }
@@ -160,8 +157,8 @@ export function applyPotionToMember(potion: PotionData, member: ExplorerState, r
 /** ポーション効果の説明テキスト */
 export function getPotionEffectDescription(effect: PotionEffect): string {
   switch (effect.type) {
-    case 'healHp': return `HP +${effect.value}`
-    case 'healMp': return `MP +${effect.value}`
+    case 'healHp': return effect.full ? 'HPを全回復' : `HP +${effect.value}`
+    case 'healMp': return effect.full ? 'MPを全回復' : `MP +${effect.value}`
     case 'repairWeapons': return `武器修復 +${effect.value}`
     case 'taunt': return '挑発（1ターン）'
     case 'statBoost': return `STR+${effect.strValue} INT+${effect.intValue}（1ターン）`

@@ -8,7 +8,7 @@ import { EnemyType } from './Enemy'
 import { CharacterClass } from './Explorer'
 
 // ゲームフェーズ
-export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result' | 'recovery' | 'map'
+export type GamePhase = 'title' | 'battle' | 'store' | 'event' | 'result' | 'map'
 
 /** マップノードのタイプ */
 export type MapNodeType = 'battle' | 'event' | 'boss'
