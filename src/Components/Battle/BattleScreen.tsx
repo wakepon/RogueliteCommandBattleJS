@@ -934,15 +934,31 @@ export function BattleScreen() {
   // 回復ポーションの効果倍率（レリック補正）。回復プレビュー量の算出に使う
   const potionEffectMultiplier = getPotionEffectMultiplier(run.relics)
 
-  // コマンド立案支援: 各コマンドの下端確殺ライン（生存敵ごとに単騎確殺できるか）を算出。
-  // 土台に previewCommandSlots を使うことで、武器強化などのバフ確定/ドラッグ中ホバーが即座に反映される。
-  // 行動予定に技を追加すると previewCommandSlots が変わり、予測ダメージ→確殺判定が再計算される。
+  // 確殺ライン専用の土台スロット。previewCommandSlots（味方対象コマンドの味方ホバー仮反映済み）に加え、
+  // 敵対象コマンドをドラッグ中に敵へホバーしている場合、その仮コマンドも行動予定へ乗せる。
+  // これにより、攻撃をドラッグして敵の上にホバーしただけでも（ドロップ前でも）確殺ラインが再計算される。
+  // 味方バフをホバーしてダメージが変わるケースは previewCommandSlots 側で既に反映される。
+  const killLinePreviewSlots = useMemo(() => {
+    if (!draggingCommand || !draggingExplorerId || !hoverEnemyId) return previewCommandSlots
+    const isEnemyTargeting = draggingCommand.targetType === 'enemySingle' || draggingCommand.targetType === 'enemyAll' || draggingCommand.targetType === 'enemyRandom'
+    if (!isEnemyTargeting) return previewCommandSlots
+    const tentativeSlot = { explorerId: draggingExplorerId, command: draggingCommand, targetId: hoverEnemyId }
+    const idx = previewCommandSlots.findIndex(s => s.explorerId === draggingExplorerId)
+    if (idx < 0) return [...previewCommandSlots, tentativeSlot]
+    const next = [...previewCommandSlots]
+    next[idx] = tentativeSlot
+    return next
+  }, [previewCommandSlots, draggingCommand, draggingExplorerId, hoverEnemyId])
+
+  // コマンド立案支援: 各コマンドの下端確殺ライン（敵カードごとに確殺できるか）を算出。
+  // 土台に killLinePreviewSlots を使うことで、行動予定の確定分に加え、ドラッグ中ホバー
+  // （攻撃を敵へ / 味方バフを味方へ）による予測ダメージ変化も即座に反映・再計算される。
   const killLineMap = useMemo<Map<string, (boolean | null)[]>>(() => {
     if (!isCommandPhase) return new Map()
     const hpCostBoost = getHpCostPowerBoost(run.relics)
     const options = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0, hasHpCostPowerBoost: hpCostBoost !== null, hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0 }
-    return classifyCommandsSoloKillPerEnemy(party, enemies, previewCommandSlots, options)
-  }, [isCommandPhase, party, enemies, previewCommandSlots, run.relics, run.brokenWeaponCount, run.totalBrokenWeaponCount])
+    return classifyCommandsSoloKillPerEnemy(party, enemies, killLinePreviewSlots, options)
+  }, [isCommandPhase, party, enemies, killLinePreviewSlots, run.relics, run.brokenWeaponCount, run.totalBrokenWeaponCount])
 
   // パネルソート用のID配列
   const panelIds = party.map(m => `panel-${m.id}`)
