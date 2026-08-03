@@ -302,7 +302,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       const updatedExplorer: ExplorerState = {
         ...explorer,
-        spells: [...explorer.spells, { ...item, enhancements: [] }],
+        spells: [...explorer.spells, { ...item, currentUses: item.maxUses === null ? null : item.maxUses, enhancements: [] }],
       }
 
       const updatedParty = state.run.party.map((m, i) => i === memberIndex ? updatedExplorer : m)

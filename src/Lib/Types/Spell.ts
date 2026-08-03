@@ -1,7 +1,7 @@
 import { IItem } from './Item'
 import { IPurchasable } from './Purchasable'
 import { ICommandable, ITargetable, TargetType } from './Command'
-import { IMpCost } from './Consumable'
+import { IMpCost, IUseLimited } from './Consumable'
 import { SpellEnhancement } from './Enhancement'
 
 /** 魔法効果 */
@@ -30,18 +30,21 @@ export type SpellEffect =
   | { type: 'revive'; hp: number }  // 蘇生呪文: 戦闘不能の対象をHP=hpで復活
 
 /** 魔法データ */
-export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost {
+// NoMP化: 魔法は武器と同じ耐久値(maxUses/currentUses)で消費する。
+// mpCost/mpCostRate は表示互換のため残置（MP消費の実処理・ゲート判定では未使用）。
+export interface SpellData extends IItem, IPurchasable, ICommandable, ITargetable, IMpCost, IUseLimited {
   commandCategory: 'spell'
   targetType: TargetType
   power: number
   variance: number  // ダメージブレ幅（±variance の加算ブレ）
   effect?: SpellEffect | null
-  mpCostRate?: number  // 最大MP割合コスト（0.5 = 50%消費、1.0 = 全消費）
+  mpCostRate?: number  // 旧・最大MP割合コスト（表示互換用の残置。消費判定には不使用）
   hpCost?: number     // HP消費（反動魔法用）
   slotFree?: boolean  // trueなら魔法枠を消費しない（魔力弾・祈り等、パンチ相当）
 }
 
 /** 魔法インスタンス */
 export interface SpellInstance extends SpellData {
+  currentUses: number | null  // 残り使用回数（耐久）。nullは無制限（魔力弾・祈り）
   enhancements: SpellEnhancement[]
 }

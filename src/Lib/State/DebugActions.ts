@@ -39,7 +39,7 @@ export function grantSpellToParty(
   if (memberIndex < 0) return null
 
   return party.map((m, i) =>
-    i === memberIndex ? { ...m, spells: [...m.spells, { ...item, enhancements: [] }] } : m
+    i === memberIndex ? { ...m, spells: [...m.spells, { ...item, currentUses: item.maxUses === null ? null : item.maxUses, enhancements: [] }] } : m
   )
 }
 

@@ -3,7 +3,6 @@ import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
 import { SpellInstance } from '../Types/Spell'
 import { PotionInstance } from '../Types/Potion'
 import { BattleCommand } from '../Types/Battle'
-import { getEffectiveMpCost, isFullMpCost } from './MpCostCalculator'
 
 /**
  * 武器が WeaponInstance かどうかを判定する型ガード
@@ -76,23 +75,21 @@ function isWeaponAvailable(weapon: ExplorerWeapon, explorer?: ExplorerState): bo
 }
 
 /**
- * 魔法が使用可能かどうかを判定する
+ * 魔法が使用可能かどうかを判定する（NoMP化: 武器と同じ耐久値ベース）
  *
  * 判定条件:
- * - mpCostRate がある場合: rate >= 1.0 なら mp > 0、それ以外は mp >= floor(maxMp × rate)
- * - mpCostRate がない場合: explorer.mp >= spell.mpCost
+ * - currentUses が null の場合は無制限（魔力弾・祈りなど、常に使用可能）
+ * - currentUses > 0 の場合は使用可能
+ * - それ以外（耐久切れ）は使用不可
  *
  * @param spell - 判定対象の魔法
- * @param explorer - 探索者の状態
  * @returns 使用可能な場合 true
  */
-function isSpellAvailable(spell: SpellInstance, explorer: ExplorerState): boolean {
-  // 全MP消費型は倍率対象外: MP残量があれば使用可能
-  if (isFullMpCost(spell)) {
-    return explorer.mp > 0
+function isSpellAvailable(spell: SpellInstance): boolean {
+  if (spell.currentUses === null) {
+    return true
   }
-  // 割合／固定消費型: 全体倍率を適用した実効コスト以上のMPが必要（実消費と一致）
-  return explorer.mp >= getEffectiveMpCost(spell, explorer.maxMp)
+  return spell.currentUses > 0
 }
 
 /**
@@ -110,7 +107,7 @@ export function getAvailableCommands(
   )
 
   const availableSpells = explorer.spells.filter(spell =>
-    isSpellAvailable(spell, explorer)
+    isSpellAvailable(spell)
   )
 
   // 同名ポーションは重複排除して1つだけ返す（個数はUI側で計算）

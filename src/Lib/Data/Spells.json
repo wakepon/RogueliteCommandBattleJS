@@ -2,117 +2,105 @@
   "magic_bullet": {
     "id": "magic_bullet", "name": "魔力弾", "rarity": "Common", "price": 0,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 0, "power": 1, "variance": 2, "effect": null, "slotFree": true
+    "mpCost": 0, "maxUses": null, "power": 1, "variance": 2, "effect": null, "slotFree": true
   },
   "prayer": {
     "id": "prayer", "name": "祈り", "rarity": "Common", "price": 0,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 0, "power": 0, "variance": 0,
+    "mpCost": 0, "maxUses": null, "power": 0, "variance": 0,
     "effect": { "type": "targetRateUp", "value": 25 }, "slotFree": true
   },
   "fire": {
     "id": "fire", "name": "ファイア", "rarity": "Common", "price": 5,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 6, "power": 5, "variance": 4, "effect": null
+    "mpCost": 6, "maxUses": 3, "power": 5, "variance": 4, "effect": null
   },
   "ice": {
     "id": "ice", "name": "アイス", "rarity": "Common", "price": 5,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 5, "power": 4, "variance": 2, "effect": null
+    "mpCost": 5, "maxUses": 4, "power": 4, "variance": 2, "effect": null
   },
   "heal": {
     "id": "heal", "name": "ヒール", "rarity": "Common", "price": 4,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 5, "power": 0, "variance": 0,
+    "mpCost": 5, "maxUses": 4, "power": 0, "variance": 0,
     "effect": { "type": "heal", "value": 20 }
   },
   "barrier": {
     "id": "barrier", "name": "バリア", "rarity": "Common", "price": 5,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 4, "power": 0, "variance": 0,
+    "mpCost": 4, "maxUses": 4, "power": 0, "variance": 0,
     "effect": { "type": "shield", "value": 15 }
   },
   "recoil_flame": {
     "id": "recoil_flame", "name": "反動フレイム", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 6, "power": 7, "variance": 10,
+    "mpCost": 6, "maxUses": 3, "power": 7, "variance": 10,
     "effect": { "type": "recoilSelfDamage", "rate": 0.25 }
-  },
-  "thirst_fire": {
-    "id": "thirst_fire", "name": "渇きの大火", "rarity": "Uncommon", "price": 7,
-    "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 1, "power": 8, "variance": 10,
-    "effect": { "type": "recoilMpDrain", "rate": 0.25 }
   },
   "followup_flame": {
     "id": "followup_flame", "name": "追撃の炎", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 7, "power": 2, "variance": 5,
+    "mpCost": 7, "maxUses": 3, "power": 2, "variance": 5,
     "effect": { "type": "allyFollowUpBonus", "requiredCount": 2, "powerBonus": 4 }
   },
   "revenge_ice": {
     "id": "revenge_ice", "name": "復讐の氷弾", "rarity": "Common", "price": 5,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 5, "power": 4, "variance": 8,
+    "mpCost": 5, "maxUses": 4, "power": 4, "variance": 8,
     "effect": { "type": "revengeFlat", "powerBonus": 2 }
   },
   "training_fire": {
     "id": "training_fire", "name": "お手本ファイア", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "enemySingle",
-    "mpCost": 5, "power": 3, "variance": 4,
+    "mpCost": 5, "maxUses": 4, "power": 3, "variance": 4,
     "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
   },
   "greater_heal": {
     "id": "greater_heal", "name": "大ヒール", "rarity": "Uncommon", "price": 8,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 6, "power": 0, "variance": 0,
+    "mpCost": 6, "maxUses": 3, "power": 0, "variance": 0,
     "effect": { "type": "heal", "value": 25 }
   },
   "healing_wind": {
     "id": "healing_wind", "name": "癒しの風", "rarity": "Uncommon", "price": 8,
     "commandCategory": "spell", "targetType": "allyAll",
-    "mpCost": 7, "power": 0, "variance": 0,
+    "mpCost": 7, "maxUses": 3, "power": 0, "variance": 0,
     "effect": { "type": "heal", "value": 8 }
   },
   "weapon_enchant": {
     "id": "weapon_enchant", "name": "武器強化", "rarity": "Uncommon", "price": 7,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 4, "power": 0, "variance": 0,
+    "mpCost": 4, "maxUses": 4, "power": 0, "variance": 0,
     "effect": { "type": "weaponPowerBuff", "value": 3 }
   },
   "precision": {
     "id": "precision", "name": "精密", "rarity": "Common", "price": 4,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 2, "power": 0, "variance": 0,
+    "mpCost": 2, "maxUses": 5, "power": 0, "variance": 0,
     "effect": { "type": "buff", "stat": "precision", "value": 1, "duration": "nextAction" }
   },
   "field_repair": {
     "id": "field_repair", "name": "戦場の鍛冶", "rarity": "Uncommon", "price": 8,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 7, "power": 0, "variance": 0,
+    "mpCost": 7, "maxUses": 3, "power": 0, "variance": 0,
     "effect": { "type": "repairLastWeapon", "value": 2 }
   },
   "flame_storm": {
     "id": "flame_storm", "name": "フレイムストーム", "rarity": "Common", "price": 6,
     "commandCategory": "spell", "targetType": "enemyAll",
-    "mpCost": 10, "power": 3, "variance": 10, "effect": null
+    "mpCost": 10, "maxUses": 2, "power": 3, "variance": 10, "effect": null
   },
   "mana_shield": {
     "id": "mana_shield", "name": "魔力の盾", "rarity": "Common", "price": 6,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 5, "power": 0, "variance": 0,
+    "mpCost": 5, "maxUses": 4, "power": 0, "variance": 0,
     "effect": { "type": "scalingShieldInt", "base": 5, "intMultiplier": 3 }
-  },
-  "mp_charge": {
-    "id": "mp_charge", "name": "MPチャージ", "rarity": "Uncommon", "price": 8,
-    "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 10, "power": 0, "variance": 0,
-    "effect": { "type": "healMp", "value": 7 }
   },
   "revive": {
     "id": "revive", "name": "蘇生呪文", "rarity": "Rare", "price": 12,
     "commandCategory": "spell", "targetType": "allySingle",
-    "mpCost": 20, "power": 0, "variance": 0,
+    "mpCost": 20, "maxUses": 2, "power": 0, "variance": 0,
     "effect": { "type": "revive", "hp": 1 }
   }
 }

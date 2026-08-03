@@ -79,7 +79,13 @@ export function createSpellInstance(spellId: string): SpellInstance {
     variance = getTuningValue('magic_bullet_variance', data.variance)
   }
 
-  return { ...data, power, variance, enhancements: [] }
+  return {
+    ...data,
+    power,
+    variance,
+    currentUses: data.maxUses === null ? null : data.maxUses,
+    enhancements: [],
+  }
 }
 
 // クラス別初期ステータス

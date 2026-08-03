@@ -22,7 +22,6 @@ import {
   processEnemyShieldDamageReduction,
 } from './EnemyEffectProcessor'
 import { isSpell, isWeapon, isWeaponInstance } from '../Core/CommandValidator'
-import { getEffectiveMpCost, isFullMpCost } from '../Core/MpCostCalculator'
 import { getTuningValue } from '../Tuning/TuningStore'
 import { calculateWeaponDamage, calculateSpellDamage } from '../Core/DamageCalculator'
 import { consumeNextActionBuffs } from '../Core/BuffProcessor'
@@ -285,11 +284,21 @@ function consumeCommandCost(
   }
 
   if (isSpell(command)) {
-    // 全MP消費型は倍率対象外で現在MPを全消費。それ以外は全体倍率を適用した実効コスト
-    const mpToConsume = isFullMpCost(command)
-      ? explorer.mp
-      : getEffectiveMpCost(command, explorer.maxMp)
-    let updatedExplorer: ExplorerState = { ...explorer, mp: Math.max(0, explorer.mp - mpToConsume) }
+    // NoMP化: 魔法は武器と同じく耐久値(currentUses)を1消費する。
+    // 無制限（currentUses===null）の基礎魔法（魔力弾・祈り）は消費しない。
+    // 同ID魔法が複数ある場合は、使用可能な最初の1つを消費する。
+    const targetSpellIndex = explorer.spells.findIndex(
+      s => s.id === command.id && s.currentUses !== null && s.currentUses > 0
+    )
+    let updatedExplorer: ExplorerState = explorer
+    if (targetSpellIndex >= 0) {
+      const updatedSpells = explorer.spells.map((s, i) =>
+        i === targetSpellIndex && s.currentUses !== null
+          ? { ...s, currentUses: s.currentUses - 1 }
+          : s
+      )
+      updatedExplorer = { ...explorer, spells: updatedSpells }
+    }
     // hpCost消費（反動魔法など）- HP最低1を保証、自傷ダメージを復讐用に記録
     if (command.hpCost !== undefined && command.hpCost > 0) {
       const newHp = Math.max(1, updatedExplorer.hp - command.hpCost)

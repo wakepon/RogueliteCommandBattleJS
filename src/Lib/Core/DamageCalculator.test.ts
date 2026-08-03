@@ -89,6 +89,8 @@ function createMockSpell(overrides: Partial<SpellInstance> = {}): SpellInstance 
     commandCategory: 'spell',
     targetType: 'enemySingle',
     mpCost: 3,
+    maxUses: 3,
+    currentUses: 3,
     power: 8,
     variance: 5,
     effect: null,
