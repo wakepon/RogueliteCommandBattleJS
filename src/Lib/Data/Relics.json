@@ -9,7 +9,7 @@
   },
   "mana_residue": {
     "id": "mana_residue", "name": "魔力の残滓", "rarity": "Uncommon", "price": 7,
-    "passiveEffect": { "type": "mpSpendShield", "mpThreshold": 10, "shieldValue": 5 }
+    "passiveEffect": { "type": "spellUseShield", "shieldValue": 5 }
   },
   "sharpener_card": {
     "id": "sharpener_card", "name": "研ぎ師の名刺", "rarity": "Common", "price": 5,

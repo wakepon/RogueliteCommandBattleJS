@@ -63,12 +63,6 @@
     "targetType": "enemySingle", "power": 3, "variance": 0.1, "maxUses": 4,
     "effect": { "type": "lifestealPercent", "rate": 0.25 }
   },
-  "mana_drain_staff": {
-    "id": "mana_drain_staff", "name": "吸魔の杖", "rarity": "Uncommon", "price": 7,
-    "commandCategory": "weapon", "category": "staff",
-    "targetType": "enemySingle", "power": 2, "variance": 0.1, "maxUses": 3,
-    "effect": { "type": "manaSteal", "rate": 0.1 }
-  },
   "guardian_shield": {
     "id": "guardian_shield", "name": "守護の盾", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "shield",

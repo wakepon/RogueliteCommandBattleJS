@@ -3,7 +3,7 @@ export type PassiveEffectType =
   // デメリット変換
   | { type: 'hpCostPowerBoost'; powerBonus: number; duration: number }  // 修羅の血脈: HP消費武器使用時Power+N
   | { type: 'vulnerabilityPowerBoost'; powerBonus: number }  // 逆境の鎧: 被ダメ増加中Power+N
-  | { type: 'mpSpendShield'; mpThreshold: number; shieldValue: number }  // 魔力の残滓: MP累計消費≥threshold時シールド付与
+  | { type: 'spellUseShield'; shieldValue: number }  // 魔力の残滓: 魔法使用時シールド付与
   // 条件付きバフ
   | { type: 'knifeUseDurabilityRestore'; usesRequired: number; restoreAmount: number }  // 研ぎ師の名刺: ナイフN回使用で耐久回復
   | { type: 'frontRowIntBonus'; value: number }  // 前衛の矜持: 前衛時INT+N

@@ -148,9 +148,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
       if (weapon.effect.type === 'lifestealPercent') {
         lines.push({ label: '効果', value: `ダメージの${Math.floor(weapon.effect.rate * 100)}%HP回復`, color: 'text-green-300' })
       }
-      if (weapon.effect.type === 'manaSteal') {
-        lines.push({ label: '効果', value: `ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`, color: 'text-blue-300' })
-      }
       if (weapon.effect.type === 'scalingShield') {
         lines.push({ label: '効果', value: formatScalingShield(weapon.effect.base, weapon.effect.strMultiplier, 'STR', explorer?.str, '付与'), color: 'text-cyan-300' })
       }

@@ -22,7 +22,6 @@ export type WeaponEffect =
   | { type: 'revengeDamage'; coefficient: number }  // 復讐の氷弾(魔法)互換: 前ターン被ダメ×coefficientをPower加算
   | { type: 'revengeFlat'; powerBonus: number }  // 復讐の大剣: 前ターン被ダメを受けていたらPower+powerBonus
   | { type: 'lifestealPercent'; rate: number }  // 吸血の杖: ダメージのrate%をHP回復
-  | { type: 'manaSteal'; rate: number }  // 吸魔の杖: ダメージのrate%をMP回復
   | { type: 'scalingShield'; base: number; strMultiplier: number }  // 守護の盾: シールド(base + STR×strMultiplier)付与
   | { type: 'thornsShield'; shieldBase: number; shieldStrMultiplier: number; thornStacks: number }  // 棘の盾: シールド(base + STR×mult)+棘スタック付与
   | { type: 'aoe' }  // 大鎌: 全体攻撃

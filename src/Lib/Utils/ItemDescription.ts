@@ -45,8 +45,8 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
       return `HP消費武器/魔法使用時Power+${effect.powerBonus}`
     case 'vulnerabilityPowerBoost':
       return `被ダメ増加中Power+${effect.powerBonus}`
-    case 'mpSpendShield':
-      return `MP${effect.mpThreshold}以上消費時シールド${effect.shieldValue}付与`
+    case 'spellUseShield':
+      return `魔法使用時シールド${effect.shieldValue}付与`
     // 条件付きバフ
     case 'knifeUseDurabilityRestore':
       return `ナイフ${effect.usesRequired}回使用で耐久+${effect.restoreAmount}`
@@ -125,9 +125,6 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
       }
       if (weapon.effect.type === 'lifestealPercent') {
         desc += ` | ダメージの${Math.floor(weapon.effect.rate * 100)}%HP回復`
-      }
-      if (weapon.effect.type === 'manaSteal') {
-        desc += ` | ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`
       }
       if (weapon.effect.type === 'scalingShield') {
         desc += ` | シールド(${weapon.effect.base}+STR×${weapon.effect.strMultiplier})付与`
@@ -316,8 +313,6 @@ export function getItemSpecialEffect(item: ItemType): string {
         parts.push(`使用後STR+${weapon.effect.value}(戦闘中)`)
       } else if (weapon.effect.type === 'lifestealPercent') {
         parts.push(`ダメージの${Math.floor(weapon.effect.rate * 100)}%HP回復`)
-      } else if (weapon.effect.type === 'manaSteal') {
-        parts.push(`ダメージの${Math.floor(weapon.effect.rate * 100)}%MP回復`)
       } else if (weapon.effect.type === 'scalingShield') {
         parts.push(`シールド(${weapon.effect.base}+STR×${weapon.effect.strMultiplier})付与`)
       } else if (weapon.effect.type === 'thornsShield') {

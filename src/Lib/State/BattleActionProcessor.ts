@@ -36,7 +36,7 @@ import {
   getHpCostPowerBoost,
   getKnifeUseDurabilityRestore,
   getBrokenWeaponStrBonus,
-  getMpSpendShield,
+  getSpellUseShield,
 } from '../Core/RelicProcessor'
 import { processShieldDamageReduction, applyVulnerabilityMultiplier } from '../Core/BuffProcessor'
 
@@ -313,22 +313,22 @@ function consumeCommandCost(
   return explorer
 }
 
-/** 魔力の残滓: MP消費量が閾値以上ならシールドバフを付与 */
-function applyMpSpendShield(explorer: ExplorerState, mpSpent: number, relics: RelicInstance[]): ExplorerState {
-  const mpShield = getMpSpendShield(relics)
-  if (!mpShield || mpSpent < mpShield.mpThreshold) return explorer
+/** 魔力の残滓: 魔法使用時にシールドバフを付与 */
+function applySpellUseShield(explorer: ExplorerState, relics: RelicInstance[]): ExplorerState {
+  const shieldValue = getSpellUseShield(relics)
+  if (shieldValue === null) return explorer
   const existingShield = explorer.battleBuffs.find(b => b.type === 'shield')
   if (existingShield) {
     return {
       ...explorer,
       battleBuffs: explorer.battleBuffs.map(b =>
-        b === existingShield ? { ...b, value: b.value + mpShield.shieldValue } : b
+        b === existingShield ? { ...b, value: b.value + shieldValue } : b
       ),
     }
   }
   return {
     ...explorer,
-    battleBuffs: [...explorer.battleBuffs, { type: 'shield' as const, value: mpShield.shieldValue, duration: 'battle' as const }],
+    battleBuffs: [...explorer.battleBuffs, { type: 'shield' as const, value: shieldValue, duration: 'battle' as const }],
   }
 }
 
@@ -523,10 +523,9 @@ function executeAttackCommand(
   let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, selectedCommand, durabilitySaveChance, currentSlot?.weaponIndex
   )
-  // 魔力の残滓: 魔法使用時、MP消費量が閾値以上ならシールド付与
+  // 魔力の残滓: 魔法使用時にシールド付与
   if (isSpell(selectedCommand)) {
-    const mpSpent = battleAction.explorer.mp - explorerAfterCost.mp
-    explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpent, relics)
+    explorerAfterCost = applySpellUseShield(explorerAfterCost, relics)
   }
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
@@ -566,11 +565,6 @@ function executeAttackCommand(
     finalExplorer = { ...finalExplorer, hp: Math.min(finalExplorer.hp + healAmount, finalExplorer.maxHp) }
   }
 
-  // 武器の manaSteal 効果: ダメージの rate% をMP回復
-  if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'manaSteal') {
-    const mpAmount = Math.floor(calculatedDamage * selectedCommand.effect.rate)
-    finalExplorer = { ...finalExplorer, mp: Math.min(finalExplorer.mp + mpAmount, finalExplorer.maxMp) }
-  }
 
   // 反動の自傷ダメージ: 与えたダメージ×rate のHP損失（最低HP1保証、復讐用に記録）
   if (isWeaponAttack && isWeaponInstance(selectedCommand) && selectedCommand.effect?.type === 'recoilSelfDamage') {
@@ -839,8 +833,7 @@ function executeSpellAllAttack(
   let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, spell, 0
   )
-  const mpSpent = battleAction.explorer.mp - explorerAfterCost.mp
-  explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpent, relics)
+  explorerAfterCost = applySpellUseShield(explorerAfterCost, relics)
 
   const defeatedCount = countDefeatedEnemies(state.battleState.enemies, newBattleState.enemies)
 
@@ -1339,12 +1332,11 @@ function executeAllySpellCommand(
 
   let newBattleState = battleReducer(state.battleState, battleAction)
 
-  // MP消費は術者に適用
+  // 耐久消費は術者に適用
   let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, selectedCommand, 0
   )
-  const mpSpentAlly = battleAction.explorer.mp - explorerAfterCost.mp
-  explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpentAlly, relics)
+  explorerAfterCost = applySpellUseShield(explorerAfterCost, relics)
 
   // ターゲットに効果を適用（術者と異なる場合がある）
   const isSelfTarget = battleAction.explorer.id === selectedTargetId
@@ -1548,12 +1540,11 @@ function executeAllyAllSpellCommand(
 
   let newBattleState = battleReducer(state.battleState, battleAction)
 
-  // MP消費は術者に適用
+  // 耐久消費は術者に適用
   let explorerAfterCost = consumeCommandCost(
     battleAction.explorer, selectedCommand, 0
   )
-  const mpSpentAll = battleAction.explorer.mp - explorerAfterCost.mp
-  explorerAfterCost = applyMpSpendShield(explorerAfterCost, mpSpentAll, relics)
+  explorerAfterCost = applySpellUseShield(explorerAfterCost, relics)
 
   let updatedRun = updatePartyMember(state.run, explorerAfterCost)
 

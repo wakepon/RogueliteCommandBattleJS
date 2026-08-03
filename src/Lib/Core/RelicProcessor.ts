@@ -29,11 +29,11 @@ export function getVulnerabilityPowerBoost(relics: RelicInstance[]): number {
   return 0
 }
 
-/** 魔力の残滓: MP消費時のシールド付与閾値と値 */
-export function getMpSpendShield(relics: RelicInstance[]): { mpThreshold: number; shieldValue: number } | null {
+/** 魔力の残滓: 魔法使用時のシールド付与値 */
+export function getSpellUseShield(relics: RelicInstance[]): number | null {
   for (const r of relics) {
-    if (r.passiveEffect.type === 'mpSpendShield') {
-      return { mpThreshold: r.passiveEffect.mpThreshold, shieldValue: r.passiveEffect.shieldValue }
+    if (r.passiveEffect.type === 'spellUseShield') {
+      return r.passiveEffect.shieldValue
     }
   }
   return null
