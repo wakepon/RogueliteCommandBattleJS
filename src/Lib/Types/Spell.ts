@@ -6,7 +6,8 @@ import { SpellEnhancement } from './Enhancement'
 
 /** 魔法効果 */
 export type SpellEffect =
-  | { type: 'heal'; value: number }           // HP回復
+  | { type: 'heal'; value: number }           // HP回復（固定値）
+  | { type: 'healPercent'; rate: number }     // HP回復（対象の最大HP×rate）
   | { type: 'buff'; stat: 'str' | 'precision'; value: number; duration: 'battle' | 'nextAction' }  // バフ
   | { type: 'shield'; value: number }         // バリア: 被ダメ軽減
   | { type: 'repairWeapons'; value: number }  // 戦場の鍛冶: 武器耐久回復

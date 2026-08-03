@@ -72,6 +72,9 @@ function getPendingHealForMember(slots: CommandSlot[], member: ExplorerState): n
     if (effect?.type === 'heal' && member.hp > 0) {
       // ヒールは生存者のみ対象
       total += effect.value
+    } else if (effect?.type === 'healPercent' && member.hp > 0) {
+      // 割合ヒールは生存者のみ対象。対象の最大HP×rate
+      total += Math.floor(member.maxHp * effect.rate)
     } else if (effect?.type === 'revive' && member.hp <= 0) {
       // 蘇生は戦闘不能者のみ対象。HP=0 から reviveHp まで伸ばす
       total += Math.min(effect.hp, member.maxHp)

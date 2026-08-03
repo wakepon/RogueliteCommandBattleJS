@@ -243,6 +243,14 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
           color: 'text-green-300',
         })
       }
+      if (spell.effect.type === 'healPercent') {
+        const pct = Math.floor(spell.effect.rate * 100)
+        lines.push({
+          label: '回復',
+          value: spell.targetType === 'allyAll' ? `味方全体 最大HP${pct}%` : `最大HP${pct}%`,
+          color: 'text-green-300',
+        })
+      }
       if (spell.effect.type === 'buff') {
         if (spell.effect.stat === 'precision') {
           lines.push({ label: '効果', value: 'ダメージブレを0にする', color: 'text-green-300' })

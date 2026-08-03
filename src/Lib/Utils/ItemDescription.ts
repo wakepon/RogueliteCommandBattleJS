@@ -206,6 +206,11 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += spell.targetType === 'allyAll'
           ? ` | 味方全体のHP+${spell.effect.value}回復`
           : ` | 回復: ${spell.effect.value}`
+      } else if (spell.effect.type === 'healPercent') {
+        const pct = Math.floor(spell.effect.rate * 100)
+        desc += spell.targetType === 'allyAll'
+          ? ` | 味方全体の最大HP${pct}%回復`
+          : ` | 最大HP${pct}%回復`
       } else if (spell.effect.type === 'buff') {
         desc += spell.effect.stat === 'precision' ? ' | 攻撃時のダメージブレを0にする' : ` | STR +${spell.effect.value}`
       } else if (spell.effect.type === 'shield') {
@@ -375,6 +380,12 @@ export function getItemSpecialEffect(item: ItemType): string {
         return spell.targetType === 'allyAll'
           ? `味方全体のHP+${spell.effect.value}回復`
           : `HP+${spell.effect.value}回復`
+      case 'healPercent': {
+        const pct = Math.floor(spell.effect.rate * 100)
+        return spell.targetType === 'allyAll'
+          ? `味方全体の最大HP${pct}%回復`
+          : `最大HP${pct}%回復`
+      }
       case 'buff':
         return spell.effect.stat === 'precision' ? '攻撃時のダメージブレを0にする' : `STR+${spell.effect.value}`
       case 'shield':
@@ -552,6 +563,8 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
     if (command.effect) {
       if (command.effect.type === 'heal') {
         desc += ` 回復:${command.effect.value}`
+      } else if (command.effect.type === 'healPercent') {
+        desc += ` 回復:最大HP${Math.floor(command.effect.rate * 100)}%`
       } else if (command.effect.type === 'buff') {
         desc += command.effect.stat === 'precision' ? ' 精密付与' : ` STR+${command.effect.value}`
       } else if (command.effect.type === 'shield') {

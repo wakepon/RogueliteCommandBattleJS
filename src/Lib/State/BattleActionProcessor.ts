@@ -840,8 +840,11 @@ function executeSpellAllAttack(
   let finalExplorer = explorerAfterCost
 
   // スペルの効果を適用（ヒールなど）
-  if (spell.effect?.type === 'heal') {
-    const healedHp = Math.min(finalExplorer.hp + spell.effect.value, finalExplorer.maxHp)
+  if (spell.effect?.type === 'heal' || spell.effect?.type === 'healPercent') {
+    const healAmount = spell.effect.type === 'healPercent'
+      ? Math.floor(finalExplorer.maxHp * spell.effect.rate)
+      : spell.effect.value
+    const healedHp = Math.min(finalExplorer.hp + healAmount, finalExplorer.maxHp)
     const actualHeal = healedHp - finalExplorer.hp
     finalExplorer = { ...finalExplorer, hp: healedHp }
     if (actualHeal > 0) {
@@ -1347,8 +1350,11 @@ function executeAllySpellCommand(
 
   let updatedTarget = targetMember
 
-  if (selectedCommand.effect?.type === 'heal') {
-    const healedHp = Math.min(updatedTarget.hp + selectedCommand.effect.value, updatedTarget.maxHp)
+  if (selectedCommand.effect?.type === 'heal' || selectedCommand.effect?.type === 'healPercent') {
+    const healAmount = selectedCommand.effect.type === 'healPercent'
+      ? Math.floor(updatedTarget.maxHp * selectedCommand.effect.rate)
+      : selectedCommand.effect.value
+    const healedHp = Math.min(updatedTarget.hp + healAmount, updatedTarget.maxHp)
     const actualHeal = healedHp - updatedTarget.hp
     updatedTarget = { ...updatedTarget, hp: healedHp }
     if (actualHeal > 0) {
@@ -1549,13 +1555,17 @@ function executeAllyAllSpellCommand(
   let updatedRun = updatePartyMember(state.run, explorerAfterCost)
 
   // ヒール: 生存中の全メンバーにHP回復を適用
-  if (selectedCommand.effect?.type === 'heal') {
-    const healValue = selectedCommand.effect.value
+  if (selectedCommand.effect?.type === 'heal' || selectedCommand.effect?.type === 'healPercent') {
+    const healEffect = selectedCommand.effect
     const popups = [...newBattleState.playerDamagePopups]
 
     for (const member of updatedRun.party) {
       // 戦闘不能メンバーはスキップ（全体ヒールで蘇生させない設計）
       if (member.hp <= 0) continue
+      // 割合回復は各メンバーの最大HP基準で算出
+      const healValue = healEffect.type === 'healPercent'
+        ? Math.floor(member.maxHp * healEffect.rate)
+        : healEffect.value
       const healedHp = Math.min(member.hp + healValue, member.maxHp)
       const actualHeal = healedHp - member.hp
       if (actualHeal > 0) {
