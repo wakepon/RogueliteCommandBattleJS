@@ -5,7 +5,6 @@ import { PotionData } from '../../Lib/Types/Potion'
 import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { getPassiveEffectDescription } from '../../Lib/Utils/ItemDescription'
-import { getDisplayMpCost, getDisplayMpCostRate } from '../../Lib/Core/MpCostCalculator'
 import { MemberAttackImpact } from '../../Lib/Utils/RelicImpactCalculator'
 
 type AnyItem = WeaponData | ExplorerWeapon | SpellData | SpellInstance | RelicData | RelicInstance | PotionData | BattleCommand
@@ -105,13 +104,13 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
   // 武器
   if ('commandCategory' in item && item.commandCategory === 'weapon') {
     const weapon = item as WeaponData | ExplorerWeapon
-    // 祈り/魔力弾等の魔法系武器（無限使用）は実質的に魔法と同等のため、耐久値/依存ステの代わりにMP消費を表示
+    // 無限使用武器（パンチ等）は依存ステ表示を省くための判定に使う
     const isSpellLike = weapon.maxUses === null
     if (damageText) {
       lines.push({ label: 'ダメージ', value: damageText, color: 'text-orange-300' })
     }
     if (isSpellLike) {
-      lines.push({ label: 'MP消費', value: '0', color: 'text-blue-300' })
+      lines.push({ label: '耐久値', value: '∞' })
     } else if (durabilityText) {
       lines.push({ label: '耐久値', value: durabilityText })
     } else if ('currentUses' in weapon && weapon.currentUses !== null) {
@@ -229,12 +228,15 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
     if (damageText) {
       lines.push({ label: 'ダメージ', value: damageText, color: 'text-purple-300' })
     }
-    // MP消費表示: 割合消費型と固定消費型を区別
-    if ('mpCostRate' in spell && (spell as SpellData).mpCostRate !== undefined && (spell as SpellData).mpCostRate! > 0) {
-      const rate = (spell as SpellData).mpCostRate!
-      lines.push({ label: 'MP消費', value: rate >= 1.0 ? '全消費' : `最大${Math.floor(getDisplayMpCostRate(rate) * 100)}%`, color: 'text-blue-300' })
+    // NoMP化: 武器と同じく耐久値(残り/最大)を表示。無制限は∞。
+    if (durabilityText) {
+      lines.push({ label: '耐久値', value: durabilityText })
+    } else if ('currentUses' in spell && spell.currentUses !== null) {
+      lines.push({ label: '耐久値', value: `${spell.currentUses}/${spell.maxUses}` })
+    } else if (spell.maxUses !== null) {
+      lines.push({ label: '使用回数', value: `${spell.maxUses}` })
     } else {
-      lines.push({ label: 'MP消費', value: `${getDisplayMpCost(spell.mpCost)}`, color: 'text-blue-300' })
+      lines.push({ label: '耐久値', value: '∞' })
     }
     if (spell.effect) {
       if (spell.effect.type === 'heal') {

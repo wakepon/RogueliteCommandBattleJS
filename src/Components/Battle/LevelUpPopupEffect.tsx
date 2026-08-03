@@ -65,11 +65,6 @@ export function LevelUpPopupEffect({ levelUpInfo, onComplete }: LevelUpPopupEffe
             HP +{levelUpInfo.hpRecovered} 回復
           </span>
         )}
-        {levelUpInfo.mpRecovered > 0 && (
-          <span className="text-xl font-bold text-blue-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] whitespace-nowrap">
-            MP +{levelUpInfo.mpRecovered} 回復
-          </span>
-        )}
       </div>
     </div>
   )

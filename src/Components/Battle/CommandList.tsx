@@ -4,7 +4,6 @@ import { BattleCommand } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
-import { getDisplayMpCost, getDisplayMpCostRate } from '../../Lib/Core/MpCostCalculator'
 import { getCommandTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
 
@@ -28,19 +27,13 @@ function isCommandAvailableCheck(
   return availableCommands.some(c => c.id === command.id)
 }
 
-// 残り使用回数の表示
+// 残り使用回数の表示（NoMP化: 武器・魔法とも耐久値で表示）
 function getUsesDisplay(command: BattleCommand, potions?: PotionInstance[]): string {
-  if (isWeapon(command)) {
-    if (command.maxUses === null) {
+  if (isWeapon(command) || isSpell(command)) {
+    if (command.maxUses === null || command.currentUses === null) {
       return ''
     }
     return `[${command.currentUses}/${command.maxUses}]`
-  }
-  if (isSpell(command)) {
-    if (command.mpCostRate !== undefined && command.mpCostRate > 0) {
-      return command.mpCostRate >= 1.0 ? 'MP全' : `${Math.floor(getDisplayMpCostRate(command.mpCostRate) * 100)}%MP`
-    }
-    return `${getDisplayMpCost(command.mpCost)}MP`
   }
   if (isPotion(command) && potions) {
     const count = potions.filter(p => p.id === command.id).length
@@ -229,7 +222,7 @@ export function CommandList({
                 </span>
               )}
 
-              {/* 使用回数/MP */}
+              {/* 使用回数（耐久値） */}
               {usesDisplay && (
                 <span className="text-xs opacity-70">{usesDisplay}</span>
               )}

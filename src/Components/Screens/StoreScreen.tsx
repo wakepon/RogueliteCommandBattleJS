@@ -12,7 +12,6 @@ import { SpellData, SpellInstance } from '../../Lib/Types/Spell'
 import { RelicData, RelicInstance } from '../../Lib/Types/Relic'
 import { PotionData } from '../../Lib/Types/Potion'
 import { isWeaponData, isSpellData } from '../../Lib/Core/StoreLogic'
-import { getDisplayMpCost } from '../../Lib/Core/MpCostCalculator'
 import { canUseImmediately, canStorePotion, canUseOnMember, getPotionEffectDescription } from '../../Lib/Core/PotionShopLogic'
 import { getPotionSlotBonus } from '../../Lib/Core/RelicProcessor'
 import { getTuningValue } from '../../Lib/Tuning/TuningStore'
@@ -311,14 +310,14 @@ function ShopSlotRenderer({
   )
 }
 
-/** スロットの使用回数/MP情報を取得 */
+/** スロットの使用回数情報を取得（NoMP化: 武器・魔法とも耐久値で表示） */
 function getSlotUsesInfo(slot: ShopSlot): string | null {
   if (!slot.item) return null
   switch (slot.category) {
     case 'weapon':
       return slot.item.maxUses !== null ? `${slot.item.maxUses}回` : null
     case 'spell':
-      return `${getDisplayMpCost(slot.item.mpCost)}MP`
+      return slot.item.maxUses !== null ? `${slot.item.maxUses}回` : null
     default:
       return null
   }
@@ -383,10 +382,6 @@ function StoreCharacterPanel({
       <div className="mb-0.5">
         <div className="flex justify-between text-[9px] text-gray-400"><span className="text-red-400">HP</span><span>{member.hp}/{member.maxHp}</span></div>
         <ResourceBar current={member.hp} max={member.maxHp} color="green" showText={false} size="sm" />
-      </div>
-      <div className="mb-0.5">
-        <div className="flex justify-between text-[9px] text-gray-400"><span className="text-blue-400">MP</span><span>{member.mp}/{member.maxMp}</span></div>
-        <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" />
       </div>
       <div className="mb-1">
         <div className="flex justify-between text-[9px] text-gray-400"><span className="text-yellow-400">EXP</span><span>{expProgress}/{requiredKills}</span></div>
@@ -455,7 +450,7 @@ function StoreCharacterPanel({
                   <div className="flex items-center gap-1">
                     <span className="text-white flex-1 truncate font-bold">{s.name}</span>
                     {s.targetType === 'enemyAll' && <span className="text-[10px] bg-red-700 text-white px-1 rounded flex-shrink-0">全体</span>}
-                    <span className="text-gray-400 text-sm">{getDisplayMpCost(s.mpCost)}MP</span>
+                    {s.currentUses !== null && <span className="text-gray-400 text-sm">{s.currentUses}/{s.maxUses}</span>}
                   </div>
                   {dmg && (
                     <div className="text-sm">

@@ -6,7 +6,6 @@ import { PassiveEffectType } from '../Types/Passive'
 import { BattleCommand } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isWeapon, isSpell, isPotion } from '../Core/CommandValidator'
-import { getDisplayMpCost, getDisplayMpCostRate } from '../Core/MpCostCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, type DamagePredictOptions } from './DamagePredictor'
 
 type ItemType = WeaponData | SpellData | RelicData | PotionData | ExplorerWeapon
@@ -195,14 +194,8 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
   // 魔法
   if ('commandCategory' in item && item.commandCategory === 'spell') {
     const spell = item as SpellData
-    let desc: string
-    if (spell.mpCostRate !== undefined && spell.mpCostRate > 0) {
-      desc = spell.mpCostRate >= 1.0
-        ? `MP: 全消費`
-        : `MP: 最大${Math.floor(getDisplayMpCostRate(spell.mpCostRate) * 100)}%消費`
-    } else {
-      desc = `MP: ${getDisplayMpCost(spell.mpCost)}`
-    }
+    // NoMP化: 耐久値（使用回数）を表示
+    let desc = spell.maxUses !== null ? `使用回数: ${spell.maxUses}` : `使用回数: ∞`
     if (spell.power > 0) {
       if (context) {
         const range = predictSpellDamage(context.explorer, spell, toPredictOptions(context))
@@ -557,14 +550,10 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
     return desc
   }
   if (isSpell(command)) {
-    let desc: string
-    if (command.mpCostRate !== undefined && command.mpCostRate > 0) {
-      desc = command.mpCostRate >= 1.0
-        ? `「魔法」${command.name} - MP:全消費`
-        : `「魔法」${command.name} - MP:最大${Math.floor(getDisplayMpCostRate(command.mpCostRate) * 100)}%`
-    } else {
-      desc = `「魔法」${command.name} - MP:${getDisplayMpCost(command.mpCost)}`
-    }
+    // NoMP化: 耐久値（残り/最大）を表示。無制限は∞。
+    let desc = command.currentUses !== null
+      ? `「魔法」${command.name} - 使用:${command.currentUses}/${command.maxUses}`
+      : `「魔法」${command.name} - 使用:∞`
     if (command.power > 0) {
       if (context) {
         const range = predictSpellDamage(context.explorer, command, toPredictOptions(context))

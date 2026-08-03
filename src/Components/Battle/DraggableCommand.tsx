@@ -3,7 +3,6 @@ import { BattleCommand, CommandSlot } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
-import { getDisplayMpCost } from '../../Lib/Core/MpCostCalculator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, getCommandBuffEntries } from '../../Lib/Utils/DamagePredictor'
 import { KillCategory } from '../../Lib/Utils/KillPotential'
 import { Tooltip, TooltipCard } from '../Common'
@@ -60,11 +59,10 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   })
 
   const style = getCommandStyle(command)
-  const usesText = isWeapon(command) && command.currentUses !== null
+  // NoMP化: 武器・魔法とも耐久値(残り/最大)で表示。無制限(currentUses===null)は非表示。
+  const usesText = (isWeapon(command) || isSpell(command)) && command.currentUses !== null
     ? `${command.currentUses}/${command.maxUses}`
-    : isSpell(command)
-      ? `${getDisplayMpCost(command.mpCost)}MP`
-      : ''
+    : ''
 
   // ダメージ予測（バフ/レリック/条件付き効果を含む）
   let damageText = ''
@@ -91,8 +89,8 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
     buffEntries = getCommandBuffEntries(explorer, command, { relics, party, explorerIndex, pendingWeaponBuffs, comboBonus, commandSlots, currentCommandIndex: commandSlotIndex })
   }
 
-  // 耐久値テキスト（武器のみ。無限使用武器は∞表示）
-  const durabilityText = isWeapon(command)
+  // 耐久値テキスト（武器・魔法。無制限は∞表示）
+  const durabilityText = (isWeapon(command) || isSpell(command))
     ? (command.currentUses !== null ? `${command.currentUses}/${command.maxUses}` : '∞')
     : undefined
 

@@ -92,20 +92,6 @@ function getPotionHpRestoreAmount(command: BattleCommand, member: ExplorerState,
   return 0
 }
 
-/**
- * MP回復ポーション（healMp）が対象メンバーを回復させる予測量を返す。
- * 対象外・回復不要（MP満タン、戦闘不能者）の場合は 0。MPバーの点滅プレビューに使う。
- */
-function getMpRestorePreviewAmount(command: BattleCommand, member: ExplorerState, potionMultiplier: number): number {
-  const missing = member.maxMp - member.mp
-  if (isPotion(command) && command.effect.type === 'healMp') {
-    const amount = command.effect.full ? missing : Math.floor(command.effect.value * potionMultiplier)
-    // MP回復ポーションは生存者のみ対象
-    return member.hp > 0 ? Math.max(0, Math.min(amount, missing)) : 0
-  }
-  return 0
-}
-
 /** キャラ欄: ステータスバー + コマンド一覧 */
 function CharacterPanel({
   member,
@@ -134,7 +120,6 @@ function CharacterPanel({
   previewCommandSlots,
   memberSlotIndex,
   hpPreviewAdd = 0,
-  mpPreviewAdd = 0,
   acting,
   shaking,
   levelingUp,
@@ -172,8 +157,6 @@ function CharacterPanel({
   memberSlotIndex?: number
   /** 回復系コマンドのドラッグ中ホバー時、このキャラが回復する予測量（HPバーを点滅で伸ばす） */
   hpPreviewAdd?: number
-  /** MP回復ポーションのドラッグ中ホバー時、このキャラが回復するMPの予測量（MPバーを点滅で伸ばす） */
-  mpPreviewAdd?: number
   dragHandleProps?: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes'] }
   /** 行動中ならアニメ種別。攻撃/ヒール時にパネル全体を浮かせる */
   acting: AvatarActingType | null
@@ -305,20 +288,6 @@ function CharacterPanel({
                 </div>
               )}
             </div>
-          </div>
-
-          {/* MP バー */}
-          <div className="mb-0.5">
-            <div className="flex justify-between text-[9px] text-gray-400">
-              <span className="text-blue-400">MP</span>
-              <span>
-                {member.mp}/{member.maxMp}
-                {mpPreviewAdd > 0 && (
-                  <span className="text-blue-300 animate-exp-blink ml-0.5">+{mpPreviewAdd}</span>
-                )}
-              </span>
-            </div>
-            <ResourceBar current={member.mp} max={member.maxMp} color="blue" showText={false} size="sm" preview={mpPreviewAdd} />
           </div>
 
           {/* EXP バー（必要敵数で区画分割表示。経験値到達時に1セグずつ点灯） */}
@@ -1130,7 +1099,6 @@ export function BattleScreen() {
                 : 0
               // 回復プレビュー: バーを点滅で伸ばす予測量を算出（コマンドフェーズのみ）
               let hpPreviewAdd = 0
-              let mpPreviewAdd = 0
               if (isCommandPhase) {
                 // ヒール魔法・蘇生はスロット由来で集計。previewCommandSlots はドラッグ中ホバーを仮反映済みなので、
                 // 「ドロップ前のホバー中」も「ドロップ後〜ターン実行開始まで」も同じ計算でプレビューされる
@@ -1138,7 +1106,6 @@ export function BattleScreen() {
                 // ポーションはスロットに乗らず即時発動のため、ドラッグ中ホバー時のみ直接加算
                 if (draggingCommand && hoverAllyId && isPotion(draggingCommand) && member.id === hoverAllyId) {
                   rawHeal += getPotionHpRestoreAmount(draggingCommand, member, potionEffectMultiplier)
-                  mpPreviewAdd = getMpRestorePreviewAmount(draggingCommand, member, potionEffectMultiplier)
                 }
                 // 合算が最大HPを超えないようクランプ
                 hpPreviewAdd = Math.max(0, Math.min(rawHeal, member.maxHp - member.hp))
@@ -1186,7 +1153,6 @@ export function BattleScreen() {
                       previewCommandSlots={previewCommandSlots}
                       memberSlotIndex={memberSlotIndex}
                       hpPreviewAdd={hpPreviewAdd}
-                      mpPreviewAdd={mpPreviewAdd}
                       dragHandleProps={dragHandleProps}
                       acting={acting?.explorerId === member.id ? acting.type : null}
                       shaking={shakingIds.has(member.id)}

@@ -29,12 +29,10 @@ export function ResultMemberPanel({ diff, phase }: ResultMemberPanelProps) {
   // maxHP/maxMP の差分ラベルは maxStatsRevealed 以降のみ表示
   const showMaxDiff = phase === 'maxStatsRevealed' || phase === 'done'
 
-  // HP/MP の現在値・最大値（before/after）
+  // HP の現在値・最大値（before/after）
   const hpCurrent = showAfterResources ? diff.hp : diff.hpBefore
-  const mpCurrent = showAfterResources ? diff.mp : diff.mpBefore
   // maxHp は maxStatsRevealed 以降で新最大値、その前は旧最大値（バー伸縮はそれに合わせる）
   const hpMax = showMaxDiff ? diff.maxHp : diff.maxHpBefore
-  const mpMax = showMaxDiff ? diff.maxMp : diff.maxMpBefore
 
   // EXP: レベルアップ前は before の expRequired を分母に、レベル更新後は新 expRequired を分母に
   let expCurrent: number
@@ -104,29 +102,6 @@ export function ResultMemberPanel({ diff, phase }: ResultMemberPanelProps) {
         />
       </div>
 
-      {/* MP */}
-      <div className="mb-2">
-        <div className="flex justify-between items-center text-xs text-gray-400 mb-0.5">
-          <span>MP</span>
-          <span className="flex items-center gap-1">
-            <span>
-              {mpCurrent} / {mpMax}
-            </span>
-            {showAfterResources && <DiffLabel value={diff.mpDiff} />}
-            {showMaxDiff && diff.maxMpDiff !== 0 && (
-              <DiffLabel value={diff.maxMpDiff} prefix="(max " suffix=")" />
-            )}
-          </span>
-        </div>
-        <ResourceBar
-          current={mpCurrent}
-          max={mpMax}
-          color="blue"
-          showText={false}
-          size="sm"
-          transitionMs={RESOURCE_TRANSITION_MS}
-        />
-      </div>
 
       {/* EXP（必要敵数で区画分割表示。レベルアップ時は最大→0 へ瞬時にワープ） */}
       <div className="mb-2">
