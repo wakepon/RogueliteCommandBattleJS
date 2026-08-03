@@ -9,7 +9,7 @@ import { useScreenFlash } from '../../Hooks/UseScreenFlash'
 import { ScreenFlashOverlay } from '../Common/ScreenFlashOverlay'
 import { checkBattleResult, calculateTargetRates, getAvailableCommands, getRequiredKillsForNextLevel, isWeapon, isSpell, isPotion, isFrontMember, targetsDownedAlly, getPotionEffectMultiplier } from '../../Lib/Core'
 import { calculateDetailedDamagePreview, TentativeCommand, getComboConditionBonus, getComboBonusAssumingAttacker, pendingWeaponPowerBonus, pendingWeaponPowerBuffSources } from '../../Lib/Utils/DamagePredictor'
-import { classifyCommandsKillPotential, killPotentialKey, getReferenceEnemy, KillCategory } from '../../Lib/Utils/KillPotential'
+import { classifyCommandsSoloKillPerEnemy, killPotentialKey } from '../../Lib/Utils/KillPotential'
 import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
@@ -114,7 +114,7 @@ function CharacterPanel({
   orderIndex,
   dragHandleProps,
   relics,
-  killCategoryMap,
+  killLineMap,
   weaponPowerBonusPreview,
   weaponBuffSources = [],
   comboBonusPreview = 0,
@@ -144,8 +144,8 @@ function CharacterPanel({
   draggingPanel: boolean
   orderIndex: number
   relics: RelicInstance[]
-  /** 各コマンドの撃破確定カテゴリ（左端アクセントバーの着色に使う） */
-  killCategoryMap?: Map<string, KillCategory>
+  /** 各コマンドの下端確殺ライン（敵カードごとの確殺フラグ配列。null=撃破済み） */
+  killLineMap?: Map<string, (boolean | null)[]>
   /** このキャラがこのターン先に受け取る武器強化の合計（武器チップの予測に反映） */
   weaponPowerBonusPreview: number
   /** このキャラが先に受け取る武器強化魔法の内訳（バフポップアップで呪文名つき表示） */
@@ -332,7 +332,7 @@ function CharacterPanel({
               const isAvail = !isDead && !isGameOver && availableCommands.some(ac => ac.id === cmd.id)
               // weapons/spells 各配列内の生インデックス（武器はweapons内、魔法はspells内の位置）
               const commandIndex = cmdIdx < member.weapons.length ? cmdIdx : cmdIdx - member.weapons.length
-              const killCategory = killCategoryMap?.get(killPotentialKey(member.id, cmd.id))
+              const killLine = killLineMap?.get(killPotentialKey(member.id, cmd.id))
               return (
                 <DraggableCommand
                   key={`${cmd.id}-${cmdIdx}`}
@@ -344,7 +344,7 @@ function CharacterPanel({
                   explorer={member}
                   relics={relics}
                   party={allParty}
-                  killCategory={killCategory}
+                  killLine={killLine}
                   extraWeaponPowerBonus={weaponPowerBonusPreview}
                   pendingWeaponBuffs={weaponBuffSources}
                   comboBonus={comboBonusPreview}
@@ -550,8 +550,6 @@ export function BattleScreen() {
   const [draggingExplorerId, setDraggingExplorerId] = useState<string | null>(null)
   const [draggingPanel, setDraggingPanel] = useState(false)
   const [hoverEnemyId, setHoverEnemyId] = useState<string | null>(null)
-  // ドラッグ外でマウスホバー中の敵ID（コマンド着色の基準敵をホバー先に切り替えるため）
-  const [colorHoverEnemyId, setColorHoverEnemyId] = useState<string | null>(null)
   // 味方対象コマンドをドラッグ中にホバーしている味方メンバーID（武器強化のダメージ予測プレビュー用）
   const [hoverAllyId, setHoverAllyId] = useState<string | null>(null)
   // 行動アニメ: { explorerId, type } を保持。執行直前にセットし、進行後にクリア
@@ -936,18 +934,15 @@ export function BattleScreen() {
   // 回復ポーションの効果倍率（レリック補正）。回復プレビュー量の算出に使う
   const potionEffectMultiplier = getPotionEffectMultiplier(run.relics)
 
-  // コマンド立案支援: 各コマンドの撃破確定カテゴリ（solo/combo/none/nonAttack）を算出。
+  // コマンド立案支援: 各コマンドの下端確殺ライン（生存敵ごとに単騎確殺できるか）を算出。
   // 土台に previewCommandSlots を使うことで、武器強化などのバフ確定/ドラッグ中ホバーが即座に反映される。
-  // 基準敵はドラッグ中のホバー敵 > 通常ホバー敵 > 最小HPの敵 の優先で決まる。
-  // 依存は「解決済みの基準敵ID」にすることで、最小HP敵と同一の敵をホバーした場合など基準が
-  // 変わらないマウス移動では再計算をスキップする（敵をなぞる操作での無駄な再計算を抑制）。
-  const referenceEnemyId = getReferenceEnemy(enemies, hoverEnemyId ?? colorHoverEnemyId)?.instanceId ?? null
-  const killCategoryMap = useMemo<Map<string, KillCategory>>(() => {
+  // 行動予定に技を追加すると previewCommandSlots が変わり、予測ダメージ→確殺判定が再計算される。
+  const killLineMap = useMemo<Map<string, (boolean | null)[]>>(() => {
     if (!isCommandPhase) return new Map()
     const hpCostBoost = getHpCostPowerBoost(run.relics)
     const options = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0, hasHpCostPowerBoost: hpCostBoost !== null, hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0 }
-    return classifyCommandsKillPotential(party, enemies, previewCommandSlots, referenceEnemyId, options)
-  }, [isCommandPhase, party, enemies, previewCommandSlots, referenceEnemyId, run.relics, run.brokenWeaponCount, run.totalBrokenWeaponCount])
+    return classifyCommandsSoloKillPerEnemy(party, enemies, previewCommandSlots, options)
+  }, [isCommandPhase, party, enemies, previewCommandSlots, run.relics, run.brokenWeaponCount, run.totalBrokenWeaponCount])
 
   // パネルソート用のID配列
   const panelIds = party.map(m => `panel-${m.id}`)
@@ -1030,10 +1025,7 @@ export function BattleScreen() {
                 : null
 
               return (
-                <div key={enemy.instanceId} id={`enemy-dom-${enemy.instanceId}`}
-                  onMouseEnter={() => enemy.currentHp > 0 && setColorHoverEnemyId(enemy.instanceId)}
-                  onMouseLeave={() => setColorHoverEnemyId(prev => (prev === enemy.instanceId ? null : prev))}
-                >
+                <div key={enemy.instanceId} id={`enemy-dom-${enemy.instanceId}`}>
                   <DroppableTarget id={`enemy-${enemy.instanceId}`} disabled={!isCommandPhase || enemy.currentHp <= 0 || draggingCommand?.targetType === 'allySingle' || draggingCommand?.targetType === 'allyAll' || draggingPanel}>
                     <EnemyDisplay enemy={enemy} isCurrentActor={false}
                       isActing={actingEnemyId === enemy.instanceId}
@@ -1149,7 +1141,7 @@ export function BattleScreen() {
                       draggingPanel={draggingPanel}
                       orderIndex={index}
                       relics={run.relics}
-                      killCategoryMap={killCategoryMap}
+                      killLineMap={killLineMap}
                       weaponPowerBonusPreview={weaponPowerBonusPreview}
                       weaponBuffSources={weaponBuffSources}
                       comboBonusPreview={comboBonusPreview}

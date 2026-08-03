@@ -5,7 +5,6 @@ import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, getCommandBuffEntries } from '../../Lib/Utils/DamagePredictor'
 import { getHpCostPowerBoost } from '../../Lib/Core/RelicProcessor'
-import { KillCategory } from '../../Lib/Utils/KillPotential'
 import { Tooltip, TooltipCard } from '../Common'
 
 interface DraggableCommandProps {
@@ -27,8 +26,12 @@ interface DraggableCommandProps {
   commandSlots?: CommandSlot[]
   /** このキャラの行動順スロットインデックス（追撃系の算出用） */
   commandSlotIndex?: number
-  /** 撃破確定カテゴリ（左端アクセントバーの着色。solo=赤 / combo=黄） */
-  killCategory?: KillCategory
+  /**
+   * 下端の確殺ライン。敵カードごと（撃破済み含む）に、画面の左→右（＝敵の表示順）へ並べたフラグ配列。
+   * true=赤（確殺）/ false=灰（生存だが確殺不可）/ null=無色（撃破済みカード）。
+   * 空配列・undefined ならラインを表示しない。
+   */
+  killLine?: (boolean | null)[]
 }
 
 /** コマンドカテゴリに応じたアイコン */
@@ -50,7 +53,7 @@ function getCommandStyle(command: BattleCommand): { bgColor: string; label: stri
  * ドラッグ可能なコマンドアイテム
  * 武器/魔法を敵や味方にドラッグ&ドロップしてコマンドをセット
  */
-export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party, extraWeaponPowerBonus = 0, pendingWeaponBuffs = [], comboBonus = 0, commandSlots, commandSlotIndex, killCategory }: DraggableCommandProps) {
+export function DraggableCommand({ command, explorerId, commandIndex, disabled, isAvailable, explorer, relics = [], party, extraWeaponPowerBonus = 0, pendingWeaponBuffs = [], comboBonus = 0, commandSlots, commandSlotIndex, killLine }: DraggableCommandProps) {
   const uniqueId = commandIndex !== undefined ? `cmd-${explorerId}-${command.id}-${commandIndex}` : `cmd-${explorerId}-${command.id}`
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: uniqueId,
@@ -115,17 +118,10 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
 
   const damageColor = isWeakened ? 'text-blue-400' : isBoosted ? 'text-yellow-400' : 'text-gray-400'
 
-  // 撃破確定カテゴリの右端アクセントバー（利用可能・非ドラッグ・非無効時のみ）
-  // solo=確定単騎キル=赤 / combo=他キャラと組めば確定キル=黄
-  // border ではなく独立要素で描くことで、ホバー時の hover:border-gray-400 に色を奪われない
-  // （コスト/MP表示の隣に置き、コストとバーの視線移動を最小化する）
-  const killAccentColor = (!isDragging && isAvailable && !disabled)
-    ? killCategory === 'solo'
-      ? 'bg-red-500'
-      : killCategory === 'combo'
-        ? 'bg-yellow-400'
-        : ''
-    : ''
+  // 下端の確殺ライン（利用可能・非ドラッグ・非無効時のみ）。
+  // 表示中の敵カード数だけ横幅を等分し、各セグメントを 確殺=赤 / 生存だが不可=灰 / 撃破済み=無色 で塗る。
+  // 敵1体: 横幅いっぱい1本 / 2体: 左右2本 / 3体: 3等分。幅は敵増援時のみ変化し、行動予定の変化で色が再計算される。
+  const showKillLine = !isDragging && isAvailable && !disabled && killLine !== undefined && killLine.length > 0
 
   return (
     <Tooltip content={tooltipContent} secondaryContent={buffContent} position="bottom" disabled={isDragging}>
@@ -134,7 +130,7 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
       {...listeners}
       {...attributes}
       className={`
-        relative flex items-center gap-1.5 px-2 py-1 rounded text-base border
+        relative flex items-center gap-1.5 px-2 pt-1 ${showKillLine ? 'pb-2.5' : 'pb-1'} rounded text-base border
         ${isDragging
           ? 'opacity-50 ring-2 ring-yellow-400 border-yellow-400'
           : !isAvailable || disabled
@@ -144,8 +140,15 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
         transition-colors select-none
       `}
     >
-      {killAccentColor && (
-        <span className={`absolute right-0 top-0 bottom-0 w-1 rounded-r pointer-events-none ${killAccentColor}`} />
+      {showKillLine && (
+        <span className="absolute left-0.5 right-0.5 bottom-0.5 h-1 flex gap-px rounded-b-sm overflow-hidden pointer-events-none">
+          {killLine!.map((canKill, i) => (
+            <span
+              key={i}
+              className={`flex-1 ${canKill === null ? 'bg-transparent' : canKill ? 'bg-red-500' : 'bg-gray-500'}`}
+            />
+          ))}
+        </span>
       )}
       <span className={`w-6 h-6 rounded text-sm flex items-center justify-center flex-shrink-0 ${style.bgColor}`}>
         {style.label}
