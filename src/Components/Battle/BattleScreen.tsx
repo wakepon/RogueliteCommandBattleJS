@@ -14,6 +14,7 @@ import { BattleCommand, CommandSlot, ExpPopup } from '../../Lib/Types/Battle'
 import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { calculateRelicAttackImpacts } from '../../Lib/Utils/RelicImpactCalculator'
+import { getHpCostPowerBoost } from '../../Lib/Core/RelicProcessor'
 import { Button } from '../Common/Button'
 import { ResourceBar, Tooltip, SegmentedBar, CharacterStatTooltip } from '../Common'
 import { EnemyDisplay } from './EnemyDisplay'
@@ -943,7 +944,8 @@ export function BattleScreen() {
   const referenceEnemyId = getReferenceEnemy(enemies, hoverEnemyId ?? colorHoverEnemyId)?.instanceId ?? null
   const killCategoryMap = useMemo<Map<string, KillCategory>>(() => {
     if (!isCommandPhase) return new Map()
-    const options = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0 }
+    const hpCostBoost = getHpCostPowerBoost(run.relics)
+    const options = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0, hasHpCostPowerBoost: hpCostBoost !== null, hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0 }
     return classifyCommandsKillPotential(party, enemies, previewCommandSlots, referenceEnemyId, options)
   }, [isCommandPhase, party, enemies, previewCommandSlots, referenceEnemyId, run.relics, run.brokenWeaponCount, run.totalBrokenWeaponCount])
 
@@ -1010,7 +1012,8 @@ export function BattleScreen() {
               )
 
               // キルラインバー: ホバー中なら仮想コマンドを含めてプレビュー計算
-              const previewOptions = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0 }
+              const previewHpCostBoost = getHpCostPowerBoost(run.relics)
+              const previewOptions = { relics: run.relics, includeConditionalRelics: true, brokenWeaponCount: run.brokenWeaponCount ?? 0, totalBrokenWeaponCount: run.totalBrokenWeaponCount ?? 0, hasHpCostPowerBoost: previewHpCostBoost !== null, hpCostPowerBoostValue: previewHpCostBoost?.powerBonus ?? 0 }
               let tentative: TentativeCommand | null = null
               if (draggingCommand && draggingExplorerId && hoverEnemyId && !isAllyTarget) {
                 // 全体攻撃: ホバー先に関係なく全敵にダメージ

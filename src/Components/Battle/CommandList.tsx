@@ -6,6 +6,7 @@ import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
 import { getCommandTooltip, DamageContext } from '../../Lib/Utils/ItemDescription'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange } from '../../Lib/Utils/DamagePredictor'
+import { getHpCostPowerBoost } from '../../Lib/Core/RelicProcessor'
 
 interface CommandListProps {
   commands: BattleCommand[]
@@ -161,7 +162,8 @@ export function CommandList({
           if (explorer) {
             const idx = party ? party.findIndex(e => e.id === explorer.id) : -1
             const explorerIndex = idx >= 0 ? idx : undefined
-            const opts = { relics, includeConditionalRelics: true, party, explorerIndex }
+            const hpCostBoost = getHpCostPowerBoost(relics ?? [])
+            const opts = { relics, includeConditionalRelics: true, party, explorerIndex, hasHpCostPowerBoost: hpCostBoost !== null, hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0 }
             if (isWeapon(command)) {
               const range = predictWeaponDamage(explorer, command, opts)
               damageDisplay = formatDamageRange(range)

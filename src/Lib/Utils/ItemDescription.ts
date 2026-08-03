@@ -7,6 +7,7 @@ import { BattleCommand } from '../Types/Battle'
 import { ExplorerState } from '../Types/Explorer'
 import { isWeapon, isSpell, isPotion } from '../Core/CommandValidator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, type DamagePredictOptions } from './DamagePredictor'
+import { getHpCostPowerBoost } from '../Core/RelicProcessor'
 
 type ItemType = WeaponData | SpellData | RelicData | PotionData | ExplorerWeapon
 
@@ -23,6 +24,7 @@ export interface DamageContext {
 
 /** DamageContextからDamagePredictOptionsへ変換 */
 function toPredictOptions(context: DamageContext): DamagePredictOptions {
+  const hpCostBoost = getHpCostPowerBoost(context.relics)
   return {
     relics: context.relics,
     includeConditionalRelics: context.includeConditionalRelics,
@@ -30,6 +32,8 @@ function toPredictOptions(context: DamageContext): DamagePredictOptions {
     brokenWeaponCount: context.brokenWeaponCount,
     totalBrokenWeaponCount: context.totalBrokenWeaponCount,
     explorerIndex: context.explorerIndex,
+    hasHpCostPowerBoost: hpCostBoost !== null,
+    hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0,
   }
 }
 

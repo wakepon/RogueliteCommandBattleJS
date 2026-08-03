@@ -4,6 +4,7 @@ import { ExplorerState } from '../../Lib/Types/Explorer'
 import { RelicInstance } from '../../Lib/Types/Relic'
 import { isWeapon, isSpell, isPotion } from '../../Lib/Core/CommandValidator'
 import { predictWeaponDamage, predictSpellDamage, formatDamageRange, getCommandBuffEntries } from '../../Lib/Utils/DamagePredictor'
+import { getHpCostPowerBoost } from '../../Lib/Core/RelicProcessor'
 import { KillCategory } from '../../Lib/Utils/KillPotential'
 import { Tooltip, TooltipCard } from '../Common'
 
@@ -73,7 +74,8 @@ export function DraggableCommand({ command, explorerId, commandIndex, disabled, 
   if (isEnemyTarget && command.power > 0 && explorer) {
     const idx = party ? party.findIndex(e => e.id === explorer.id) : -1
     const explorerIndex = idx >= 0 ? idx : undefined
-    const opts = { relics, includeConditionalRelics: true, party, explorerIndex, extraWeaponPowerBonus, comboBonus: comboBonus > 0 ? comboBonus : undefined, commandSlots, currentCommandIndex: commandSlotIndex }
+    const hpCostBoost = getHpCostPowerBoost(relics ?? [])
+    const opts = { relics, includeConditionalRelics: true, party, explorerIndex, extraWeaponPowerBonus, comboBonus: comboBonus > 0 ? comboBonus : undefined, commandSlots, currentCommandIndex: commandSlotIndex, hasHpCostPowerBoost: hpCostBoost !== null, hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0 }
     if (isWeapon(command)) {
       const range = predictWeaponDamage(explorer, command, opts)
       damageText = formatDamageRange(range)

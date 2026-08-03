@@ -2,6 +2,7 @@ import { Buff, ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon } from '../Types/Weapon'
 import { RelicData, RelicInstance } from '../Types/Relic'
 import { predictWeaponDamage, predictSpellDamage, DamagePredictOptions } from './DamagePredictor'
+import { getHpCostPowerBoost } from '../Core/RelicProcessor'
 
 /** メンバー1人分のレリック影響 */
 export interface MemberAttackImpact {
@@ -42,9 +43,12 @@ function simulateMaxConditions(
     ...member,
     battleBuffs: extraBuffs,
   }
+  const hpCostBoost = getHpCostPowerBoost(relics)
   const opts: DamagePredictOptions = {
     relics,
     includeConditionalRelics: true,
+    hasHpCostPowerBoost: hpCostBoost !== null,
+    hpCostPowerBoostValue: hpCostBoost?.powerBonus ?? 0,
   }
   return { simulated, opts }
 }

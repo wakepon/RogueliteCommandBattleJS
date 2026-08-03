@@ -65,6 +65,8 @@ export interface DamagePredictOptions {
   comboBonus?: number  // 連携の紋章: コマンドフェーズで算出したSTR/INTボーナス
   extraWeaponPowerBonus?: number  // 行動欄で先に詠唱予定の武器強化による武器Power加算（未適用バフの先読み）
   followUpCountOverride?: number  // 追撃系(followUp/allyFollowUpBonus)の先行味方攻撃数を明示指定（キル判定でスロット無効化しても実際の先行攻撃数で計算するため）
+  hasHpCostPowerBoost?: boolean  // 修羅の血脈: HP消費コマンドPowerブーストが有効か（レリック所持）
+  hpCostPowerBoostValue?: number  // 修羅の血脈: Power加算値
 }
 
 /** バフ倍率を計算する（DamageCalculator.tsと同じロジック） */
@@ -107,7 +109,7 @@ export function predictWeaponDamage(
     return { min: dmg, max: dmg, isBoosted: false }
   }
 
-  const { relics = [], includeConditionalRelics = false, hasPrecision = false, brokenWeaponCount = 0 } = options
+  const { relics = [], includeConditionalRelics = false, hasPrecision = false, brokenWeaponCount = 0, hasHpCostPowerBoost = false, hpCostPowerBoostValue = 0 } = options
 
   // scaleStat対応（魔力弾はINT依存）
   const scaleStat = ('scaleStat' in weapon && weapon.scaleStat === 'int') ? 'int' : 'str'
@@ -187,6 +189,17 @@ export function predictWeaponDamage(
   const effectivePower = weapon.power + conditionalPowerBonus + weaponPowerBonusValue
   let baseDamage = effectiveStat * effectivePower * buffMultiplier
 
+  // 修羅の血脈: HP消費コマンド使用時のPowerブースト（実計算 DamageCalculator と同じく逆境の鎧より前に加算）
+  let hpCostBoostApplied = false
+  if (includeConditionalRelics && hasHpCostPowerBoost && hpCostPowerBoostValue > 0) {
+    const consumesHp = ('hpCost' in weapon && (weapon.hpCost ?? 0) > 0)
+      || ('effect' in weapon && weapon.effect?.type === 'recoilSelfDamage')
+    if (consumesHp) {
+      baseDamage += effectiveStat * hpCostPowerBoostValue * buffMultiplier
+      hpCostBoostApplied = true
+    }
+  }
+
   // 逆境の鎧
   const hasVulnerability = explorer.battleDebuffs.some(d => d.type === 'vulnerability')
   if (hasVulnerability && includeConditionalRelics) {
@@ -225,6 +238,7 @@ export function predictWeaponDamage(
     || weaponPowerBonusValue > 0
     || comboStatBonus > 0
     || shieldBashBonus > 0
+    || hpCostBoostApplied
 
   const isWeakened = weaknessDebuff !== undefined
 
@@ -242,7 +256,7 @@ export function predictSpellDamage(
     return { min: explorer.mp, max: explorer.mp, isBoosted: false }
   }
 
-  const { relics = [], includeConditionalRelics = false, hasPrecision = false } = options
+  const { relics = [], includeConditionalRelics = false, hasPrecision = false, hasHpCostPowerBoost = false, hpCostPowerBoostValue = 0 } = options
 
   // ポジションボーナス
   let positionBonus = 0
@@ -292,6 +306,16 @@ export function predictSpellDamage(
   const effectivePower = spell.power + conditionalPowerBonus
   let baseDamage = effectiveInt * effectivePower * buffMultiplier
 
+  // 修羅の血脈: HP消費コマンド使用時のPowerブースト（実計算 DamageCalculator と同じく逆境の鎧より前に加算）
+  let hpCostBoostApplied = false
+  if (includeConditionalRelics && hasHpCostPowerBoost && hpCostPowerBoostValue > 0) {
+    const consumesHp = (spell.hpCost ?? 0) > 0 || spell.effect?.type === 'recoilSelfDamage'
+    if (consumesHp) {
+      baseDamage += effectiveInt * hpCostPowerBoostValue * buffMultiplier
+      hpCostBoostApplied = true
+    }
+  }
+
   // 逆境の鎧
   const hasVulnerability = explorer.battleDebuffs.some(d => d.type === 'vulnerability')
   if (hasVulnerability && includeConditionalRelics) {
@@ -318,6 +342,7 @@ export function predictSpellDamage(
     || buffMultiplier > 1.0
     || comboStatBonus > 0
     || conditionalPowerBonus > 0
+    || hpCostBoostApplied
 
   const isWeakened = spellWeakness !== undefined
 
