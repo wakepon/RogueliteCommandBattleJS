@@ -8,15 +8,6 @@
     "targetType": "allySingle",
     "effect": { "type": "healHp", "value": 10, "full": true }
   },
-  "mp_potion": {
-    "id": "mp_potion",
-    "name": "MPポーション",
-    "rarity": "Common",
-    "price": 2,
-    "commandCategory": "potion",
-    "targetType": "allySingle",
-    "effect": { "type": "healMp", "value": 10, "full": true }
-  },
   "repair_potion": {
     "id": "repair_potion",
     "name": "修復ポーション",

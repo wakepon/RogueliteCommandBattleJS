@@ -29,13 +29,11 @@ import { distributeExpToParty, LevelUpInfo } from '../Core/LevelUpCalculator'
 import {
   getWeaponDurabilitySaveChance,
   getRegenPerTurn,
-  getDamageTakenToMpValue,
   getLevelUpStatBoost,
   hasDeathProtection,
   getThornsStackBonus,
   getComboAttackBonus,
   getHpCostPowerBoost,
-  getKillMpRecover,
   getKnifeUseDurabilityRestore,
   getBrokenWeaponStrBonus,
   getMpSpendShield,
@@ -741,16 +739,6 @@ function executeAttackCommand(
   }
 
   if (defeatedCount > 0) {
-    // 討伐の対価: 撃破時MP回復
-    const killMpRecover = getKillMpRecover(relics)
-    if (killMpRecover > 0) {
-      finalExplorer = {
-        ...finalExplorer,
-        mp: Math.min(finalExplorer.mp + killMpRecover * defeatedCount, finalExplorer.maxMp),
-      }
-      updatedRun = updatePartyMember(updatedRun, finalExplorer)
-    }
-
     // 教育の魔弾/稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (isSpell(selectedCommand) && selectedCommand.effect?.type === 'killBonusExpToAll') {
@@ -1091,16 +1079,6 @@ function executeEnemyAllAttack(
   }
 
   if (defeatedCount > 0) {
-    // 討伐の対価: 撃破時MP回復
-    const killMpRecoverAoe = getKillMpRecover(relics)
-    if (killMpRecoverAoe > 0) {
-      finalExplorer = {
-        ...finalExplorer,
-        mp: Math.min(finalExplorer.mp + killMpRecoverAoe * defeatedCount, finalExplorer.maxMp),
-      }
-      updatedRun = updatePartyMember(updatedRun, finalExplorer)
-    }
-
     // 稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (weapon.effect?.type === 'killBonusExpToAll') {
@@ -1305,16 +1283,6 @@ function executeEnemyRandomAttack(
   }
 
   if (defeatedCount > 0) {
-    // 討伐の対価: 撃破時MP回復
-    const killMpRecoverRand = getKillMpRecover(relics)
-    if (killMpRecoverRand > 0) {
-      finalExplorer = {
-        ...finalExplorer,
-        mp: Math.min(finalExplorer.mp + killMpRecoverRand * defeatedCount, finalExplorer.maxMp),
-      }
-      updatedRun = updatePartyMember(updatedRun, finalExplorer)
-    }
-
     // 稽古の武器: トドメで全員にボーナスEXP
     let extraBonusToAll = 0
     if (weapon.effect?.type === 'killBonusExpToAll') {
@@ -1510,12 +1478,6 @@ function executeAllySpellCommand(
         }),
       }
     }
-  }
-
-  // MPチャージ: 対象のMPを回復
-  if (selectedCommand.effect?.type === 'healMp') {
-    const healedMp = Math.min(updatedTarget.mp + selectedCommand.effect.value, updatedTarget.maxMp)
-    updatedTarget = { ...updatedTarget, mp: healedMp }
   }
 
   // 蘇生呪文: 戦闘不能の対象をHP=hpで復活（毒も解除して即再死亡を防ぐ）
@@ -1870,7 +1832,6 @@ export function processEnemyAction(
 ): GameState {
   if (!state.battleState || !state.run) return state
 
-  const relics = state.run.relics
   const hits = battleAction.hits ?? 1
   const perHitDamage = battleAction.damage
 
@@ -1975,13 +1936,10 @@ export function processEnemyAction(
       const existing = preDamageByMemberId.get(hit.targetExplorerId) ?? 0
       preDamageByMemberId.set(hit.targetExplorerId, existing + amplifiedDamage)
       const { reducedDamage, updatedBuffs } = processShieldDamageReduction(member.battleBuffs, amplifiedDamage)
-      const dmgToMpValue = getDamageTakenToMpValue(relics)
-      const mpRecovery = dmgToMpValue
 
       const updatedMember = {
         ...member,
         hp: Math.max(0, member.hp - reducedDamage),
-        mp: Math.min(member.mp + mpRecovery, member.maxMp),
         battleBuffs: updatedBuffs,
         damageTakenThisTurn: member.damageTakenThisTurn + amplifiedDamage,
       }
@@ -2010,13 +1968,9 @@ export function processEnemyAction(
       const amplifiedDamage = applyVulnerabilityMultiplier(member.battleDebuffs, actualDamage)
       preDamageByMemberId.set(member.id, amplifiedDamage)
       const { reducedDamage: memberDamage, updatedBuffs: memberBuffs } = processShieldDamageReduction(member.battleBuffs, amplifiedDamage)
-      // 苦痛のリング: 被ダメ→MP固定回復
-      const dmgToMpValue = getDamageTakenToMpValue(relics)
-      const mpRecovery = dmgToMpValue
       const updatedMember = {
         ...member,
         hp: Math.max(0, member.hp - memberDamage),
-        mp: Math.min(member.mp + mpRecovery, member.maxMp),
         damageTakenThisTurn: member.damageTakenThisTurn + amplifiedDamage,
         battleBuffs: memberBuffs,
       }
@@ -2054,14 +2008,9 @@ export function processEnemyAction(
       }
     }
 
-    // 苦痛のリング: 被ダメ→MP固定回復
-    const dmgToMpValue = getDamageTakenToMpValue(relics)
-    const mpRecovery = dmgToMpValue
-
     let updatedExplorer = {
       ...battleAction.explorer,
       hp: Math.max(0, battleAction.explorer.hp - shieldedDamage),
-      mp: Math.min(battleAction.explorer.mp + mpRecovery, battleAction.explorer.maxMp),
       battleBuffs: shieldedBuffs,
       damageTakenThisTurn: battleAction.explorer.damageTakenThisTurn + amplifiedDamage,
     }

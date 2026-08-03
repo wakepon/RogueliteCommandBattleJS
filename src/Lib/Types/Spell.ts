@@ -26,7 +26,6 @@ export type SpellEffect =
   | { type: 'recoilSelfDamage'; rate: number }  // 反動フレイム: 使用後、与ダメ×rateの自傷
   | { type: 'recoilMpDrain'; rate: number }  // 渇きの火: 使用後、与ダメ×rateのMP減少
   | { type: 'repairLastWeapon'; value: number }  // 戦場の鍛冶: 対象が最後に使った武器の耐久をvalue回復
-  | { type: 'healMp'; value: number }  // MPチャージ: 対象のMPをvalue回復
   | { type: 'revive'; hp: number }  // 蘇生呪文: 戦闘不能の対象をHP=hpで復活
 
 /** 魔法データ */

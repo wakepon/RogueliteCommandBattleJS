@@ -835,14 +835,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         if (actualHeal > 0) {
           popups.push(createPlayerDamagePopup(-actualHeal, action.targetId))
         }
-      } else if (effect.type === 'healMp') {
-        const healAmount = effect.full ? updatedTarget.maxMp : Math.floor(effect.value * potionMultiplier)
-        const newMp = Math.min(updatedTarget.mp + healAmount, updatedTarget.maxMp)
-        const actualHeal = newMp - updatedTarget.mp
-        updatedTarget = { ...updatedTarget, mp: newMp }
-        if (actualHeal > 0) {
-          popups.push(createPlayerDamagePopup(-actualHeal, action.targetId))
-        }
       } else if (effect.type === 'repairWeapons') {
         // 修理可能な武器がなければポーション消費しない（noRepair武器は除外）
         const hasRepairableWeapon = updatedTarget.weapons.some(

@@ -51,13 +51,6 @@ export function getKnifeUseDurabilityRestore(relics: RelicInstance[]): { usesReq
   return null
 }
 
-/** 討伐の対価: 撃破時MP回復量 */
-export function getKillMpRecover(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'killMpRecover') return r.passiveEffect.value
-  }
-  return 0
-}
 
 /** 前衛の矜持: 前衛キャラのINTボーナス */
 export function getFrontRowIntBonus(relics: RelicInstance[]): number {
@@ -112,14 +105,6 @@ export function getBrokenWeaponStrBonus(relics: RelicInstance[]): number {
 }
 
 // ===== リソース変換 =====
-
-/** 苦痛のリング: 被ダメ→MP固定回復値 */
-export function getDamageTakenToMpValue(relics: RelicInstance[]): number {
-  for (const r of relics) {
-    if (r.passiveEffect.type === 'damageTakenToMp') return r.passiveEffect.value
-  }
-  return 0
-}
 
 /** 血の契約: 戦闘開始時HP削減率とSTRボーナス */
 export function getBattleStartHpReduction(relics: RelicInstance[]): { rate: number; strBonus: number } | null {

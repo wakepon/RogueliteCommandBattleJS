@@ -6,7 +6,6 @@ import { ISingleUse } from './Consumable'
 /** ポーション効果 */
 export type PotionEffect =
   | { type: 'healHp'; value: number; full?: boolean }   // full=true でHPを全回復
-  | { type: 'healMp'; value: number; full?: boolean }   // full=true でMPを全回復
   | { type: 'repairWeapons'; value: number }
   // バフ系ポーション
   | { type: 'taunt' }  // 挑発: 被弾率100%（1ターン）

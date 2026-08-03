@@ -6,7 +6,6 @@ export type PassiveEffectType =
   | { type: 'mpSpendShield'; mpThreshold: number; shieldValue: number }  // 魔力の残滓: MP累計消費≥threshold時シールド付与
   // 条件付きバフ
   | { type: 'knifeUseDurabilityRestore'; usesRequired: number; restoreAmount: number }  // 研ぎ師の名刺: ナイフN回使用で耐久回復
-  | { type: 'killMpRecover'; value: number }  // 討伐の対価: トドメ時MP回復
   | { type: 'frontRowIntBonus'; value: number }  // 前衛の矜持: 前衛時INT+N
   | { type: 'backRowStrBonus'; value: number }  // 後衛の底力: 後衛時STR+N
   | { type: 'shieldTaunt'; value: number }  // 挑発式防御: シールド付与時被ターゲット率+N
@@ -14,7 +13,6 @@ export type PassiveEffectType =
   | { type: 'levelUpStatBoost'; strBonus: number; intBonus: number }  // 闘気の腕輪: レベルアップ時STR/INT追加上昇
   | { type: 'brokenWeaponStatBonus'; strPerWeapon: number }  // 努力の証: 壊れた武器1本につきSTR+N
   // リソース変換
-  | { type: 'damageTakenToMp'; value: number }  // 苦痛のリング: 被弾時固定MP回復
   | { type: 'battleStartHpReduction'; rate: number; strBonus: number }  // 血の契約: 戦闘開始時HP削減+STR
   | { type: 'deathProtection' }  // 身代わりの人形: 致死ダメージでHP1耐え、1ラン1回消滅
   // シンプルバフ

@@ -50,8 +50,6 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
     // 条件付きバフ
     case 'knifeUseDurabilityRestore':
       return `ナイフ${effect.usesRequired}回使用で耐久+${effect.restoreAmount}`
-    case 'killMpRecover':
-      return `敵撃破時MP${effect.value}回復`
     case 'frontRowIntBonus':
       return `前衛時INT+${effect.value}`
     case 'backRowStrBonus':
@@ -65,8 +63,6 @@ export function getPassiveEffectDescription(effect: PassiveEffectType): string {
     case 'brokenWeaponStatBonus':
       return `壊れた武器1本につきSTR+${effect.strPerWeapon}`
     // リソース変換
-    case 'damageTakenToMp':
-      return `被弾時にMP${effect.value}回復`
     case 'battleStartHpReduction':
       return `戦闘開始時HP${Math.floor(effect.rate * 100)}%化、STR+${effect.strBonus}`
     case 'deathProtection':
@@ -245,8 +241,6 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 使用後、与ダメの${Math.floor(spell.effect.rate * 100)}%MP減少`
       } else if (spell.effect.type === 'repairLastWeapon') {
         desc += ` | 最後に使った武器の耐久+${spell.effect.value}回復`
-      } else if (spell.effect.type === 'healMp') {
-        desc += ` | MP+${spell.effect.value}回復`
       } else if (spell.effect.type === 'revive') {
         desc += ` | 戦闘不能の味方をHP${spell.effect.hp}で復活`
       }
@@ -265,9 +259,6 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
     const potion = item as PotionData
     if (potion.effect.type === 'healHp') {
       return potion.effect.full ? 'HPを全回復' : `HP +${potion.effect.value} 回復`
-    }
-    if (potion.effect.type === 'healMp') {
-      return potion.effect.full ? 'MPを全回復' : `MP +${potion.effect.value} 回復`
     }
     if (potion.effect.type === 'repairWeapons') {
       return `全武器の耐久 +${potion.effect.value} 回復`
@@ -427,8 +418,6 @@ export function getItemSpecialEffect(item: ItemType): string {
         return `使用後、与ダメの${Math.floor(spell.effect.rate * 100)}%MP減少`
       case 'repairLastWeapon':
         return `最後に使った武器の耐久+${spell.effect.value}回復`
-      case 'healMp':
-        return `MP+${spell.effect.value}回復`
       case 'revive':
         return `戦闘不能の味方をHP${spell.effect.hp}で復活`
       default:
@@ -440,7 +429,6 @@ export function getItemSpecialEffect(item: ItemType): string {
   if ('commandCategory' in item && item.commandCategory === 'potion') {
     const potion = item as PotionData
     if (potion.effect.type === 'healHp') return potion.effect.full ? 'HP全回復' : `HP+${potion.effect.value}回復`
-    if (potion.effect.type === 'healMp') return potion.effect.full ? 'MP全回復' : `MP+${potion.effect.value}回復`
     if (potion.effect.type === 'repairWeapons') return `全武器耐久+${potion.effect.value}回復`
     if (potion.effect.type === 'taunt') return '1ターン被弾率100%（挑発）'
     if (potion.effect.type === 'statBoost') return `1ターンSTR+${potion.effect.strValue}/INT+${potion.effect.intValue}`
@@ -601,8 +589,6 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
         desc += ` MP反動${Math.floor(command.effect.rate * 100)}%`
       } else if (command.effect.type === 'repairLastWeapon') {
         desc += ` 最後の武器耐久+${command.effect.value}`
-      } else if (command.effect.type === 'healMp') {
-        desc += ` MP+${command.effect.value}回復`
       } else if (command.effect.type === 'revive') {
         desc += ` 戦闘不能をHP${command.effect.hp}で復活`
       }
@@ -615,9 +601,6 @@ export function getCommandTooltip(command: BattleCommand, context?: DamageContex
   if (isPotion(command)) {
     if (command.effect.type === 'healHp') {
       return `「ポーション」${command.name} - ${command.effect.full ? 'HPを全回復' : `HP +${command.effect.value} 回復`}`
-    }
-    if (command.effect.type === 'healMp') {
-      return `「ポーション」${command.name} - ${command.effect.full ? 'MPを全回復' : `MP +${command.effect.value} 回復`}`
     }
     if (command.effect.type === 'repairWeapons') {
       return `「ポーション」${command.name} - 全武器の耐久 +${command.effect.value} 回復`

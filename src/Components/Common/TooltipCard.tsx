@@ -307,9 +307,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
       if (spell.effect.type === 'repairLastWeapon') {
         lines.push({ label: '効果', value: `最後に使った武器の耐久+${spell.effect.value}回復`, color: 'text-green-300' })
       }
-      if (spell.effect.type === 'healMp') {
-        lines.push({ label: '効果', value: `MP +${spell.effect.value}回復`, color: 'text-blue-300' })
-      }
       if (spell.effect.type === 'revive') {
         lines.push({ label: '効果', value: `戦闘不能の味方をHP${spell.effect.hp}で復活`, color: 'text-green-300' })
       }
@@ -334,9 +331,6 @@ function buildLines(item: AnyItem, damageText?: string, durabilityText?: string,
     const potion = item as PotionData
     if (potion.effect.type === 'healHp') {
       lines.push({ label: '効果', value: potion.effect.full ? 'HP全回復' : `HP ${potion.effect.value}回復`, color: 'text-green-300' })
-    }
-    if (potion.effect.type === 'healMp') {
-      lines.push({ label: '効果', value: potion.effect.full ? 'MP全回復' : `MP ${potion.effect.value}回復`, color: 'text-blue-300' })
     }
     if (potion.effect.type === 'repairWeapons') {
       lines.push({ label: '効果', value: `武器耐久値+${potion.effect.value}`, color: 'text-green-300' })

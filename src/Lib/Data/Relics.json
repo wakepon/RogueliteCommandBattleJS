@@ -15,10 +15,6 @@
     "id": "sharpener_card", "name": "研ぎ師の名刺", "rarity": "Common", "price": 5,
     "passiveEffect": { "type": "knifeUseDurabilityRestore", "usesRequired": 3, "restoreAmount": 1 }
   },
-  "bounty_hunter": {
-    "id": "bounty_hunter", "name": "討伐の対価", "rarity": "Common", "price": 5,
-    "passiveEffect": { "type": "killMpRecover", "value": 6 }
-  },
   "front_pride": {
     "id": "front_pride", "name": "前衛の矜持", "rarity": "Common", "price": 5,
     "passiveEffect": { "type": "frontRowIntBonus", "value": 3 }
@@ -42,10 +38,6 @@
   "phoenix_ember": {
     "id": "phoenix_ember", "name": "努力の証", "rarity": "Uncommon", "price": 7,
     "passiveEffect": { "type": "brokenWeaponStatBonus", "strPerWeapon": 0.5 }
-  },
-  "pain_ring": {
-    "id": "pain_ring", "name": "苦痛のリング", "rarity": "Common", "price": 5,
-    "passiveEffect": { "type": "damageTakenToMp", "value": 5 }
   },
   "blood_pact": {
     "id": "blood_pact", "name": "血の契約", "rarity": "Uncommon", "price": 7,

@@ -62,7 +62,6 @@ export function canBuyShopPotion(stock: number, price: number, gold: number): bo
 export function canUseImmediately(effect: PotionEffect): boolean {
   switch (effect.type) {
     case 'healHp':
-    case 'healMp':
     case 'repairWeapons':
     case 'boostStr':
     case 'boostInt':
@@ -78,7 +77,6 @@ export function canUseImmediately(effect: PotionEffect): boolean {
 export function canStorePotion(effect: PotionEffect): boolean {
   switch (effect.type) {
     case 'healHp':
-    case 'healMp':
     case 'repairWeapons':
     case 'taunt':
     case 'statBoost':
@@ -95,8 +93,6 @@ export function canUseOnMember(effect: PotionEffect, member: ExplorerState): boo
   switch (effect.type) {
     case 'healHp':
       return member.hp < member.maxHp
-    case 'healMp':
-      return member.mp < member.maxMp
     case 'repairWeapons':
       return member.weapons.some(w => {
         if (w.id === 'punch') return false
@@ -123,11 +119,6 @@ export function applyPotionToMember(potion: PotionData, member: ExplorerState, r
       if (effect.full) return { ...member, hp: member.maxHp }
       const healAmount = Math.floor(effect.value * multiplier)
       return { ...member, hp: Math.min(member.hp + healAmount, member.maxHp) }
-    }
-    case 'healMp': {
-      if (effect.full) return { ...member, mp: member.maxMp }
-      const healAmount = Math.floor(effect.value * multiplier)
-      return { ...member, mp: Math.min(member.mp + healAmount, member.maxMp) }
     }
     case 'repairWeapons': {
       const repairValue = Math.floor(effect.value * multiplier)
@@ -158,7 +149,6 @@ export function applyPotionToMember(potion: PotionData, member: ExplorerState, r
 export function getPotionEffectDescription(effect: PotionEffect): string {
   switch (effect.type) {
     case 'healHp': return effect.full ? 'HPを全回復' : `HP +${effect.value}`
-    case 'healMp': return effect.full ? 'MPを全回復' : `MP +${effect.value}`
     case 'repairWeapons': return `武器修復 +${effect.value}`
     case 'taunt': return '挑発（1ターン）'
     case 'statBoost': return `STR+${effect.strValue} INT+${effect.intValue}（1ターン）`
