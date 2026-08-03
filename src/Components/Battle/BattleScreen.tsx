@@ -251,6 +251,11 @@ function CharacterPanel({
                   </span>
                 )
               })()}
+              {member.battleBuffs.some(b => b.type === 'aoeConvert') && (
+                <span className="text-purple-300 text-xs font-bold bg-purple-900/50 px-1 rounded shrink-0">
+                  全体化
+                </span>
+              )}
             </div>
             <span className="text-yellow-400 text-xl font-bold shrink-0">Lv.{member.level}</span>
           </div>

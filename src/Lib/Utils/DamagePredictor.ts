@@ -667,9 +667,12 @@ export function calculateDetailedDamagePreview(
     const slotOptions = { ...options, hasPrecision: precisionFromOrder, extraWeaponPowerBonus: wpBonusFromOrder, party, explorerIndex, commandSlots: allSlots, currentCommandIndex: i, targetCurrentHp, targetMaxHp, comboBonus }
 
     const targetsThisEnemy = slot.targetId === targetEnemyId
+    // 全体化バフ: 次の1回の単体攻撃を全体攻撃として扱う（実行時に全敵へ命中するのでプレビューでも全体化）
+    const hasAoeConvert = explorer.battleBuffs.some(b => b.type === 'aoeConvert')
+    const isSingleEnemyAttack = (isWeapon(slot.command) || isSpell(slot.command)) && slot.command.targetType === 'enemySingle'
     const isEnemyAllWeapon = isWeapon(slot.command) && slot.command.targetType === 'enemyAll'
     const isEnemyAllSpell = isSpell(slot.command) && slot.command.targetType === 'enemyAll'
-    const isEnemyAll = isEnemyAllWeapon || isEnemyAllSpell
+    const isEnemyAll = isEnemyAllWeapon || isEnemyAllSpell || (hasAoeConvert && isSingleEnemyAttack)
     const isEnemyRandom = isWeapon(slot.command) && slot.command.targetType === 'enemyRandom'
 
     if (!targetsThisEnemy && !isEnemyAll && !isEnemyRandom) continue
