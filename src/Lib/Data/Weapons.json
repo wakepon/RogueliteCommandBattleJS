@@ -2,71 +2,71 @@
   "knife": {
     "id": "knife", "name": "ナイフ", "rarity": "Common", "price": 4,
     "commandCategory": "weapon", "category": "knife",
-    "targetType": "enemySingle", "power": 4, "variance": 2, "maxUses": 6
+    "targetType": "enemySingle", "power": 4, "variance": 0.1, "maxUses": 6
   },
   "followup_knife": {
     "id": "followup_knife", "name": "追撃のナイフ", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "knife",
-    "targetType": "enemySingle", "power": 2, "variance": 5, "maxUses": 5,
+    "targetType": "enemySingle", "power": 2, "variance": 0.1, "maxUses": 5,
     "effect": { "type": "allyFollowUpBonus", "requiredCount": 2, "powerBonus": 4 }
   },
   "composure_knife": {
     "id": "composure_knife", "name": "余裕のナイフ", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "knife",
-    "targetType": "enemySingle", "power": 2, "variance": 5, "maxUses": 5,
+    "targetType": "enemySingle", "power": 2, "variance": 0.1, "maxUses": 5,
     "effect": { "type": "hpThresholdBonus", "thresholdRate": 1.0, "powerBonus": 3, "when": "atLeast" }
   },
   "training_knife": {
     "id": "training_knife", "name": "鍛錬のナイフ", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "knife",
-    "targetType": "enemySingle", "power": 3, "variance": 4, "maxUses": 6,
+    "targetType": "enemySingle", "power": 3, "variance": 0.1, "maxUses": 6,
     "effect": { "type": "nextTurnStrGain", "value": 3 }
   },
   "recoil_greatsword": {
     "id": "recoil_greatsword", "name": "反動の大剣", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 8, "variance": 10, "maxUses": 4,
+    "targetType": "enemySingle", "power": 8, "variance": 0.5, "maxUses": 4,
     "effect": { "type": "recoilSelfDamage", "rate": 0.25 }
   },
   "rage_greatsword": {
     "id": "rage_greatsword", "name": "怒りの大剣", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 3, "variance": 10, "maxUses": 4,
+    "targetType": "enemySingle", "power": 3, "variance": 0.5, "maxUses": 4,
     "effect": { "type": "hpThresholdBonus", "thresholdRate": 0.25, "powerBonus": 5, "when": "below" }
   },
   "revenge_greatsword": {
     "id": "revenge_greatsword", "name": "復讐の大剣", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 4, "variance": 8, "maxUses": 4,
+    "targetType": "enemySingle", "power": 4, "variance": 0.2, "maxUses": 4,
     "effect": { "type": "revengeFlat", "powerBonus": 2 }
   },
   "shard_greatsword": {
     "id": "shard_greatsword", "name": "破片の大剣", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 1, "variance": 10, "maxUses": 3,
+    "targetType": "enemySingle", "power": 1, "variance": 0.5, "maxUses": 3,
     "effect": { "type": "breakCountBonus" }
   },
   "broken_greatsword": {
     "id": "broken_greatsword", "name": "壊れかけの大剣", "rarity": "Common", "price": 4,
     "commandCategory": "weapon", "category": "greatsword",
-    "targetType": "enemySingle", "power": 6, "variance": 10, "maxUses": 2
+    "targetType": "enemySingle", "power": 6, "variance": 0.5, "maxUses": 2
   },
   "training_staff": {
     "id": "training_staff", "name": "稽古の杖", "rarity": "Uncommon", "price": 8,
     "commandCategory": "weapon", "category": "staff",
-    "targetType": "enemySingle", "power": 3, "variance": 4, "maxUses": 5,
+    "targetType": "enemySingle", "power": 3, "variance": 0.1, "maxUses": 5,
     "effect": { "type": "killBonusExpToAll", "expAmount": 1 }
   },
   "vampire_staff": {
     "id": "vampire_staff", "name": "吸血の杖", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "staff",
-    "targetType": "enemySingle", "power": 3, "variance": 6, "maxUses": 4,
+    "targetType": "enemySingle", "power": 3, "variance": 0.1, "maxUses": 4,
     "effect": { "type": "lifestealPercent", "rate": 0.25 }
   },
   "mana_drain_staff": {
     "id": "mana_drain_staff", "name": "吸魔の杖", "rarity": "Uncommon", "price": 7,
     "commandCategory": "weapon", "category": "staff",
-    "targetType": "enemySingle", "power": 2, "variance": 5, "maxUses": 3,
+    "targetType": "enemySingle", "power": 2, "variance": 0.1, "maxUses": 3,
     "effect": { "type": "manaSteal", "rate": 0.1 }
   },
   "guardian_shield": {
@@ -84,13 +84,13 @@
   "whirlwind_sword": {
     "id": "whirlwind_sword", "name": "大鎌", "rarity": "Common", "price": 5,
     "commandCategory": "weapon", "category": "other",
-    "targetType": "enemyAll", "power": 2, "variance": 6, "maxUses": 4,
+    "targetType": "enemyAll", "power": 2, "variance": 0.1, "maxUses": 4,
     "effect": { "type": "aoe" }
   },
   "recoil_scythe": {
     "id": "recoil_scythe", "name": "反動の大鎌", "rarity": "Uncommon", "price": 8,
     "commandCategory": "weapon", "category": "other",
-    "targetType": "enemyAll", "power": 3, "variance": 10, "maxUses": 3,
+    "targetType": "enemyAll", "power": 3, "variance": 0.5, "maxUses": 3,
     "effect": { "type": "recoilSelfDamage", "rate": 0.25 }
   }
 }

@@ -214,8 +214,9 @@ export function predictWeaponDamage(
   const base = Math.floor(baseDamage)
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
   const isPrecise = hasPrecision || explorerHasPrecision
-  const min = isPrecise ? Math.max(0, base + weapon.variance + shieldBashBonus) : Math.max(0, base - weapon.variance + shieldBashBonus)
-  const max = Math.max(0, base + weapon.variance + shieldBashBonus)
+  const varianceRange = Math.round(base * weapon.variance)
+  const min = isPrecise ? Math.max(0, base + varianceRange + shieldBashBonus) : Math.max(0, base - varianceRange + shieldBashBonus)
+  const max = Math.max(0, base + varianceRange + shieldBashBonus)
 
   const isBoosted = brokenBonus > 0
     || positionBonus > 0
@@ -309,8 +310,9 @@ export function predictSpellDamage(
   const base = Math.floor(baseDamage)
   const explorerHasPrecision = explorer.battleBuffs.some(b => b.type === 'precision')
   const isPrecise = hasPrecision || explorerHasPrecision
-  const min = isPrecise ? Math.max(0, base + spell.variance) : Math.max(0, base - spell.variance)
-  const max = Math.max(0, base + spell.variance)
+  const varianceRange = Math.round(base * spell.variance)
+  const min = isPrecise ? Math.max(0, base + varianceRange) : Math.max(0, base - varianceRange)
+  const max = Math.max(0, base + varianceRange)
 
   const isBoosted = positionBonus > 0
     || buffMultiplier > 1.0

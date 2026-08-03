@@ -37,7 +37,7 @@ export interface WeaponData extends IItem, IPurchasable, ICommandable, ITargetab
   commandCategory: 'weapon'
   category?: 'knife' | 'greatsword' | 'staff' | 'shield' | 'other'  // 武器カテゴリ
   power: number
-  variance: number  // ダメージブレ幅（±variance の加算ブレ）
+  variance: number  // ダメージブレ幅（ダメージ×variance の割合ブレ。例: 0.1=±10%, 0.2=±20%, 0.5=±50%）
   hpCost?: number
   hits?: number     // 複数ヒット数（三節棍等）
   effect?: WeaponEffect
@@ -71,7 +71,7 @@ export function createPunch(): PunchInstance {
     commandCategory: 'weapon',
     targetType: 'enemySingle',
     power: getTuningValue('punch_power', 1),
-    variance: getTuningValue('punch_variance', 2),
+    variance: getTuningValue('punch_variance', 0.1),
     maxUses: null,
     currentUses: null,
   }

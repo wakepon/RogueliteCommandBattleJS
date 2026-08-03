@@ -76,9 +76,9 @@ export const TUNING_SCHEMA: readonly TuningFieldMeta[] = [
 
   // === 武器・基本攻撃 ===
   { key: 'punch_power', label: 'パンチ 威力', category: 'weapon', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
-  { key: 'punch_variance', label: 'パンチ ブレ幅', category: 'weapon', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
+  { key: 'punch_variance', label: 'パンチ ブレ幅(比率)', category: 'weapon', defaultValue: 0.1, control: { type: 'number', min: 0, max: 1, step: 0.05 } },
   { key: 'magic_bullet_power', label: '魔力弾 威力', category: 'spell', defaultValue: 1, control: { type: 'number', min: 0, max: 50, step: 0.5 } },
-  { key: 'magic_bullet_variance', label: '魔力弾 ブレ幅', category: 'spell', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 0.5 } },
+  { key: 'magic_bullet_variance', label: '魔力弾 ブレ幅(比率)', category: 'spell', defaultValue: 0.1, control: { type: 'number', min: 0, max: 1, step: 0.05 } },
 
   // === バトルメカニクス ===
   { key: 'poison_damage_per_tick', label: '毒ダメージ/tick', category: 'battle', defaultValue: 2, control: { type: 'number', min: 0, max: 20, step: 1 } },

@@ -185,7 +185,7 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         && !('effect' in weapon && weapon.effect?.type === 'aoe')) {
       desc += ' | 全体攻撃'
     }
-    if (weapon.variance >= 10) {
+    if (weapon.variance >= 0.5) {
       desc += ' | ダメージのブレが大きい'
     }
     return desc
@@ -247,7 +247,7 @@ export function getItemDescription(item: ItemType, context?: DamageContext): str
         desc += ` | 戦闘不能の味方をHP${spell.effect.hp}で復活`
       }
     }
-    if (spell.variance >= 10) {
+    if (spell.variance >= 0.5) {
       desc += ' | ダメージのブレが大きい'
     }
     if (spell.hpCost) {
@@ -366,7 +366,7 @@ export function getItemSpecialEffect(item: ItemType): string {
         && !('effect' in weapon && weapon.effect?.type === 'aoe')) {
       parts.push('全体攻撃')
     }
-    if (weapon.variance >= 10) {
+    if (weapon.variance >= 0.5) {
       parts.push('ダメージのブレが大きい')
     }
     return parts.join(' / ')

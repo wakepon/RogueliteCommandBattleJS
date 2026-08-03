@@ -322,11 +322,11 @@ describe('DamageCalculator', () => {
   describe('加算ブレの範囲', () => {
     it('ブレオフセット未指定の場合、ランダムな加算ブレが適用される', () => {
       const explorer = createMockExplorer({ str: 10 })
-      const weapon = createMockWeapon({ power: 10, variance: 5 })
+      const weapon = createMockWeapon({ power: 10, variance: 0.05 })
       const enemy = createMockEnemy()
 
       // 複数回実行して結果が範囲内であることを確認
-      // baseDamage = 10 × 10 = 100, variance = ±5 → 95〜105
+      // baseDamage = 10 × 10 = 100, variance = ±5%(±5) → 95〜105
       for (let i = 0; i < 100; i++) {
         const result = calculateWeaponDamage(explorer, weapon, enemy)
         expect(result.damage).toBeGreaterThanOrEqual(95)

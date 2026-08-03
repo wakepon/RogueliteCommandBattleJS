@@ -33,9 +33,12 @@ interface DamageOptions {
   totalBrokenWeaponCount?: number  // 破片の大剣: ラン中に耐久0になった累計回数
 }
 
-function generateVarianceOffset(variance: number): number {
-  if (variance <= 0) return 0
-  return Math.floor(Math.random() * (2 * variance + 1)) - variance
+/** ダメージのブレ幅（±baseDamage×ratio）をランダムに算出する */
+function generateVarianceOffset(baseDamage: number, ratio: number): number {
+  if (ratio <= 0 || baseDamage <= 0) return 0
+  const range = Math.round(baseDamage * ratio)
+  if (range <= 0) return 0
+  return Math.floor(Math.random() * (2 * range + 1)) - range
 }
 
 function calculateBuffMultiplier(buffs: Buff[], stat: 'str' | 'int'): number {
@@ -82,7 +85,6 @@ export function calculateWeaponDamage(
   const contributors: DamageContributor[] = []
 
   const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
-  const offset = varianceOffset ?? (hasPrecision ? weapon.variance : generateVarianceOffset(weapon.variance))
   if (hasPrecision) {
     contributors.push({ name: '精密', label: '（確定）' })
   }
@@ -269,7 +271,11 @@ export function calculateWeaponDamage(
     contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - weaknessDebuff.value).toFixed(2)}` })
   }
 
-  const damage = Math.floor(rawDamage) + offset + shieldBashBonus
+  // ダメージのブレ（baseDamage×variance比率）。精密時は最大ロール確定。
+  const base = Math.floor(rawDamage)
+  const offset = varianceOffset
+    ?? (hasPrecision ? Math.round(base * weapon.variance) : generateVarianceOffset(base, weapon.variance))
+  const damage = base + offset + shieldBashBonus
 
   return {
     damage: Math.max(0, damage),
@@ -295,7 +301,6 @@ export function calculateSpellDamage(
   const contributors: DamageContributor[] = []
 
   const hasPrecision = attacker.battleBuffs.some(b => b.type === 'precision')
-  const offset = varianceOffset ?? (hasPrecision ? spell.variance : generateVarianceOffset(spell.variance))
   if (hasPrecision) {
     contributors.push({ name: '精密', label: '（確定）' })
   }
@@ -420,7 +425,11 @@ export function calculateSpellDamage(
     contributors.push({ name: '攻撃ダウン', label: `×${(1.0 - spellWeakness.value).toFixed(2)}` })
   }
 
-  const damage = Math.floor(rawDamage) + offset
+  // ダメージのブレ（baseDamage×variance比率）。精密時は最大ロール確定。
+  const base = Math.floor(rawDamage)
+  const offset = varianceOffset
+    ?? (hasPrecision ? Math.round(base * spell.variance) : generateVarianceOffset(base, spell.variance))
+  const damage = base + offset
 
   return {
     damage: Math.max(0, damage),
