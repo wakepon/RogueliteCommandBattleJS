@@ -20,6 +20,8 @@ import {
   replaceRelic,
   repairWeapons,
   getRepairableWeapons,
+  repairSpells,
+  getRepairableSpells,
 } from '../Core/EventLogic'
 import { generateMapNodes } from '../Core/MapGenerator'
 import { getPotionEffectMultiplier, getBattleEndBonusExp } from '../Core/RelicProcessor'
@@ -758,12 +760,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const targetExplorer = state.run.party.find(m => m.id === explorerId)
       if (!targetExplorer) return state
 
-      // 対象キャラの修理可能な全武器IDを収集
+      // 対象キャラの修理可能な全武器・魔法IDを収集
       const repairableIds = getRepairableWeapons(targetExplorer.weapons).map(w => w.id)
-      if (repairableIds.length === 0) return state
+      const repairableSpellIds = getRepairableSpells(targetExplorer.spells).map(s => s.id)
+      if (repairableIds.length === 0 && repairableSpellIds.length === 0) return state
 
       const updatedParty = state.run.party.map(explorer =>
-        explorer.id === explorerId ? repairWeapons(explorer, repairableIds) : explorer
+        explorer.id === explorerId
+          ? repairSpells(repairWeapons(explorer, repairableIds), repairableSpellIds)
+          : explorer
       )
 
       return advanceToMapPhase(state, { ...state.run, party: updatedParty })

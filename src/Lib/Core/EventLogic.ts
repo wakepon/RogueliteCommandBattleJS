@@ -1,5 +1,6 @@
 import { ExplorerState } from '../Types/Explorer'
 import { ExplorerWeapon, WeaponInstance } from '../Types/Weapon'
+import { SpellInstance } from '../Types/Spell'
 import { RelicData, RelicInstance } from '../Types/Relic'
 import { RunState } from '../Types/Run'
 import RelicsData from '../Data/Relics.json'
@@ -76,13 +77,38 @@ export function getRepairableWeapons(weapons: ExplorerWeapon[]): WeaponInstance[
 }
 
 /**
- * 武器修理が選択可能かどうかを判定
+ * 魔法が修理可能かどうかを判定
+ * 無制限使用（魔力弾・祈り等）の魔法は修理不可
+ * @param spell - 判定する魔法
+ * @returns 修理可能ならtrue
+ */
+function isSpellRepairable(spell: SpellInstance): boolean {
+  // 無制限使用の魔法は修理不可
+  if (spell.maxUses === null || spell.currentUses === null) {
+    return false
+  }
+
+  // 使用回数が減っている場合のみ修理可能
+  return spell.currentUses < spell.maxUses
+}
+
+/**
+ * 修理可能な魔法一覧を取得
+ * @param spells - 魔法配列
+ * @returns 修理可能な魔法の配列
+ */
+export function getRepairableSpells(spells: SpellInstance[]): SpellInstance[] {
+  return spells.filter(isSpellRepairable)
+}
+
+/**
+ * 武器・魔法修理が選択可能かどうかを判定
  * @param explorers - パーティメンバー
- * @returns 修理可能な武器があればtrue
+ * @returns 修理可能な武器または魔法があればtrue
  */
 export function canRepairWeapons(explorers: ExplorerState[]): boolean {
   return explorers.some((explorer) =>
-    explorer.weapons.some(isRepairable)
+    explorer.weapons.some(isRepairable) || explorer.spells.some(isSpellRepairable)
   )
 }
 
@@ -118,6 +144,41 @@ export function repairWeapons(
   return {
     ...explorer,
     weapons: updatedWeapons,
+  }
+}
+
+/**
+ * 魔法を修理（使用回数を全回復）
+ * @param spell - 修理する魔法
+ * @returns 修理後の魔法
+ */
+function repairSpell(spell: SpellInstance): SpellInstance {
+  return {
+    ...spell,
+    currentUses: spell.maxUses,
+  }
+}
+
+/**
+ * 複数の魔法を修理
+ * @param explorer - 対象のExplorer
+ * @param spellIds - 修理する魔法IDの配列
+ * @returns 魔法が修理されたExplorer
+ */
+export function repairSpells(
+  explorer: ExplorerState,
+  spellIds: string[]
+): ExplorerState {
+  const updatedSpells = explorer.spells.map((spell) => {
+    if (spellIds.includes(spell.id) && isSpellRepairable(spell)) {
+      return repairSpell(spell)
+    }
+    return spell
+  })
+
+  return {
+    ...explorer,
+    spells: updatedSpells,
   }
 }
 

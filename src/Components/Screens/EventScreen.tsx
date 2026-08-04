@@ -4,6 +4,7 @@ import { Tooltip, TooltipCard } from '../Common'
 import {
   calculateRestHeal,
   getRepairableWeapons,
+  getRepairableSpells,
   canRepairWeapons,
 } from '../../Lib/Core/EventLogic'
 import { Rarity } from '../../Lib/Types/Item'
@@ -113,14 +114,14 @@ export function EventScreen() {
           }`}
         >
           <div className={`text-lg font-semibold ${canRepair ? 'text-white' : 'text-gray-500'}`}>
-            武器修理
+            武器・魔法修理
           </div>
           <div className={`text-sm ${canRepair ? 'text-gray-300' : 'text-gray-500'}`}>
-            1人を選択 → その人の全武器の使用回数を全回復
+            1人を選択 → その人の全武器・魔法の使用回数を全回復
           </div>
           {!canRepair && (
             <div className="text-xs text-gray-500 mt-1">
-              修理可能な武器がありません
+              修理可能な武器・魔法がありません
             </div>
           )}
         </button>
@@ -154,7 +155,7 @@ export function EventScreen() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-white text-center mb-4">
-          武器修理
+          武器・魔法修理
         </h1>
         <p className="text-gray-300 text-center mb-6">
           修理するキャラクターを選んでください
@@ -163,18 +164,19 @@ export function EventScreen() {
         <div className="flex flex-wrap gap-4 justify-center mb-8">
           {run.party.map((member) => {
             const repairables = getRepairableWeapons(member.weapons)
-            const hasRepairableWeapons = repairables.length > 0
+            const repairableSpells = getRepairableSpells(member.spells)
+            const hasRepairable = repairables.length > 0 || repairableSpells.length > 0
             const isSelected = selectedCharId === member.id
 
             return (
               <button
                 key={member.id}
-                onClick={() => hasRepairableWeapons && handleSelectCharacter(member.id)}
-                disabled={!hasRepairableWeapons}
+                onClick={() => hasRepairable && handleSelectCharacter(member.id)}
+                disabled={!hasRepairable}
                 className={`p-4 rounded-lg border-2 transition-colors min-w-44 ${
                   isSelected
                     ? 'border-blue-400 bg-blue-800/50 ring-2 ring-blue-400'
-                    : hasRepairableWeapons
+                    : hasRepairable
                     ? 'border-gray-500 bg-gray-800 hover:bg-gray-700'
                     : 'border-gray-700 bg-gray-900 opacity-50 cursor-not-allowed'
                 }`}
@@ -189,7 +191,15 @@ export function EventScreen() {
                       </div>
                     )
                   })}
-                  {!hasRepairableWeapons && (
+                  {member.spells.map(s => {
+                    if (s.currentUses === null) return null
+                    return (
+                      <div key={s.id} className={s.currentUses < (s.maxUses ?? 0) ? 'text-yellow-300' : 'text-gray-500'}>
+                        {s.name}: {s.currentUses}/{s.maxUses}
+                      </div>
+                    )
+                  })}
+                  {!hasRepairable && (
                     <div className="text-gray-500">修理不要</div>
                   )}
                 </div>
